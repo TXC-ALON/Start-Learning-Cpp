@@ -69,7 +69,9 @@ Class creators  VS  Client programmers
 
 Class creators 封装程序，提供接口
 
-Encapsulation（有机组合）
+程序员将他们Encapsulation（有机组合）
+
+很像mc，设计者给方块，玩家造世界
 
 ## 四、自动售票机的例子
 
@@ -551,7 +553,7 @@ A::~A(),i= 0
 
 对象应该是封装起来的，外界触摸到的应该只是函数。
 
-### :star:public/private/protected/friend的具体区别
+### :star::star:public/private/protected/friend的具体区别
 
 在说明这四个关键字之前，就class之间的关系做一个简单的定义，对于继承自己的class，base class可以认为他们都是自己的子女，而对于和自己一个目录下的classes，认为都是自己的朋友。
 
@@ -679,7 +681,7 @@ int main() {
 }
 ```
 
-:red_circle:建议日后都用初始化来赋初值
+### :red_circle:建议日后都用初始化来赋初值
 
 
 
@@ -716,27 +718,219 @@ void SavingsAccount::print(){
 
 ## 十五、对象继承
 
-继承  Inheritance 取已有的类，在此基础上做些改造，做个新的类。
+继承  **Inheritance** 	：取已有的类，在此基础上做些改造，做个新的类。
 
 共享原先类的function 、 data ...
 
-B继承A，A是B的基类/超类/父类，B是A的附生类/副类/子类
+B继承A，A是B的基类base/超类super/父类parent，B是A的附生类Derived/副类sub/子类child
 
 B对A进行扩充，B是A的superset
 
+ ```c++
+ #include<iostream>
+ using namespace std;
+ class A {
+ public://所有人都能看到
+ 	A() { cout << "A::A()" << endl; }
+ 	~A() { cout << "A::~A()" << endl; }
+ 	void print() { cout << "A::print: " << i << endl; }
+ protected://照顾儿子，特殊通道来访问private里的东西
+ 	void set(int ii) { i = ii; }
+ private://所有数据都建议为private
+ 	int i;
+ };
  
+ class B :public A {//B是A的子类
+ public:
+ 	void f() { 
+ 		set(20);
+ 		//不可访问i = 0;
+ 		print(); }
+ }; 
+ 
+ int main() {
+ 	B b;
+ 	//protected 话 b.set(50);就用不了 了
+ 	b.print();
+ 	b.f();
+ 	return 0;
+ }
+ ```
 
 
 
+## 十六、子类父类关系
+
+​	inline 内联
+
+​	**overload 重载函数**：函数名相同，参数不同，编译器会根据你函数的声明进行判断
+
+1. 构造子类时候，父类的构造函数先被调用
+2. 如果没有给父类赋值，那么父类按照默认初始化
+3. 析构函数是按照反顺序来的
+
+### 	:red_circle:父类的调用也放在初始化的位置
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public://所有人都能看到
+	A(int ii):i(ii) { cout << "A::A()" << endl; }
+	~A() { cout << "A::~A()" << endl; }
+	void print(int a) { cout << "A::print() " << a << endl; }
+	void set(int ii) { i = ii; }
+private://所有数据都建议为private
+	int i;
+};
+
+class B :public A {//B是A的子类
+public:
+	B() : A(15) { cout << "B::B()" << endl; }
+	~B() { cout << "B::~B()" << endl; }
+	void print() { cout << "B::print()" << endl; }
+	void f() { 
+		set(20);
+		//不可访问i = 0;
+		print(); 
+	}
+}; 
+
+int main() {
+	B b;
+	//protected 话 b.set(50);就用不了 了
+	b.set(10);
+	b.print();
+	b.print(35);//这里报错了，覆盖了。namehiding
+	return 0;
+}
+/*
+A::A()
+B::B()
+A::print: 10
+B::~B()
+A::~A()
+*/
+```
 
 
 
+### namehiding 
+
+父类子类出现重载函数，父类的函数被隐藏，只有子类的函数。
+
+只有C++这样做。
+
+而且这两个同名函数完全没关系。这和别的OOP语言也不一样。
 
 
 
+## 十七、函数重载与默认参数
+
+默认参数一定要是从右往左写
+
+```c++
+int wrong(int n,int m=5,int j); // 这样写是不对的
+```
+
+**注：这个默认参数是写在.h里面（函数原型），在.cpp里面不能复写**
+
+编译器辨认default argument
+
+翁帆老师建议：不要使用default argument；不易读，不安全（别人可以改）
 
 
 
+## 十八、内联函数
+
+
+
+调用函数：
+
+1. push parameters 推参数
+2. push return address 推返回地址
+3. prepare return values 准备返回值
+4. pop all pushed 清栈
+
+```c++
+//int f(int i) {
+00C41A50  push        ebp  
+00C41A51  mov         ebp,esp  
+00C41A53  sub         esp,0C0h  
+00C41A59  push        ebx  
+00C41A5A  push        esi  
+00C41A5B  push        edi  
+00C41A5C  mov         edi,ebp  
+00C41A5E  xor         ecx,ecx  
+00C41A60  mov         eax,0CCCCCCCCh  
+00C41A65  rep stos    dword ptr es:[edi]  
+00C41A67  mov         ecx,offset _17C591A2_main@cpp (0C4F029h)  
+00C41A6C  call        @__CheckForDebuggerJustMyCode@4 (0C413C0h)  //return i * 2;
+00C41A71  mov         eax,dword ptr [i]  
+00C41A74  shl         eax,1  
+}
+//int a = 4;
+00C41AD5  mov         dword ptr [a],4  
+//int b = f(a);
+00C41ADC  mov         eax,dword ptr [a]  
+00C41ADF  push        eax  
+00C41AE0  call        f (0C412D0h)  //00C412D0  jmp         f (0C41A50h) 
+00C41AE5  add         esp,4  
+00C41AE8  mov         dword ptr [b],eax  
+
+```
+
+
+
+### inline 内联
+
+在 c/c++ 中，为了解决一些频繁调用的小函数大量消耗栈空间（栈内存）的问题，特别的引入了 **inline** 修饰符，表示为内联函数
+
+当我们调用inline函数，会将lnline函数嵌入调用的位置（直接嵌汇编代码，而不是push，jump什么的调用），同时保持自己空间的独立性。
+
+```c++
+//inline int f(int i) {
+00221A50  push        ebp  
+00221A51  mov         ebp,esp  
+00221A53  sub         esp,0C0h  
+00221A59  push        ebx  
+00221A5A  push        esi  
+00221A5B  push        edi  
+00221A5C  mov         edi,ebp  
+00221A5E  xor         ecx,ecx  
+00221A60  mov         eax,0CCCCCCCCh  
+00221A65  rep stos    dword ptr es:[edi]  
+00221A67  mov         ecx,offset _17C591A2_main@cpp (022F029h)  
+00221A6C  call        @__CheckForDebuggerJustMyCode@4 (02213C0h)  
+//return i * 2;
+00221A71  mov         eax,dword ptr [i]  
+00221A74  shl         eax,1  
+}	
+//int a = 4;
+00221AD5  mov         dword ptr [a],4  
+	//int b = f(a);
+00221ADC  mov         eax,dword ptr [a]  
+00221ADF  push        eax  
+00221AE0  call        f (02212D0h)  //  002212D0  jmp         f (0221A50h)  
+00221AE5  add         esp,4  
+00221AE8  mov         dword ptr [b],eax 
+```
+
+我这里反汇编的结果不如翁老师的。
+
+哪天有空直接gcc -o试试
+
+**inline** 的使用是有所限制的，inline 只适合涵数体内代码简单的涵数使用，不能包含复杂的结构控制语句例如 while、switch，并且不能内联函数本身不能是直接递归函数（即，自己内部还调用自己的函数）。
+
+**inline** 函数仅仅是一个对编译器的建议，所以最后能否真正内联，看编译器的意思，它如果认为函数不复杂，能在调用点展开，就会真正内联，并不是说声明了内联就会内联，声明内联只是一个建议而已。
+
+### inline 在.h和.cpp都要出现。
+
+其次，因为内联函数要在调用点展开，所以**编译器必须随处可见内联函数的定义**，要不然就成了非内联函数的调用了。所以，这要求每个调用了内联函数的文件都出现了该**内联函数的定义**。
+
+因此，将**内联函数的定义**放在**头文件**里实现是合适的，省却你为每个文件实现一次的麻烦。
+
+**定义**在类中的**成员函数**默认都是**内联的**，如果在类定义时就在类内给出函数定义，那当然最好。如果在类中未给出成员函数定义，而又想内联该函数的话，那在类外要加上 **inline**，否则就认为不是内联的。
 
 
 
