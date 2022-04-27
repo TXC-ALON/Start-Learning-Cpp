@@ -827,6 +827,8 @@ A::~A()
 
 ## 十七、函数重载与默认参数
 
+重载声明是指一个与之前已经在该作用域内声明过的函数或方法具有相同名称的声明，但是它们的参数列表和定义（实现）不相同。
+
 默认参数一定要是从右往左写
 
 ```c++
@@ -920,7 +922,7 @@ int wrong(int n,int m=5,int j); // 这样写是不对的
 
 哪天有空直接gcc -o试试
 
-**inline** 的使用是有所限制的，inline 只适合涵数体内代码简单的涵数使用，不能包含复杂的结构控制语句例如 while、switch，并且不能内联函数本身不能是直接递归函数（即，自己内部还调用自己的函数）。
+**inline** 的使用是有所限制的，inline 只适合涵数体内代码简单的涵数使用，不能包含复杂的结构控制语句例如 while、switch，并且**内联函数本身不能是直接递归函数**（即，自己内部还调用自己的函数）。
 
 **inline** 函数仅仅是一个对编译器的建议，所以最后能否真正内联，看编译器的意思，它如果认为函数不复杂，能在调用点展开，就会真正内联，并不是说声明了内联就会内联，声明内联只是一个建议而已。
 
@@ -931,6 +933,302 @@ int wrong(int n,int m=5,int j); // 这样写是不对的
 因此，将**内联函数的定义**放在**头文件**里实现是合适的，省却你为每个文件实现一次的麻烦。
 
 **定义**在类中的**成员函数**默认都是**内联的**，如果在类定义时就在类内给出函数定义，那当然最好。如果在类中未给出成员函数定义，而又想内联该函数的话，那在类外要加上 **inline**，否则就认为不是内联的。
+
+### inline建议把函数的body也放在头文件里面。
+
+比c里面的宏要好，作为函数可以类型检查。 
+
+#### 建议写法：
+
+这样保持class比较干净
+
+```cpp
+class Rectangle{
+    int width,height;
+    public:
+    Rectangle(int w=0,int h =0);
+    int getWidth() const;
+    void setWidth(int w);
+    int getHeight() const;
+    void setHeight(int h);
+};
+inline Rectangle::Rectangle(int w ,int h)
+    :width(w),height(h){}
+inline int Rectangle::getWidth() const{
+    return width;
+}
+...
+```
+
+
+
+## 十九、const
+
+初始化之后不能被修改
+
+注：const依然是变量，遵循scoping rules（进函数存在出函数消亡）
+
+extern const int bufsize；声明，不可变量。
+
+### const与指针的问题
+
+```cpp
+char * const q = "abc";		//q is const
+// *q = 'c';    OK
+//	q++;		   ERROR
+const char *p = "ABCD";		//*p is const
+//	*p = 'b';	ERROR
+//	p++			OK
+//不能通过p去修改内存单元
+
+//作形象比喻的话，q就像是固定位置的任意门，开门去的地方随意，门不能动
+//p就像身上带的传送点，你可以跑到很多地方，但是传送终点还是老家
+```
+
+具体谁是const看它在*前面还是后面。
+
+
+
+```cpp
+#include<iostream>
+using namespace std;
+
+int main() {
+    char* s = "hello world";
+    cout << s << endl;
+    s[0] = 'B';
+    cout << s << endl;
+
+    return 0;
+}
+//会报错
+/*
+s是个指针，指向一段内存
+数据放在三种地方
+	本地变量-栈
+	new-堆
+	全局变量-全局数据区
+		常量-代码段里面
+MMU 内存保护                            
+*/
+
+#include<iostream>
+using namespace std;
+
+int main() {
+    char s[] = "hello world";
+    cout << s << endl;
+    s[0] = 'B';
+    cout << s << endl;
+
+    return 0;
+}
+
+//s[]是开了一个数组堆栈
+//注意，这里的=，实际上是拷贝
+
+#include<iostream>
+using namespace std;
+
+int main() {
+    const char* s1 = "hello world";
+    char s2[] = "hello world";
+    printf("main = %p\n", main);
+    printf("s1 = %p\n", s1);
+    printf("s2 = %p\n", s2);
+    return 0;
+}
+/*
+main = 005E1375
+s1 = 005E9B3C	这在代码区
+s2 = 00AFFC1C	这里是在堆栈区
+*/
+
+```
+
+### 传递const指针来代替传对象
+
+对于对象而言，传整个对象耗费太大资源了，最好是传指针，但是传地址会让人担心地址被误用。所以我们应该传一个const 指针。
+
+### const 对象
+
+对象里的值不能被修改
+
+
+
+### c++ 函数前面和后面 使用const 的作用：
+
+前面使用const 表示返回值为const
+
+后面加 const表示函数不可以修改class的成员 （原型，定义都要加）
+
+
+
+## 二十、不可修改的变量
+
+### 函数后面加const ， 实际上也就是const A*，改变了参数表
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+    int i;
+public:
+    A() : i(0){}
+    void f() { cout << "f()" << endl; }//void f(A* this)
+    void f() const { cout << "f() const" << endl; }//void f(const A* this)
+};
+int main() {
+    const A a;
+    a.f();
+    A b;
+    b.f();
+    return 0;
+}
+
+```
+
+### 成员变量是const
+
+要在初始化时候赋值
+
+
+
+### 不能用const变量做数组大小
+
+除非
+
+1. Make the const value static
+
+   ```c++
+   static const int size =  100;
+   int a[size];
+   ```
+
+   static indicates only one per class (not one per object)
+
+2. use anonymous enum
+
+   ```cpp
+   calss Hasarray{
+       enum {size = 100};
+       int array[size]; //ok
+   }
+   ```
+
+   
+
+## 二十一、引用
+
+c++ 复杂在提供了太多的内存模型
+
+或者说c++提供了太多的可以放对象的地方（栈、堆、全局数据），提供了太多了访问对象的方式（对象调用，指针，引用） 3*3 = 9
+
+### **Reference** 
+
+​	**declares a new name for an existing object**
+
+引用一般在定义时需要初始化，它的初始值一般是变量或者可以做左值的东西
+
+参数表和成员变量可以不初始化（参数表在调函数初始化，成员变量在构造函数初始化）
+
+```c++
+const int&z = x; //z是x的别名，但是你不能通过z来修改x，z不能做左值
+const int*p = x；//类似
+```
+
+reference 绑定的对象必须有有名字的地址
+
+```c++
+#include<iostream>
+using namespace std;
+int* f(int* x) {
+    (*x)++;
+    return x;
+}
+int& g(int& x) {
+    x++;
+    return x;
+}
+int x=1;
+int& h() {
+    int q;
+    return x;
+}
+int main() {
+    int a = 0; 
+    cout << *f(&a) << endl;//Ugly but explicit
+    cout << g(a) << endl;// Clean but hidden
+    h() = 16;//引用可以做左值，返回return，reference直接赋值给x
+    cout << x << endl;
+    return 0;
+}
+
+```
+
+### :star:reference 与pointer对比
+
+| References                                                   | Pointers                                   |
+| ------------------------------------------------------------ | ------------------------------------------ |
+| can't be null                                                | can be set to null                         |
+| are deppendent on an existing variable,they are an alias for an variable | pointer is independent of existing objects |
+| can't change to a new "address" location                     | can change to point to a different address |
+
+**一言以蔽之，reference是绑定在变量上的**
+
+而实际上，reference是用const pointer来实现的
+
+BS当年创reference为了少看到些*
+
+- 没有references to reference
+- 没有pointers to reference          int &* p    不可行，否则可以取到reference的地址
+  - 有 reference to pointer       void f（int*& p）;
+- 没有引用的数组                reference没有实体，自然没有数组
+
+```c++
+#include<iostream>
+using namespace std;
+int* f(int* x) {
+    (*x)++;
+    return x;
+}
+int& g(int& x) {
+    x++;
+    return x;
+}
+int x=1;
+int& h() {
+    int q;
+    return x;
+}
+int main() {
+    int x = 8;
+    int y = 100;
+    int& a = x;
+    int& b = y;
+    
+    cout << x << " " << y << endl;
+    a = b; //相当于x=y;
+    cout << a << " " << b << endl;
+    return 0;
+}
+/*
+8 100
+100 100
+*/
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
