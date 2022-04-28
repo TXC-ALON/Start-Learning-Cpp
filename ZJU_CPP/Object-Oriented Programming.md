@@ -73,6 +73,8 @@ Class creators 封装程序，提供接口
 
 很像mc，设计者给方块，玩家造世界
 
+<font color='#0F9D58'>（0420）</font>
+
 ## 四、自动售票机的例子
 
 ### TicketMachine.h
@@ -329,6 +331,8 @@ this = 00B3F6DC
 this:	the hidden parameter
 
 this 是C++ 中的一个关键字，也是一个const 指针，它指向当前对象，通过它可以访问当前对象的所有成员。
+
+<font color='#0F9D58'>（0421）</font>
 
 ## 九、构造和析构
 
@@ -714,7 +718,7 @@ void SavingsAccount::print(){
 
 但是这不符合OOP的编程思想。
 
-
+<font color='#0F9D58'>（0424）</font>
 
 ## 十五、对象继承
 
@@ -841,7 +845,7 @@ int wrong(int n,int m=5,int j); // 这样写是不对的
 
 翁帆老师建议：不要使用default argument；不易读，不安全（别人可以改）
 
-
+<font color='#0F9D58'>（0426）</font>
 
 ## 十八、内联函数
 
@@ -1217,6 +1221,231 @@ int main() {
 100 100
 */
 ```
+
+<font color='#0F9D58'>（0427）</font>
+
+## 二十二、向上造型 
+
+### Upcast
+
+把子类当做父类看
+
+Public 继承有暗指代替的意思：
+
+​	如果B 是 A的子  类, A 能用的地方B都可以用。
+
+把子类的对象当做父类来看待，那么多出来的东西不看就是喽。
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public:
+	int i;
+public:
+	A() :i(10) {}
+};
+class B : public A {
+private:
+	int j;
+public:
+	B() :j(30) {}
+	void f() { cout << "B.j = " <<j<< endl; }
+};
+int main() {
+	A a;
+	B b ;
+	cout << a.i << " " << b.i << endl;
+	cout << sizeof(a) << " " << sizeof(b) << endl;
+	int* p = (int*)&a;
+	cout << p << " " << *p << endl;
+	*p = 20;
+	cout << a.i << " " << b.i << endl;
+	p = (int*)&b;
+	cout << p << " " << *p << endl;
+	p++;
+	*p = 50;
+	b.f();
+	return 0;
+}
+/*
+10 10
+4 8  B里面没有函数，只有成员变量
+007AF8EC 10
+20 10
+007AF8DC 10
+B.j = 50 通过指针，访问到了B的private值
+*/
+```
+
+注：<font color='#4285F4'>Upcast是安全的，downcast是有风险的</font>
+
+原本c++把这叫做类型转换，但是与传统意义上的转换不同，当你的double转为int，实际上double就不存在了，数据有所丢失。
+
+
+
+现在叫做向上造型，只是我们看待对象的眼光不一样了，数据并没有丢失。
+
+## 二十三、多态性
+
+### Polymorphism
+
+简单地概括为“一个接口，多种方法”
+
+C++支持两种多态性：编译时多态性，运行时多态性。
+
+1. 编译时多态性（静态多态）：通过重载函数实现：先期联编 early binding
+2. 运行时多态性（动态多态）：通过虚函数实现 ：滞后联编 late binding
+
+#### Polymorphism 的实现
+
+* **Upcast**：用子类当父类
+* **Dynamic binding**：动态绑定
+  * Binding：which function to be called
+    * Static binding：call the function as the code
+    * Dynamic binding: call the function of the project 运行时才知道该怎么绑，根据指针所指对象决定
+
+https://zhuanlan.zhihu.com/p/37340242
+
+C++运行时多态性是通过虚函数来实现的，虚函数允许子类重新定义成员函数，而子类重新定义父类的做法称为覆盖(Override)，或者称为重写。
+
+多态与非多态的实质区别就是函数地址是早绑定还是晚绑定。如果函数的调用，在编译器编译期间就可以确定函数的调用地址，并生产代码，是静态的，就是说地址是早绑定的。而如果函数调用的地址不能在编译器期间确定，需要在运行时才确定，这就属于晚绑定。
+
+多态的目的：封装可以使得代码模块化，继承可以扩展已存在的代码，他们的目的都是为了代码重用。而多态的目的则是为了“接口重用”。也即，不论传递过来的究竟是类的哪个对象，函数都能够通过同一个接口调用到适应各自对象的实现方法。
+
+多态最常见的用法就是声明基类类型的指针，利用该指针指向任意一个子类对象，调用相应的虚函数，可以根据指向的子类的不同而实现不同的方法。如果没有使用虚函数的话，即没有利用C++多态性，则利用基类指针调用相应的函数的时候，将总被限制在基类函数本身，而无法调用到子类中被重写过的函数。因为没有多态性，函数调用的地址将是固定的，因此将始终调用到同一个函数，这就无法实现“一个接口，多种方法”的目的了。
+
+### virtual 虚函数
+
+使子类和父类同名的函数有联系
+
+virtual只用声明一次，编译器就知道父子类之间同名函数都设置为virtual，但是为了保持良好的编程规范，还是写明为好。
+
+对virtual函数的调用，如果是指针或者引用，那么不能相信它一定是什么类型，得到运行时候，指针所指对象是什么类型，那么就调取那个类型的函数。（编译原理里的dynamic dispatch）
+
+
+
+## 二十四、多态的实现
+
+
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public:
+	A() :i(65472) {}
+	int i;
+	virtual void f() { cout << "A::f()" << i << endl; }
+	virtual void sf() { i = 56; cout << "A::f()" << i << endl; }
+};
+int main() {
+	A a, b;
+	a.f();
+	cout << sizeof(a) << endl;
+	int* p = (int*)&a;
+	int* q = (int*)&b;
+	cout << *p << " " << *q << endl;
+	p++;
+	cout << *p << endl;
+	int* m = (int*)*p;
+	cout << m << endl;
+	p++;
+	cout << *p << endl;
+	return 0;
+}
+//、。，Ctrl + K + Ctrl + D 格式化排版
+/*
+A::f()65472
+8
+695108 695108 //vtable指针表，包含很多隐藏的vptr
+65472		  //不管你i放的位置，vtable指针表在上面
+0000FFC0	  // 
+-858993460
+
+10591028	
+65472		
+*/
+```
+
+
+
+所以在处理多态的时候，运行时，也并不是真的判断指针的类型，而且根据指针指向的vtable里面的虚函数来调用
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public:
+	A() :i(12) {}
+	int i;
+	virtual void f() { cout << "A::f()" << i << endl; }
+};
+class B :public A {
+public:
+	int j;
+	B() : j(20){}
+	virtual void f() { cout << "B::f()" << j<<endl; }
+	
+};
+int main() {
+	A a;
+	B b;
+	A* p = &b;
+	p->f();
+	a = b;
+	a.f();
+	p = &a;
+	p->f();
+	cout<<"********"<<endl;
+
+	A* q = &a;
+	q->f();
+	int* r = (int*) &a;//&a是class A 类型，所以要强制类型转换
+	//https://blog.csdn.net/weixin_33775572/article/details/93291792?spm=1001.2101.3001.6661.1&utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1.pc_relevant_paycolumn_v3&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1.pc_relevant_paycolumn_v3&utm_relevant_index=1
+	int* t = (int*)&b;
+	*r = *t;//将a的vtable换成b的vtable，执行a的虚函数会索引到b的虚函数
+	//为了找 j 会找到下一块内存
+	q->f();
+	return 0;
+	
+}
+//、。，Ctrl + K + Ctrl + D 格式化排版
+/*
+B::f()20
+A::f()12
+A::f()12
+********
+A::f()12
+B::f()-858993460
+*/
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
