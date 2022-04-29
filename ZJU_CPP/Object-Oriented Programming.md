@@ -1403,6 +1403,7 @@ int main() {
 	q->f();
 	int* r = (int*) &a;//&a是class A 类型，所以要强制类型转换
 	//https://blog.csdn.net/weixin_33775572/article/details/93291792?spm=1001.2101.3001.6661.1&utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1.pc_relevant_paycolumn_v3&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1.pc_relevant_paycolumn_v3&utm_relevant_index=1
+    
 	int* t = (int*)&b;
 	*r = *t;//将a的vtable换成b的vtable，执行a的虚函数会索引到b的虚函数
 	//为了找 j 会找到下一块内存
@@ -1421,6 +1422,274 @@ B::f()-858993460
 */
 ```
 
+析构也是虚函数
+
+是为了避免父类指针指向子类对象的时候，销毁父指针时，如果不是virtual，那么这里的绑定是静态绑定，这意味着父类的析构会被调用，子类析构被丢掉，没有析构。
+
+**所以你的类里有一个虚函数，那么你的析构函数就得是虚函数。**
+
+所有的OOP语言，默认动态绑定，C++默认静态绑定。
+
+
+
+## 二十五、引用再研究
+
+如果一个类的成员或参数是reference，那么在声明时期不知道怎么捆绑。
+
+ 那么在构造时候必须写明（唯一方式)
+
+
+
+如果要从一个函数里面返回reference，类似于返回一个指针（不能用本地变量的引用返回），返回的是一个直接的变量，到未来会和别的reference绑定。
+
+ 返回值在左边做左值。
+
+
+
+直接传递参数到函数很复杂，所以送指针。
+
+ 但是送指针就使得函数内部获得对外部对象的控制
+
+所以推荐在指针前面加const，这样无法对指针指向的对象做修改。
+
+const reference也推荐，，，几乎c++函数传值唯一的方法。这样我们就无法对其修改，比如说放在左边做左值。
+
+ 
+
+### reference做参数
+
+那么传入的参数必须要是能做左值的。
+
+```cpp
+#include<iostream>
+using namespace std;
+void f(const int& i) {
+	cout << i << endl;
+}
+int main() {
+	int i = 3;
+	f(i * 3);
+	return 0;	
+}
+//error
+严重性	代码	说明	项目	文件	行	禁止显示状态
+错误	C2664	“void f(int &)”: 无法将参数 1 从“int”转换为“int &”	ZJU_CPP	C:\Users\Administrator\source\repos\ZJU_CPP\main.cpp
+
+#include<iostream>
+using namespace std;
+void f(const int& i) {
+	cout << i << endl;
+}
+int main() {
+	int i = 3;
+	f(i * 3);
+	return 0;	
+}
+```
+
+可以理解为函数为引用创造了个暂时的const变量
+
+```cpp
+void func(int &);
+const int temp@ = i*3;
+func(temp@)  // 这里把一个const值传给变量，就有问题了，在void加上const即可
+```
+
+todo
+
+这段代码我不管是在linux还是window都跑不通，但是翁教授的能过。不知道是什么版本问题
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public:
+        int i;
+        A() : i(0) {}
+};
+A f()
+{
+        A a;
+        return a;
+}
+
+int main() {
+        f().i = 10;
+        return 0;
+}
+
+```
+
+
+
+## 二十六、拷贝构造
+
+### Copy 
+
+创造了一个已存在对象的新复制
+
+**C++里的初始化和赋值区别非常重要**
+
+```c++
+#include<iostream>
+using namespace std;
+static int objectCount = 0;
+class Howmany {
+public:
+	Howmany() { objectCount++; print("Howmany()"); }
+	void print(const string& msg = "") {//msg是windows程序中的结构体，用于保存windows消息
+		if (msg.size() != 0)	cout << msg << "; ";
+		cout << "objectCount = " << objectCount << endl;
+	}
+
+	~Howmany() {
+		objectCount--;
+		print("~Howmany()");
+	}
+};
+Howmany f(Howmany x) {
+	cout << "begin of f" << endl;
+	x.print("x argument inside f()");
+	cout << "end of f" << endl;
+	return x;//对象入对象出
+}
+
+int main() {
+	Howmany h;
+	h.print("after construction of h");
+	Howmany h2 = f(h);
+	h.print("after call to f()");
+	return 0;	
+}
+/*
+直接编译
+Howmany(); objectCount = 1
+after construction of h; objectCount = 1
+begin of f
+x argument inside f(); objectCount = 1
+end of f
+~Howmany(); objectCount = 0
+after call to f(); objectCount = 0
+~Howmany(); objectCount = -1
+~Howmany(); objectCount = -2
+*/
+//应该是构造了x和h2，但是并没有通过howmany来构造，但是析构还是算。
+```
+
+
+
+```c++
+
+#include<iostream>
+using namespace std;
+static int objectCount = 0;
+class Howmany {
+public:
+	Howmany() { objectCount++; print("Howmany()"); }
+	Howmany(int i) { objectCount++; print("Howmany(int i)"); }
+	Howmany(const Howmany& o) { objectCount++; print("Howmany(Howmany &o)"); }
+	void print(const string& msg = "") {//msg是windows程序中的结构体，用于保存windows消息
+		if (msg.size() != 0)	cout << msg << "; ";
+		cout << "objectCount = " << objectCount << endl;
+	}
+
+	~Howmany() {
+		objectCount--;
+		print("~Howmany()");
+	}
+};
+Howmany f(Howmany x) {
+	cout << "begin of f" << endl;
+	x.print("x argument inside f()");
+	cout << "end of f" << endl;
+	return x;//对象入对象出
+}
+
+int main() {
+	Howmany h;
+	h.print("after construction of h");
+	//Howmany h2(55);//平衡
+	//Howmany h2 = 55;//有一个构造函数要一个int，所以可以这么写，与上一个运行结果一样
+	//Howmany h2 = h;//也是平衡
+	Howmany h2 = f(h);
+	h.print("after call to f()");
+	return 0;	
+}
+
+
+/*
+Howmany(); objectCount = 1
+after construction of h; objectCount = 1
+Howmany(Howmany &o); objectCount = 2
+begin of f
+x argument inside f(); objectCount = 2
+end of f
+Howmany(Howmany &o); objectCount = 3
+~Howmany(); objectCount = 2
+after call to f(); objectCount = 2
+~Howmany(); objectCount = 1
+~Howmany(); objectCount = 0
+*/
+```
+
+### copy constructor
+
+T::T(const T&);
+
+如果没有给拷贝构造，c++自动给你构造，但是不调用的你的。那样会拷贝每一个成员变量。（是成员层面的拷贝，而不是字节 层面的拷贝。如果有指针或引用，也会拷贝过去，这样会有两个指针指向同一个对象，两个引用捆绑到一个对象。
+
+这样析构函数会析构两遍。会有内存报错。 
+
+Howmany(Howmany o);  这样会递归下去。
+
+## 二十七：拷贝构造二
+
+### 为什么情况下会被调用？
+
+1. 调用函数的参数，是对象本身。
+2. 函数需要返回一个对象
+
+
+
+**编译器可能会将不必要的拷贝构造优化掉**
+
+
+
+```cpp
+Person copy_func(char *who){
+    Person local (who);
+    local.print();
+    return local;//copy ctor called
+}
+Person nocopy_func(char *who){
+    return Person(who); //no copy needed
+}
+```
+
+
+
+初始化  只能第一次
+
+assignment 后面的
+
+构造的都会有析构
+
+
+
+### c++中尽量用string类不是（*char）
+
+
+
+### **总结**
+
+1. 写了一个类，先写三个函数：**默认构造，虚拟析构，拷贝构造**
+
+2. 如果你真的不需要被拷贝，就声明一个private的拷贝构造
+   1. prevents creation of a default copy constructor
+   2. generates a compiler errot if try to pass-by-value
+   3. don't need a defintion
+
+(0429)
 
 
 
@@ -1438,32 +1707,4 @@ B::f()-858993460
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 

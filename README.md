@@ -2,6 +2,10 @@
 
 开始重头认真学一下C++
 
+## 笔记
+
+- [翁恺 OOP in C++](./ZJU_CPP/Object-Oriented Programming.md)
+
 ## 资源
 
 ### C++ primer 5th
