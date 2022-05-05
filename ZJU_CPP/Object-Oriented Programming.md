@@ -1691,6 +1691,443 @@ assignment 后面的
 
 (0429)
 
+## 二十八、静态对象
+
+### static
+
+在c里就具有**二义性**，在c++还得考虑成员变量等等
+
+- Static storage		在哪里
+  - allocated once at a fixed address
+- Visibility of a name   看到你
+  - internal linkage
+- Don't use static except inside functions and classes.
+
+| 表达                    | 特点                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| Static free functions   | ~~Internal linkage~~ (deprecated过时)                        |
+| Static global variables | ~~Internal linkage~~ (deprecated过时)                        |
+| Static local variables  | Persisted storage持久存储                                    |
+| Static member variables | Shared by all instances所有对象共享                          |
+| Static member function  | Shared by all instances, can only access static member variables静态成员函数，在所有对象之间共享，只能访问静态变量或静态函数 |
+
+
+
+static 只能在当前文件使用，就算你在别的文件extern ，也只能骗过编译器，骗不过linker
+
+函数里的static ，static 的本地变量就是全局变量，但是在访问上只在函数内部能调用它
+
+#### 如果static 一个本地变量，其类型是一个类的话，
+
+```c++
+class X{
+    X(int , int );
+    ~X();
+    ...
+};
+void f(){
+    static X my_x(10,20);
+    ...
+}
+```
+
+* 它在哪？									 全局数据区，link时候分配好了
+* 它何时被构造（初始化）？      第一次进函数时
+
+直接思考就是有个记号位，记录static变量是否被初始化过。但目前c++还没有直接的框架可以实现，vptr也不行
+
+#### 如果static 一个对象
+
+- Construction occurs when definition is encountered
+  - constructor called at-most once   构造只发生一次
+  - The construct arguments must be satisfied
+- Destruction takes place on exit from program
+  - compiler assures LIFO order of destructors析构按照顺序
+
+#### 如果存在条件构造（满足某个条件再static）
+
+- 只在满足条件的情况下被构造
+- 保持值
+- 有构造才有析构
+
+
+
+#### Global objects 对象是全局
+
+```c++
+#include "x.h"
+X global_x(12,23);
+X global_x2(33,44);
+```
+
+
+
+- Construcors are called before main() is entered
+  - Order controlled by appearance in file
+  - In this case , global_x before global_x2
+  - main() is no longer the first function called
+- Destructions called when 
+  - main() exists
+  - exit() is called
+
+
+
+多个文件之间的全局变量初始化，没有固定顺序可言，
+
+解决方法：
+
+​	别这么干；
+
+​	逻辑允许的话，将全局变量定义放在一个文件
+
+
+
+## 二十九、静态成员
+
+类的成员是静态的
+
+https://blog.csdn.net/u011041241/article/details/51148257?spm=1001.2101.3001.6661.1&utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.pc_relevant_aa&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.pc_relevant_aa&utm_relevant_index=1
+
+### Static means
+
+- Hidden
+  -  当我们同时编译多个文件时，所有未加static前缀的[全局变量](https://so.csdn.net/so/search?q=全局变量&spm=1001.2101.3001.7020)和函数都具有全局可见性。利用这一特性可以在不同的文件中定义同名函数和同名变量，而不必担心命名冲突。
+  - A static member is a member obey usual access rules
+- Persistent
+  - 保持变量内容的持久。存储在静态数据区的变量会在程序刚开始运行时就完成初始化，也是唯一的一次初始化。共有两种变量存储在静态存储区：全局变量和static变量，只不过和全局变量比起来，static可以控制变量的可见范围，说到底static还是用来隐藏的。
+  - persisitent在c里还有malloc出来的东西，离开了函数，东西还在
+  - independent of instances
+- static的第三个作用是默认初始化为0。其实全局变量也具备这一属性，因为全局变量也存储在静态数据区。在静态数据区，内存中所有的字节默认值都是0x00，某些时候这一特点可以减少程序员的工作量。比如初始化一个稀疏矩阵，我们可以一个一个地把所有元素都置0，然后把不是0的几个元素赋值。如果定义成静态的，就省去了一开始置0的操作。再比如要把一个字符数组当字符串来用，但又觉得每次在字符数组末尾加’\0’太麻烦。如果把字符串定义成静态的，就省去了这个麻烦，因为那里本来就是’\0’。
+
+
+
+在c++里 hidden我们用class 类的方法去做
+
+persistent我们还需要借助static，成为不依赖于某一个特定对象的东西。
+
+
+
+### 类的写法演变
+
+一开始我们写类，要有.h  .cpp
+
+后来我们了解了内联，允许我们把body写在.h里，这样甚至允许我只有一个.h
+
+到现在，我们如果有了静态成员变量，那么必须有对应的.cpp，不然它无处安身
+
+
+
+```c++
+#include<iostream>
+using namespace std;
+class A {
+public:
+	A() { i = 0; }
+	void print() { cout << i << endl; }
+	void set(int ii) { i = ii; }
+	static void say(int ii) { cout << ii <<" "<< i << endl; }
+	static int good;
+private:
+	static int i;//函数的静态本地变量，实际是在全局数据区，
+	//类里也同理，但是class是声明而不是定义
+	//类似于extern int i;
+};
+int A::i;//静态的成员变量得多做这么一件事情，即找一个cpp，放置这个变量。不然只是声明，没有定义
+int A::good = 44;
+int main() {
+	A a, b;
+	a.set(10);
+	b.print();
+	a.say(65);
+	A::say(77);
+	cout << a.good << endl;
+	//cout<<A::i<<endl;还是不能访问。
+	cout << A::good << endl;//不想牵扯具体的类名，也可以这样写
+	return 0;
+}
+
+```
+
+顺便一提，i是静态成员，只能在自己定义的地方（line15）被初始化
+
+```cpp
+	A():i(0) {} //这样是不行的
+	void set(int i) { this->i = i }// ok
+```
+
+
+
+### 静态成员的一些注意点
+
+静态的成员函数/变量提供一种手段：建立这个类的任何对象之前，就能访问它的成员函数/变量。
+
+静态成员函数只能调取静态的函数和静态的变量
+
+静态成员函数有一个类范围，他们不能访问类的 this 指针。因为我们想实现没对象也能调用函数的功能。
+
+
+
+## 三十、运算符重载--基本规则
+
+### Overloaded operators
+
+允许用户自定义几乎所有的运算符，并且优先使用按照你设计的运算符
+
+
+
+除了常见的，C++ 支持的其他一些重要的运算符可以被重载。
+
+| 运算符     | 描述                                                         |
+| :--------- | :----------------------------------------------------------- |
+| ,          | [逗号运算符](https://www.runoob.com/cplusplus/cpp-comma-operator.html)会顺序执行一系列运算。整个逗号表达式的值是以逗号分隔的列表中的最后一个表达式的值。 |
+| ->（箭头） | [成员运算符](https://www.runoob.com/cplusplus/cpp-member-operators.html)用于引用类、结构和共用体的成员。 |
+| ->*        |                                                              |
+| ()         |                                                              |
+| []         |                                                              |
+| new        |                                                              |
+| new[]      |                                                              |
+| delete     |                                                              |
+| delete[]   |                                                              |
+
+### 不能重载的运算符
+
+| .                |              |
+| ---------------- | ------------ |
+| .*               |              |
+| ::               |              |
+| ?:               |              |
+| sizeof           |              |
+| typeid           | 给出类型的id |
+| static_cast      |              |
+| dynamic_cast     |              |
+| const_cast       |              |
+| reinterpret_cast |              |
+
+### 重载运算符的规定
+
+1. 只有已经存在的运算符可以被重载。
+
+> 比如^，在c++中表示异或，但是日常理解为乘幂，但是不能这么改
+
+2. 只能对一个类，或是枚举类型，进行重载运算符
+3. 重载操作符必须保持他操作数的个数，以及优先级
+
+
+
+所谓重载运算符，不过是将有着运算符名字的函数（继承了他的入口和优先级）
+
+重载运算符可以成为一个成员函数：
+
+​	implicit first argument （因为已经有this了）
+
+也可以成为一个全局的函数，不是任何类的成员，那么该有几个参数都得写了。
+
+
+
+### 如何重载？
+
+#### 作为成员函数
+
+1. implicit first argument
+2. no type conversion performed on receiver
+3. must have access to class definition
+
+一定要有const，不能让a+b = 6，不能让表达式成为左值
+
+```c++
+class Interger{
+public:
+	Integer(int n = 0) : i(n){}
+    const Integer operator+(const Integer& n) const{
+        return Integer(i+n.i);
+    }
+private:
+    int i;
+};
+
+//使用
+Interger x(1),y(5),z;
+x+y;//=> x.operator+(y);编译器发现+左边的算子叫做receiver，决定+的性质
+
+z= x + y;//ok
+z = x + 3 ;//可以，3会被匿名构造
+z = x + 3.5 ;//不可以，3.5无法被匿名构造，类型转换只能做一次
+z = 3 + y;//不行，除非你可以通过手段将integer类变成int
+```
+
+二元的需要一个参数
+
+一元的不需要参数，会产生一个新的
+
+```c++
+const Integer operator-() const{
+    retur nInteger(-i);
+}
+...
+z = -x;//z,operator = (x.operator-());拿i的值制造一个新的值交给别人
+```
+
+
+
+#### 作为全局函数
+
+算子都写上去（一般两个），这样就可以不修改类的代码，增加overload，前提是接触到内部变量。
+
+这时候 3+y 也可以了 
+
+
+
+### Members vs Free Funtions
+
+- Unary op should be members   单目应该做成成员
+- = () [] -> ->* must be members   这些必须是成员
+- assignment op should be members   
+- All other binary op as non-members   二元的倾向于做成非成员的。
+
+
+
+## 三十一、运算符重载--原型
+
+
+
+### Argument Passing传参（针对对象，传的引用）
+
+不会修改算子：必须加const
+
+会修改算子：不能用const  ++ -- += -= ...
+
+
+
+### return value
+
+- 自己修改自己(=)还是做了一个新的对象（+）
+- 新的对象，可不可以继续做左值
+
+
+
+### 原型
+
+```c++
++-*/%^&|~基础运算符
+    const T operatorX(const T& l,const T& r) const;
+! && || < <= > >= == 逻辑运算符
+    bool operatorX(const T& l,const T& r) const;
+[]  
+	T&T::operator[](int index);
+++ -- 得区分前缀后缀
+class Integer{
+public:
+    ...
+    const Integer& operator++(); //prefix++
+    //++a 返回a加了之后的结果    
+    const Integer operator++(int); //postfix++ 这个int不会真的起作用，只是告诉编译器这个是后缀
+    //a++ 返回a加之前，原本a的结果，所以得新建一个对象
+    const Integer& operator--(); //prefix--
+    const Integer operator--(int); //postfix--
+    ...
+        
+   
+};
+```
+
+#### ++函数的实现
+
+```c++
+const Integer& Integer::operator++(){
+    *this += 1;
+    return *this;
+}
+const Integer Integer::operator++(int){
+    Integer old(*this);// 拷贝构造
+    ++(*this);//调用上面的++操作符函数
+    return old;//返回一个变量  
+}
+```
+
+#### 逻辑运算的实现
+
+```c++
+bool Integer::operator==(const Integer& rhs) const{
+    return i== rhs.i;
+}
+bool Integer::operator!=(const Integer& rhs) const{
+    return !(*this == rhs);//利用第一个函数的等于定义。
+}
+bool Integer::operator<(const Integer& rhs) const{
+    return i<rhs.i;
+}
+bool Integer::operator>(const Integer& rhs) const{
+    return rhs <*this;//利用第三个函数小于函数
+}
+bool Integer::operator<=(const Integer& rhs) const{
+    return !(rhs <*this);//利用第三个函数小于函数
+}
+bool Integer::operator>=(const Integer& rhs) const{
+    return !(*this<rhs);//利用第三个函数小于函数
+}
+```
+
+只定义了两个原函数，
+
+好处在于日后修改方便，且所有的函数都是inline，性能好些、
+
+
+
+## 三十二、运算符重载--赋值
+
+拷贝构造是做了一个新的对象出来，
+
+赋值是将另一个对象的值赋给已有的对象。
+
+
+
+
+
+### Automatic operator
+
+如果没有创建type：operator=（type），编译器将自动创建一 个。这个运算符行为模仿自动创建的拷贝构造函数的行为：如果类包含 对象（或是从别的类继承的），对于这些对象，operator=被递归调用。 
+
+这被称为成员赋值（memberwise assignment）。
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Cargo {
+public:
+    Cargo& operator=(const Cargo&) {
+        cout << "inside Cargo::operator=()" << endl;
+        return *this;
+    }
+};
+
+class Truck {
+    Cargo b;
+};
+
+int main() {
+    Truck a, b;
+    a = b; // Prints: "inside Cargo::operator=()"
+} ///:~
+
+```
+
+
+
+####   赋值的骨架 check for self assignment
+
+```c++
+T &T::operator = (const T&rhs){
+    //check for self assignment
+    if(this != &rhs){
+        //peform assignment
+    }
+    return *this;
+}
+```
+
+- 有动态分配内存的，比如指针之类的，需要写assignment op，要检查有没有自我赋值，没有的话，可以用系统的安排。
+- 为了防止这类情况，声明为private。但是代价很大。
 
 
 
@@ -1702,9 +2139,3 @@ assignment 后面的
 
 
 
-
-
-
-
-
- 
