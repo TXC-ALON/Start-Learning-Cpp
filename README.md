@@ -4,7 +4,7 @@
 
 ## 笔记
 
-- [翁恺 OOP in C++](./ZJU_CPP/Object-Oriented Programming.md)
+- [翁恺 OOP in C++](./ZJU_CPP/Object-Oriented-Programming.md)
 
 ## 资源
 
