@@ -2131,6 +2131,268 @@ T &T::operator = (const T&rhs){
 
 
 
+## 三十三、运算符重载--类型转换
+
+我们希望一些类是用来表示一些值的，叫做value classes
+
+### 类型转换
+
+```c++
+class One {
+public:
+  One() {}
+};
+
+class Two {
+public:
+  Two(const One&) {}
+};
+
+void f(Two) {}
+
+int main() {
+  One one;
+  f(one); // Wants a Two, has a One
+} ///:~
+```
+
+编译器用two的构造函数，用one 构造了一个two，送给f
+
+```c++
+class One {
+public:
+  One() {}
+};
+
+class Two {
+public:
+  explicit Two(const One&) {}
+};
+
+void f(Two) {}
+
+int main() {
+  One one;
+//!  f(one); // No auto conversion allowed
+  f(Two(one)); // OK -- user performs conversion
+} ///:~
+
+```
+
+使用explicit 可以限制类型转换
+
+
+
+### 转换符号
+
+Operator conversion
+
+* function will be called automatically
+* return type is same as function name
+
+```c++
+class Rational{
+public:
+...
+    operator double() const; // Rational to double
+}
+Rational::operator double() const{
+    return numerator_/(double) denominator_;
+}
+Rational r(1,3); double d = 1.3*r;//r=> double
+```
+
+没有返回类型和参数
+
+### X::operator T()
+
+- Operator name is any type descriptor
+
+- No explicit arguments
+- no return type
+- Compiler will use it as a type conversion from X=>T
+
+### C++ type conversions
+
+* Built-in conversions
+
+  * primitive
+
+    char-short-int-float-double
+
+    ​					int-double
+
+  * implicit(for ant type T)
+
+    * T => T&
+    * T& => T
+    * T* => void*      只是看待指针指向对象的眼光不同
+    * T[] => T*
+    * T* => T[]
+    * T => const T
+
+* User-defined T => C
+
+  * if C(T) is a valid constructor call for C  如果c类有一个用t做c的构造函数
+  * if operator C() is defined for T              如果t类有一个op c 将t变c
+
+* BUT 如果两个都有
+
+```c++
+class Orange; // Class declaration
+
+class Apple {
+public:
+  operator Orange() const; // Convert Apple to Orange
+};
+
+class Orange {
+public:
+  Orange(Apple); // Convert Apple to Orange
+};
+
+void f(Orange) {}
+
+int main() {
+  Apple a;
+//! f(a); // Error: ambiguous conversion
+} ///:~
+
+```
+
+编译器会混淆
+
+可以加一个explicit 限制转换
+
+```c++
+class Orange {
+public:
+  explicit Orange(Apple); // Convert Apple to Orange
+};
+```
+
+### **explicit关键字**
+
+[C++ 参考手册如下解释](https://link.zhihu.com/?target=https%3A//zh.cppreference.com/w/cpp/language/explicit)
+
+1. 指定构造函数或转换函数 (C++11起)为显式, 即它不能用于[隐式转换](https://link.zhihu.com/?target=https%3A//zh.cppreference.com/w/cpp/language/implicit_conversion)和[复制初始化](https://link.zhihu.com/?target=https%3A//zh.cppreference.com/w/cpp/language/copy_initialization).
+2. explicit 指定符可以与常量表达式一同使用. 函数若且唯若该常量表达式求值为 true 才为显式. (C++20起)
+
+ **能用就用**
+
+如果我们能预料到某种情况的发生, 就不要把这个情况的控制权交给编译器. 之前的代码, 以前我都觉得它无法通过编译. 在不知道`explicit`关键字的情况下, 我也是每次都使用`Point(1)`做一个类型转换再传入给`displayPoint`函数.
+
+Effective C++中也写:
+
+> 被声明为`explicit`的构造函数通常比其 non-explicit 兄弟更受欢迎, 因为它们禁止编译器执行非预期 (往往也不被期望) 的类型转换. 除非我有一个好理由允许构造函数被用于隐式类型转换, 否则我会把它声明为`explicit`. 我鼓励你遵循相同的政策.
+
+
+
+
+
+## 三十四、模板 template
+
+
+
+类型成为template的参数
+
+function template
+
+class template
+
+template function
+
+template class
+
+
+
+### 函数模板
+
+```c++
+template <class T>
+void swap(T& X,T& y){
+    T temp = x;
+    x= y;
+    y =temp;
+}
+```
+
+template 是一个声明而不是定义。告诉编译器替我们做出配套的函数
+
+
+
+#### Interaction
+
+- only exact match on types is used 
+
+- No conversion operations are applied 用模板不做类型转换
+
+- even implict conversion（int-> double） are ignored
+
+  
+
+#### Overloading rules
+
+出现重载，先检查有没有唯一的函数匹配，再检查有没有唯一的函数模板匹配
+
+
+
+#### function instantiation函数实例化
+
+
+
+```c++
+template <class T>
+void foo (void){ /* */}
+foo<int>();			//T is int
+foo<float>();		//T is float
+```
+
+虽然foo 是void，但是你可以通过<> 来explicit它，但是低级编译器可能不支持
+
+
+
+### 类模板 Class templates
+
+
+
+example ：vector
+
+```c++
+template <class T>
+class Vector {
+public:
+	Vector(int);
+	~Vector();
+	Vector(const Vector&);
+	Vector& operator = (const Vector&);
+	T& operator[](int);
+private:
+	T* m_elements;
+	int m_size;
+};
+```
+
+这还是个声明，在这个声明里，用T做某个成员变量的类型，用T做某个函数的返回类型
+
+**类模板里的每一个函数都是函数模板，并且函数名称类的名称也得加< >**
+
+ （0507）
+
+## 三十五、模板二
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
