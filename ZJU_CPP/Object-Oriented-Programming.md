@@ -2383,19 +2383,80 @@ private:
 
 
 
+```c++
+ template<class T>
+ void sort(vector<T>& arr) {
+	 const size_t last = arr.size() - 1;
+	 for (int i = 0; i < last; i++) {
+		 for (int i = last; i < j; j--) {
+			 if (arr[j] < arr[j - 1]) {
+				 swap(arr[j], arr[j - 1]);
+			 }
+		 }
+	 }
+ }
+```
+
+这个arr的类型是T
 
 
 
+### 模块的一些特定
+
+#### 模板可以有多个参数
+
+```c++
+ template<class Key,class Value>
+ class Hashtable {
+	 const Value& lookup(const Key&) const;
+	 void install(const Key&, const Value);
+};
+```
 
 
 
+#### 模块也可以有嵌套
+
+```c++
+Vector<Vector<double *> >
+```
+
+注意最后面的 两个大于号，有的编译器会把它当成右移，建议加空格
+
+#### 模块的参数也可以超复杂
+
+```c++
+Vector<int (*) (Vector<double>&,int)>
+```
+
+这是一个函数指针的vector，函数指针返回int，它的参数表有两项，一个是放着double的vector的引用，第二项是int。
+
+#### 模块其他的一些参数
+
+可以是常量值。可以实现default value
+
+```c++
+ template<class T,int bounds = 100>
+ class FixedVector {
+ public:
+	 FixedVector();
+	 T& operator[](int);
+ private:
+	 T elements[bounds];
+ };
+```
 
 
 
+### 模板遇到继承
 
-
-
-
+```c++
+template <class A>
+class Derived : public Base{}
+父类可以是template种出来的那个类·
+template <class A>
+class Derived : public List<A>{}
+```
 
 
 
