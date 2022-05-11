@@ -2460,5 +2460,404 @@ class Derived : public List<A>{}
 
 
 
+## 三十六、异常
+
+### Exceptions
+
+The basic philosophy of C++ is that "badly formed code will not be run"
+
+所以c++的一些检查比起c更加严格
+
+另外在运行过程中判断是否出错也很重要
+
+### Run-time error
+
+read a file
+
+| 行为                      | 问题                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| open this file            | 文件不存在；文件被别的进程独占；……                           |
+| determine its size        | 文件是一个网络数据流；另一个进程打开文件往里写数据；文件是一个设备 |
+| allocate that much memory | 文件大到超出内存                                             |
+| read the file into memory | 存储介质坏盘；                                               |
+| close the file            | 别的进程还在使用                                             |
+
+用try catch，来提高可读性
+
+## 三十七、异常的抛出与捕捉
+
+### 以vector容器举例
+
+```c++
+template<class T>
+T& Vector<T>::operator[](int indx)
+```
+
+如果indx越界（<0或>=n)
+
+| 解决方法                                               | 问题                 |
+| ------------------------------------------------------ | -------------------- |
+| return random memory object 不解决，返回一个random对象 | 会访问错误内存       |
+| return a special error value                           | 不能直接返回参与运算 |
+| just die                                               |                      |
+| die gracefully with autopsy                            |                      |
+
+所以应该使用exception抛出异常
+
+### 抛出异常 turf the problem
+
+throw<<something>> 扔的东西没有限制。
+
+
+
+### throw 后怎么处理？
+
+1. Doesn't Care 
+
+   code never even suspects a problem 
+
+2. Cares deeply
+
+   进入try 到catch，不在进行try底下的函数
+
+3. Mildly interested
+
+   不带任何东西的throw 
+
+4. Doesn't care about the partculars
+
+   catch(...) 异常的万能捕捉器
+
+
+
+## 三十八、异常语句
+
+### Try blocks
+
+try 后面至少要有一个catch
+
+catch 很像函数。
+
+```c++
+catch(someType v){
+    //handler code
+}
+catch(...){ //虽然可以处理所有异常，但是拿不到异常对象
+    //handler code
+}
+```
+
+### 异常匹配
+
+handlers are checked in order of apperance
+
+1. check for exact match
+
+2. apply base class conversions 子类的异常能不能被父类的catch
+
+   reference and pointer types，only
+
+3. Ellipse(...) match all
+
+注：如果将精确匹配的报错放在父类报错之后，或是第一个就是catch(...)编译器会报错
+
+
+
+### 异常的详细说明
+
+- declare which exceptions function might raise
+- part of function prototypes
+
+```c++
+void abc(int a) : throw(MathErr){//throw里可以有多个报错类，表示这个函数最多有这些报错,用来约束abc，如果你抛出别的异常，会抛出unexpected。
+    ...
+}
+```
+
+- Not checked at compiler time
+
+- At run time
+
+  - if an exception not in the list propagates out,
+
+    the unexpected exception is raised
+
+### 构造函数出现异常
+
+最好还是throw。但是存在很大风险，造成内存垃圾
+
+```c++
+ class A {
+ public:
+	 A() {
+		 cout<<"good"<<endl;
+		 throw 0;
+	 }
+};
+ int main() {
+	 A* p = new A();
+	 delete p;
+	 return 0;
+ }
+```
+
+改进但不完全
+
+```c++
+ class A {
+ public:
+	 A() {
+         buf = new char[1024];
+		 cout<<"good"<<endl;
+		 delete this;
+         throw 0;
+	 }
+     ~A(){delete buf;}//虽然解决了部分，但是buf的内存又变成垃圾了
+};
+ int main() {
+	 A* p = new A();
+	 delete p;
+	 return 0;
+ }
+```
+
+
+
+如果你throw的是new出来的对象，那么catch他的指针，但是不要忘记删除指针
+
+## 三十九、流的概念
+
+Stream
+
+Unix  将一切视为文件来操作
+
+文件有文本和二进制两种形式
+
+### 以流做输入输出的优点
+
+- 更好的类型安全
+
+- 更好的延展性
+
+- 更符合面向对象的特性
+
+### 以流做输入输出的缺点
+
+- 更verbose
+- 经常会慢，但是现在社会不在乎程序运转的快慢，而是写程序的快慢
+
+### c++与c相比
+
+can overload inserters  << and extractors >>
+
+
+
+### 流的特点
+
+一维单方向
+
+流过去就没法回头，不同于c不能任意读写，类似于磁带
+
+
+
+### 流的操作符
+
+- Extractors
+  - read a value from the stream
+  - overload the >> operator
+- Inserters
+  - insert a value into a stream
+  - overload the << operator
+- Manipulators
+  - change the stream state
+
+### C++中“流”的分类
+
+C++中流主要分为三类：
+
+- . **IO流：** 输入输出流，iostream
+- . **文件流：** 对于文件的操作，fstream
+- . **字符串流：** 主要实现对于字符串的操作，stringstream
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20210218110056288.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzQ1MDU2NA==,size_16,color_FFFFFF,t_70)
+
+
+
+## 四十、流的运算符
+
+### 预先定义的流运算符
+
+- cin
+- cout
+- cerr
+- clog
+
+
+
+### 读取
+
+#### 预定义的读入
+
+- istream >> value
+
+extractors 会自动跳过空格
+
+#### 定义一个流输入运算符
+
+对自己的类型，做成一个全局的函数
+
+- first argument is an istream&
+- second argument is a reference to a value
+
+```c++
+istream&
+operator>>(istream& is, T& obj){
+    //specific code to read obj
+    return is;
+}
+```
+
+- 一定要注意返回&istream
+
+  因为>>存在重载
+
+
+
+#### 用函数的方式来读取
+
+- int get()
+
+  - return the next charactor in the stream
+  - return EOF if no charactors left
+  - example: copy input to output
+
+  ```c++
+  int ch;
+  while ((ch = cin.get()) != EOF)
+      cout.put(ch);
+  ```
+
+- istream& get(char& ch)  Manipulators
+
+  - puts the next charactor into argument
+  - similar to int get();
+
+  这个是可以嵌入进流的
+
+- get
+
+- getline
+
+- ignore
+
+- int gcount 
+
+- void   putback 看过再放回
+
+- char peek  
+
+### 输出
+
+#### 预定义的输出
+
+```c++
+-ostream<<expression
+```
+
+#### 定义一个流输出运算符
+
+对自己的类型，做成一个全局的函数
+
+- first argument is an ostream&
+- second argument is any value
+
+```c++
+ostream&
+operator<<(ostream& is, const T& obj){
+    //specific code to write obj
+    return os;
+}
+```
+
+- 一定要注意返回ostream &
+
+  因为<<也存在重载
+
+#### 用函数的方式来读取
+
+- put(char)
+
+  - print a single charactor
+  - example: 
+
+  ```c++
+  cout.put('a');
+  cerr.put('!');
+  ```
+
+- flush() 刷新缓冲区
+
+  -[C++ 中如何区分std::endl、std::ends、std::flush的差异性](https://blog.csdn.net/Aliven888/article/details/111184891?spm=1001.2101.3001.6650.9&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-9-111184891-blog-106086783.pc_relevant_default&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-9-111184891-blog-106086783.pc_relevant_default&utm_relevant_index=14)
+
+  - force output of stream contents
+
+  - example:
+
+    ```c++
+    cout<<"Enter a number";
+    cout.flush();
+    ```
+
+    
+
+- Manipulators modify the state of the stream
+
+  - #include<iomanip>
+
+  - Effects hold(usually)
+
+    
+
+
+## 四十一、STL简述
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
