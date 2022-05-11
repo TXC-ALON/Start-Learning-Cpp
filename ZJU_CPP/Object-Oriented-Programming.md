@@ -2808,19 +2808,94 @@ operator<<(ostream& is, const T& obj){
     cout.flush();
     ```
 
-    
-
 - Manipulators modify the state of the stream
 
   - #include<iomanip>
+- Effects hold(usually)
+  
+- A simple program
 
-  - Effects hold(usually)
+  ```c++
+  #include <iostream>
+  #include<iomanip>
+  using namespace std;
+  int main(){
+     cout<<setprecision(2)<<1000.243<<endl;
+     cout<<"12345678901234567890"<<endl;
+     cout<<setw(20)<<"OK";
+     return 0;
+  }
+  /*
+  1e+003  设置两位精度
+  12345678901234567890
+                    OK
+  */
+  ```
 
-    
+  
+
+### Manipulators
+
+https://www.cplusplus.com/reference/library/manipulators/
+
+自定义
+
+```c++
+#include <iostream>
+#include<iomanip>
+using namespace std;
+ostream& tab(ostream& out){
+    return out <<'\t';
+}//类似endl也是一个函数
+int main(){
+
+    cout<<"hello" <<tab<<"world"<<endl;
+   return 0;
+}
+/*
+hello   world
+*/
+```
+
 
 
 ## 四十一、STL简述
 
+### Standard Template Library
+
+现成的轮子
+
+### Library includes
+
+- A Pair class (pairs of anything)
+- containers
+- Basic Algorithms
+
+### Basic Operations 
+
+for example <vector>
+
+- constructors
+- simple Methods
+  - size()
+  - empty()
+  - 判断
+  - swap(v2)
+- Iterators
+  - begin()
+  - end()
+- element access
+  - V.at(index)
+  - V[index]
+  - V.front()
+  - V.back()
+- Add/Remove/Find
+  - V.push_back(e)
+  - V.pop_back()
+  - V.insert(pos,e)
+  - V.erase(pos)
+  - V.clear()
+  - V.find(first,last,item)
 
 
 
@@ -2828,12 +2903,25 @@ operator<<(ostream& is, const T& obj){
 
 
 
+## 读后感
+
+本以为自己有些C++基础，结果我上这节课就被狠狠上了一课。
+
+但是我虽然很喜欢翁恺老师，但是实际上我很难说这个视频很好
+
+首先是剪辑破碎，每次视频结尾戛然而止，绝对没讲完。
+
+第二是课程内容，他应该是用了c++编程思想，结果讲的很一般，
+
+第三是虽然前面有手敲代码，但是越到后面越水，有时候甚至会有错误。
 
 
 
+这里我也认为我的基础是有些差的，得从新打一下基础。
 
+但是c++primer，有些太厚了。作为长期工程。
 
-
+先是从essential c++开始吧。
 
 
 
