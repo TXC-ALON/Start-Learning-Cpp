@@ -341,8 +341,486 @@ void display_message(const string &msg,const vector<elemType> &vec)
 
 ### 8、函数指针带来更大的弹性 Pointers to Functions Add Flexibility
 
+函数指针，其形式相当复杂。他必须指明其所指函数的返回类型及参数列表。
+
+得注意(*seq_ptr)需要加括号，以及指针定义时需要指向空指针。
+
 ```c++
-const vector<int>* (*seq_ptr)(int);
+const vector<int>* (*seq_ptr)(int) = nullptr;
+```
+
+### 9、设定头文件 Setting Up a Header File
+
+函数的定义只有一份，不过可以有很多份声明。不过inline函数是个例外，为了能让在每个调用点，编译器都能取得他的定义，所以一般将inline函数定义写在头文件里。
+
+在file scope 中定义的变量，如果可能被多个文件访问，那么就应该被声明在头文件中。
+
+const object 的定义只要一出文件之外便不可见，声明前应该加上extern。
+
+
+
+头文件如果被认定为标准的或项目专属的头文件，我们就以尖括号将其框柱，编译器搜索此文件时，会先在某些默认的磁盘目录中寻找。
+
+如果文件名由成对的双引号扩住，此文件便被认为是一个用户提供的头文件。搜索此文件时，会由要包括此文件的文件所在的磁盘目录开始找起。
+
+## 三、泛型编程风格 Generic Programming
+
+Standard Template Library （STL）主要由两种组件构成，一是容器（container），二是泛型算法（generic algorithm）
+
+泛型算法，通过function template技术，达到与操作对象的类型相互独立的目的，而实现与容器无关的诀窍，就是不直接在容器身上进行操作。而是借由一对iterator（first，last），标识我们要进行迭代的元素范围。
+
+### 1、指针的算术运算 The Arithmetic of Pointers
+
+```c++
+template <typename elemType>
+elemType* find ( const vector<elemType> &vec, 
+           const elemType &value )
+{
+    for ( int ix = 0; ix < vec.size(); ++ix )
+          if ( vec[ ix ] == value )
+               return &vec[ ix ];
+
+    return 0;
+}
+```
+
+上面的函数可以处理任何类型下的找数工作。
+
+但是现在如果想同时处理vector和array。就会遇到困难
+
+但是如果我们能不指明array或vector，而是将他们的元素传入find函数。就能找到其中的共通解法。
+
+
+
+```c++
+int min(int array[24]) {...}
+```
+
+这里的min ，并不是只能接受某个最大长度为24的数组，而且是以传值方式传入。
+
+事实上，当数组被传给函数，或是从函数中返回，仅有第一个元素的地址会被传递。
+
+所以函数声明可以改成
+
+```c++
+int min(int *array) (...)
+```
+
+我们取得了array 的首地址，事实就可以对其进行读取操作，新的问题是我们从哪里停止，为了规范化，我们需要array 的长度，对此有两种方式，一为直接将size传入，二是将传入另一个地址，指示array读取操作的终点，我们将这个值称为标兵sentinel。
+
+```c++
+template <typename elemType>
+elemType* find(const elemType* array, int size,
+	const elemType& value);
+
+template <typename elemType>
+elemType* find(const elemType* array, const elemType *sentinel,
+	const elemType& value);
+```
+
+这样array 就从参数列表消失了
+
+我们虽然可以通过指针来访问array的元素，但是也可以改用subscript下标运算符。
+
+array[2] 其实是*(array+2)，在取得元素的地址后，还需要提领dereference该地址，以得到元素值。不过我们只需要写下array[2],指针的算术运算以及提领都会自动进行。
+
+```c++
+template <typename elemType>
+elemType* find( const elemType *array, int size, 
+           const elemType &value )
+{
+	if ( ! array || size < 1 ) return 0;
+
+   // ++array increments array by one elememt
+   for ( int ix = 0; ix < size; ++ix, ++array )
+         // *array dereferences the address
+         if ( *array == value )
+              return array;
+   return 0;
+}
+
+template <typename elemType>
+elemType* find( const elemType *first, 
+           const elemType *last, const elemType &value )
+{
+	if ( ! first || ! last )
+        return 0;
+
+   // while first does not equal last,
+   // compare value with element addressed by first 
+   // if the two are equal, return first
+   // otherwise, increment first to address next element
+
+   for ( ; first != last; ++first )
+         if ( *first == value )
+              return first;
+
+   return 0;
+}
+```
+
+一般来说我们会将标兵设置为数组最后一个元素的下一个地址，将该地址拿来和其他元素的地址进行比较，那么久完全不会有问题，但是不能对这个地址（数组外）进行读写操作。
+
+现在来处理vector，因为与array一样都是一块连续内存储存其全部元素，所以访问方式类似，但是vector可以是空的，Array则不然。
+
+为此需要先判断vec是否为空。
+
+```c++
+template <typename elemType>
+inline elemType* begin(const vector<elemType> &vec){
+    return vec.empty() ? 0 : &vec[0];
+}
+inline elemType* end(const vector<elemType> &vec){
+    return vec.empty() ? 0 : &vec[n];
+}
+find (begin(svec),end(svec),search_value);
+```
+
+现在我们想进一步将find 推广向list。但是link是一组指针互相链接linked，前向forward指针指向下一个next，后向backward指针指向上一个preceding。
+
+乍一看我们似乎需要重写find，但是实际上除了参数表，我们的find并不需要改动太多。
+
+而解决这个办法，就需要在底层指针的行为之上提供一层抽象，取代程序原本的指针直接操作。
+
+### 2、了解Iterator（泛型指针） Make sense of Iterators
+
+所有的标准容器都提供了begin()和end()，他们都会返回iterator，接下里介绍的对泛型指针的各种操作，不过就是进行一系列赋值assign，比较compare，递增increment，提领dereference。
+
+为了描述迭代器，我们需要明确两点，一是迭代对象的类型，这决定如何访问下一元素；二是迭代器所指对象的类型，这决定了iterator的返回值。
+
+```c++
+//可能的写法
+iterator<vector,string> iter;
+//STL里的iterator语法
+vector<string>svec;
+vector<string>::iterator iter = svec.begin();
+```
+
+此处iter被定义为一个iterator，指向一个vector， 后者的元素类型为string，其初值指向svec的第一个元素。双冒号:: 表示iterator是位于string vector 定义内的嵌套nested类型，第四章iteratorclass 会详细讲。
+
+从iterator取值，可以用提领*，也可以用箭头。这样就用iterator取代了原先使用得下标，
+
+用iterator代替下标的display函数：
+
+```c++
+template <typename elemType>
+void display(const vector<elemType> &vec, ostream &os)
+{
+ vector<elemType>::const_iterator iter = vec.begin();
+ vector<elemType>::const_iterator end_it = vec.end();
+ // if vec is empty, iter and end_it are equal
+ // and the for-loop never executes
+ for (; iter != end_it; ++iter)
+ 	os << *iter << ' ';
+ os << endl;
+} 
+```
+
+现在我们更新find函数
+
+```c++
+template <typename IteratorType, typename elemType > 
+IteratorType 
+find(IteratorType first, IteratorType last, 
+ 	const elemType &value) 
+{ 
+ for (; first != last; ++first) 
+ 	if (value == *first) 
+		return first; 
+ return last; 
+} 
+```
+
+### 泛型算法
+
+| 算法类型                                | 算法名                                                       |
+| --------------------------------------- | ------------------------------------------------------------ |
+| 搜索 search                             | find(),count(),adjacent_find(),find_if(),count_if(),binary_search(),find_first_of() |
+| 排序 sort以及 次序整理ordering          | merge(),partial_sort(),partition(),random_shuffle(),reverse(),rotate(),sort() |
+| 复制copy 删除deletion 替换 substitution | copy(),remove(),remove_if(),replace(),replace_if(),swap(),unique() |
+| 关系 relational                         | equal(),includes(),mismatch()                                |
+| 生成generation 质变 mutation            | fill(),for_each(),generate(),transform()                     |
+| 数值 numeric                            | accmulate(),adjacent_difference(),partial_sum(),inner_product() |
+| 集合 set                                | set_union(),set_difference()                                 |
+
+### 3、所有容器的共通操作 Operations Common to All Containers
+
+- equality(==) 以及 inequality (!=) 返回true和false
+- assignment(=) 将某个容器赋值给另一个容器
+- empty 
+- size()
+- clear()
+- begin()
+- end()
+- insert()
+- erase()
+
+insert()和erase()的行为视容器本身为顺序性sequential容器或关联associative容器而有所不同。
+
+### 4、使用顺序性容器 Using the Sequential Containers
+
+Vector 方便顺序读写，不方便删除插入
+
+list 方便删除插入，不方便顺序读写
+
+deque 双端队列，类似vector，但是在最前端和最末端的插入删除效率更高。 标准库的queue就是用deque实现的
+
+#### 一些操作函数：
+
+push_back(),pop_back()
+
+list和deque还有 push_front(),pop_front()
+
+front() end() 
+
+### 5、使用泛型算法
+
+需要包含对应的algorithm头文件。
+
+#### 泛型搜索
+
+1. find()  搜索无序集合中是否存在某值，iterator[first,last)
+2. binary_search() 用于有序集合的搜索
+3. count() 返回数目相符的元素数目
+4. search()  某个容器内是否存在某个子序列，若在，返回子序列起始处，若不在，就返回iterator指向末尾
+
+### 6、如何设计一个泛型算法 How to Design a Generic Algorithm
+
+#### 将比较函数参数化
+
+```c++
+// EssentialC++.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+//
+
+#include <iostream>
+#include<vector>
+#include<algorithm>
+using namespace std;
+bool less_than(int v1, int v2)
+{
+	return v1 < v2 ? true : false;
+}
+bool greater_than(int v1, int v2)
+{
+	return v1 > v2 ? true : false;
+}
+
+vector<int> filter(const vector<int>& vec, int filter_value, bool (*pred)(int, int))
+{
+	vector<int> nvec;
+	for (int ix = 0; ix < vec.size(); ++ix)
+		// invokes the function addressed by pred 
+		// tests element vec[ix] against filter_value 
+		if (pred(vec[ix], filter_value))
+			nvec.push_back(vec[ix]);
+	return nvec;
+}
+
+
+int main()
+
+{
+	vector<int> big_vec = {1,89,45,4,3,6,59,45,23,48};
+	int value=30;
+	// ... fill big_vec and value 
+	vector<int> lt_10 = filter(big_vec, value, less_than);
+	for (auto it : lt_10) {
+		cout << it << " ";
+	}
+	cout << endl;
+	vector<int> lt_102 = filter(big_vec, value, greater_than);
+	for (auto it2 : lt_102) {
+		cout << it2 << " ";
+	}
+	return 0;
+    
+}
+
+/*
+1 4 3 6 23
+89 45 59 45 48
+*/
+```
+
+#### Function Object  实例对象
+
+这些function object 是某种class的实例对象，这类class对function call运算符做了重载操作，如此可以使Function object被当成一般函数来使用。
+
+> 函数调用运算符 () 可以被重载用于类的对象。当重载 () 时，您不是创造了一种新的调用函数的方式，相反地，这是创建一个可以传递任意数目参数的运算符函数。
+
+
+
+#### **仿函数由来**
+
+> https://zhuanlan.zhihu.com/p/362323211
+>
+> 我们都知道，函数的入参除了是普通变量之外，还可以是函数指针（C 语言中就经常这么用）。那有没有什么手段能代替函数指针呢？答案是有。
+>
+> - **定义一个类，类里面定义了某个方法，将该类的对象作为函数的入参，那么在函数中就能调用这个类中的方法**
+>
+> 还有更简单的方法吗？答案还是有。
+>
+> - **定义一个类，类里面重载函数运算符（），将该类的对象作为函数的入参，那么在函数中同样能调用重载符（）里面的方法**
+>
+> **所以说，仿函数就是仿造的函数，它并不是一个真正意义上的函数。它是一个类中的运算符（）重载，但它具有函数的功能。**
+>
+> **样例代码**
+>
+> ```cpp
+> #include <iostream>
+> 
+> class Compare {
+> private:
+>     int m_Number;
+> public:
+>     Compare(int num) : m_Number(num){}
+>     
+>     bool operator()(int other)
+>     {
+>         return m_Number > other;
+>     }
+> 
+> };
+> 
+> int main()
+> {
+>     Compare cmp(10);
+>     std::cout << cmp(11) << std::endl;
+>     std::cout << cmp(9) << std::endl;
+>     std::cin.get();
+>     return 0;
+> }
+> ```
+>
+> **总结**
+>
+> 函数对象的出现是为了代替函数指针的，最明显的一个特点是：可以使用内联函数。而如果使用内联函数的指针，编译器会把它当普通函数对待。另外，函数对象是类封装的，代码不但看起来简洁，设计也灵活，比如还可以用关联，聚合，依赖的类之间的关系，与用到他们的类组合在一起，这样有利于资源的管理（这点可能是它相对于函数最显著的优点了）。
+>
+> 说到这，大家是不是对仿函数有了很清晰的认识了。**每个新事物的诞生都有它的原因，我们更应该去关注这个新事物出现的原因，而不仅仅是它本身。**
+>
+> 另外值得注意的是，仿函数（Functor）也是 STL 六大模块之一，其余 5 个分别是容器（Container）、算法（Algorithm）、迭代器（Iterator）、适配器（Adapter）和分配器（Allocator）。
+
+
+
+使用Function Object主要是为了效率，我们令call 运算符变成inline，从而消除“通过函数指针来调用函数”时需要付出的代价。
+
+标准库实现定义了一系列的Function object，需包含#include<functional>头文件
+
+| Functional object 类 | 实际操作                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| 6算术运算            | plus<type>(后面默认带<type>),minus,negate,nultiplies,divides,modules |
+| 6关系运算            | less,less_equal,greater,greater_equal,equal_to,no_equal_to   |
+| 3逻辑运算            | logical_and,logical_or,logical_not                           |
+
+利用这一个我们可以写排序函数为
+
+```c++
+sort(lt_102.begin(), lt_102.end(), greater<int>());
+```
+
+#### Function Object Adapter
+
+less<type>期待外界传入两个值，在上面的例子中，我们希望固定一个值，而这个固定的值是我们传入的值设置的。所以我们就需要将less<type>转化为一元unary运算符。
+
+Function object adapter 会对Function Object进行修改操作，所谓binder adapter（绑定适配器），会将Function object 的参数绑定至特定值。标准库提供了bind1st和bind2nd 绑定至第一或第二操作数。
+
+```c++
+vector<int> filter(const vector<int> &vec, 
+ int val, less<int> &lt) 
+{ 
+ 	vector<int> nvec; 
+ 	vector<int>::const_iterator iter = vec.begin(); 
+ // bind2nd(less<int>, val) 
+ // binds val to the second value of less<int> 
+ // less<int> now compares each value against val 
+ 	while ((iter = find_if(iter, vec.end(), bind2nd(lt, val))) != vec.end()) 
+ 	{ 
+        // each time iter != vec.end(), 
+ 		// iter addresses an element less than val 
+ 		nvec.push_back(*iter); 
+ 		iter++; 
+ 	} 
+ return nvec; 
+} 
+
+```
+
+接下来为了消除filter()与vector元素类型、容器类型的依赖关系，使其泛型化。
+
+```c++
+template <typename InputIterator, typename OutputIterator, typename ElemType, typename Comp>
+OutputIterator
+filter(InputIterator first, InputIterator last,
+	OutputIterator at, const ElemType& val, Comp pred)
+{
+	while ((first =
+		find_if(first, last,
+			bind2nd(pred, val))) != last)
+	{
+		// just to see what is going on ... 
+		cout << "found value: " << *first << endl;
+		// assign value, then advance both iterators 
+		*at++ = *first++;
+	}
+	return at;
+}
+```
+
+测试代码：
+
+```c++
+#include <iostream>
+#include<vector>
+#include<algorithm>
+#include<functional>
+using namespace std;
+
+template <typename InputIterator, typename OutputIterator,
+	typename ElemType, typename Comp>
+	OutputIterator filter(InputIterator first, InputIterator last,OutputIterator at, const ElemType& val, Comp pred)
+{
+	while ((first =find_if(first, last,bind2nd(pred, val))) != last)
+	{
+		// just to see what is going on ... 
+		cout << "found value: " << *first << endl;
+		// assign value, then advance both iterators 
+		*at++ = *first++;
+	}
+	return at;
+}
+int main()
+{
+	const int elem_size = 8;
+	int ia[elem_size] = { 12, 8, 43, 0, 6, 21, 3, 7 };
+	vector<int> ivec(ia, ia + elem_size); //快速生成vector
+	// containers to hold the results of our filter() 
+	int ia2[elem_size];
+	vector<int> ivec2(elem_size);
+	cout << "filtering integer array for values less than 8\n";
+	filter(ia, ia + elem_size, ia2, elem_size, less<int>());
+	cout << "filtering integer vector for values greater than 8\n";
+	filter(ivec.begin(), ivec.end(), ivec2.begin(),elem_size, greater<int>());
+	return 0;
+}
+/*
+filtering integer array for values less than 8
+found value: 0
+found value: 6
+found value: 3
+found value: 7
+filtering integer vector for values greater than 8
+found value: 12
+found value: 43
+found value: 21
+*/
+```
+
+另一种adapter 是所谓的negator ，他会将function object 的真伪值取反，not1对unary Function Object的真伪值取反， not2 可以对binary function object的真伪值取反。
+
+比如可以通过对less<int>() 绑定negator，实现>= 的效果。
+
+```c++
+while ((iter = find_if(iter, vec.end(), not1(bind2nd(less<int>, 10)))) != vec.end()) 
 
 ```
 
@@ -350,7 +828,183 @@ const vector<int>* (*seq_ptr)(int);
 
 
 
-## 三、泛型编程风格 Generic Programming
+### 7、使用Map Using a Map
+
+键值对 key-value
+
+### 8、使用Set Using a Set
+
+集合 不重复 
+
+默认情况下，set元素按照less-than进行排列
+
+```c++
+int ia[10] = { 1, 3, 5, 8, 5, 3, 1, 5, 8, 1 } ; 
+vector<int> vec(ia, ia+10); 
+set<int> iset(vec.begin(), vec.end()); 
+```
+
+iset are {1,3,5,8}. 
+
+### 9、如何使用Iterator Inserter How to Use Iterator Insertors
+
+之前我们主要是讨论从源端将符合条件的元素赋值到目的端，那么目的端的容器必须保证足够大。但是如果将目的端开的大小与源端大小一致，就会造成大量的资源浪费。
+
+标准库提供了三个所谓的insertion adapter，让我们避免使用容器的assignment符。**变赋值为插入**，欲使用之，需要使用#include<iterator>
+
+- back_inserter()  会以容器的push_back()取代assignment运算符
+- inserter() 会以容器的insert()取代assignment运算符；接受两个参数，一个是容器，另一个是容器的插入操作起点。
+- front_inserter() 会以容器的push_front()取代assignment运算符  这个inserter只适用于list 和 deque
+
+并不支持array，array不支持元素插入操作。
+
+改进后
+
+```c++
+#include <iostream>
+#include<vector>
+#include<algorithm>
+#include<functional>
+#include<iterator>
+using namespace std;
+
+template <typename InputIterator, typename OutputIterator,
+	typename ElemType, typename Comp>
+	OutputIterator filter(InputIterator first, InputIterator last,
+		OutputIterator at, const ElemType& val, Comp pred)
+{
+	while ((first =
+		find_if(first, last,
+			bind2nd(pred, val))) != last)
+	{
+		// just to see what is going on ... 
+		cout << "found value: " << *first << endl;
+		// assign value, then advance both iterators 
+		*at++ = *first++;
+	}
+	return at;
+}
+int main()
+{
+	const int elem_size = 8;
+	int ia[elem_size] = { 12, 8, 43, 0, 6, 21, 3, 7 };
+	vector<int> ivec(ia, ia + elem_size);
+	// containers to hold the results of our filter() 
+	int ia2[elem_size];
+	vector<int> ivec2(elem_size);
+	cout << "filtering integer array for values less than 8\n";
+	filter(ia, ia + elem_size, ia2, elem_size, less<int>());
+	cout << "filtering integer vector for values greater than 8\n";
+	filter(ivec.begin(), ivec.end(), back_inserter(ivec2), //这里改成了it inserter
+		elem_size, greater<int>());
+	return 0;
+}
+```
+
+
+
+### 10、使用 iostream Iterator
+
+标准库定义供输入输出使用得iostream iterator类。 要用也得包含#include<iterator>
+
+从标准输入设备中读取一串string，将他们存入vector，排序，再写回标准输出设备。
+
+```c++
+#include <iostream> 
+#include <iterator> 
+#include <algorithm> 
+#include <vector> 
+#include <string> 
+using namespace std;
+int main()
+{
+	istream_iterator<string> is(cin);
+	istream_iterator<string> eof;
+	vector<string> text;
+	copy(is, eof, back_inserter(text));
+	sort(text.begin(), text.end());
+	ostream_iterator<string> os(cout, " ");
+	copy(text.begin(), text.end(), os);
+}
+//Ctrl + Z + Enter , 表示输入结束
+```
+
+
+
+如果想读写文件，也可以让iostream iterator与之绑定
+
+```c++
+#include <iostream> 
+#include <fstream> 
+#include <iterator> 
+#include <algorithm> 
+#include <vector> 
+#include <string> 
+using namespace std;
+int main()
+{
+	ifstream in_file("sourcefile.pp");
+	//ifstream in_file("as_you_like_it.txt");
+	//ofstream out_file("as_you_like_it_sorted.txt");
+	ofstream out_file("as_you_like_it_sorted.txt");
+	if (!in_file || !out_file)
+	{
+		cerr << "!!unable to open the necessary files.\n";
+		return -1;
+	}
+	istream_iterator<string> is(in_file);
+	istream_iterator<string> eof;
+	vector<string> text;
+	copy(is, eof, back_inserter(text));
+	sort(text.begin(), text.end());
+	ostream_iterator<string> os(out_file, "\n");
+	copy(text.begin(), text.end(), os);
+	return 0;
+}
+/*
+----source.txt
+hello world
+what a beautiful day
+周杰伦第一
+abcdefg
+----output
+a
+abcdefg
+beautiful
+day
+hello
+what
+world
+周杰伦第一
+*/
+//有些问题，不知道是不是后缀名的问题
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## 四、基于对象的编程风格 Object-Based Programming
 
