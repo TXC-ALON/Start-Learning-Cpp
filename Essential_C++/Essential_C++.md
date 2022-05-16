@@ -390,15 +390,13 @@ elemType* find ( const vector<elemType> &vec,
 
 但是如果我们能不指明array或vector，而是将他们的元素传入find函数。就能找到其中的共通解法。
 
-
-
 ```c++
 int min(int array[24]) {...}
 ```
 
 这里的min ，并不是只能接受某个最大长度为24的数组，而且是以传值方式传入。
 
-事实上，当数组被传给函数，或是从函数中返回，仅有第一个元素的地址会被传递。
+事实上，当数组被传给函数，或是从函数中返回，**仅有第一个元素的地址会被传递。**
 
 所以函数声明可以改成
 
@@ -406,7 +404,9 @@ int min(int array[24]) {...}
 int min(int *array) (...)
 ```
 
-我们取得了array 的首地址，事实就可以对其进行读取操作，新的问题是我们从哪里停止，为了规范化，我们需要array 的长度，对此有两种方式，一为直接将size传入，二是将传入另一个地址，指示array读取操作的终点，我们将这个值称为标兵sentinel。
+我们取得了**array 的首地址，事实就可以对其进行读取操作**，新的问题是我们从哪里停止，为了规范化，我们需要array 的长度，
+
+对此有两种方式，一为直接将数组的size传入，二是将传入另一个地址，指示array读取操作的终点，我们将这个地址称为标兵sentinel。
 
 ```c++
 template <typename elemType>
@@ -418,7 +418,7 @@ elemType* find(const elemType* array, const elemType *sentinel,
 	const elemType& value);
 ```
 
-这样array 就从参数列表消失了
+这样array 就从参数列表消失了，只留下了首地址。
 
 我们虽然可以通过指针来访问array的元素，但是也可以改用subscript下标运算符。
 
@@ -459,7 +459,7 @@ elemType* find( const elemType *first,
 }
 ```
 
-一般来说我们会将标兵设置为数组最后一个元素的下一个地址，将该地址拿来和其他元素的地址进行比较，那么久完全不会有问题，但是不能对这个地址（数组外）进行读写操作。
+一般来说我们会将标兵设置为数组最后一个元素的下一个地址，将该地址拿来和其他元素的地址进行比较，那么久完全不会有问题，但是不能对这个地址（数组外）进行读写操作。也就是stl容器中常见的end()。
 
 现在来处理vector，因为与array一样都是一块连续内存储存其全部元素，所以访问方式类似，但是vector可以是空的，Array则不然。
 
@@ -484,7 +484,9 @@ find (begin(svec),end(svec),search_value);
 
 ### 2、了解Iterator（泛型指针） Make sense of Iterators
 
-所有的标准容器都提供了begin()和end()，他们都会返回iterator，接下里介绍的对泛型指针的各种操作，不过就是进行一系列赋值assign，比较compare，递增increment，提领dereference。
+所有的标准容器都提供了begin()和end()，他们都会返回iterator，接下里介绍的对泛型指针的各种操作，
+
+不过就是进行一系列赋值assign，比较compare，递增increment，提领dereference。
 
 为了描述迭代器，我们需要明确两点，一是迭代对象的类型，这决定如何访问下一元素；二是迭代器所指对象的类型，这决定了iterator的返回值。
 
@@ -531,7 +533,9 @@ find(IteratorType first, IteratorType last,
 } 
 ```
 
-### 泛型算法
+### :star:泛型算法 
+
+参见附录
 
 | 算法类型                                | 算法名                                                       |
 | --------------------------------------- | ------------------------------------------------------------ |
@@ -605,7 +609,7 @@ bool greater_than(int v1, int v2)
 	return v1 > v2 ? true : false;
 }
 
-vector<int> filter(const vector<int>& vec, int filter_value, bool (*pred)(int, int))
+vector<int> filter(const vector<int>& vec, int filter_value, bool (*pred)(int, int))//传入函数指针
 {
 	vector<int> nvec;
 	for (int ix = 0; ix < vec.size(); ++ix)
@@ -650,7 +654,7 @@ int main()
 
 
 
-#### **仿函数由来**
+#### :sunny:**仿函数由来**
 
 > https://zhuanlan.zhihu.com/p/362323211
 >
@@ -661,6 +665,21 @@ int main()
 > 还有更简单的方法吗？答案还是有。
 >
 > - **定义一个类，类里面重载函数运算符（），将该类的对象作为函数的入参，那么在函数中同样能调用重载符（）里面的方法**
+>
+>   > 运算符重载本质上是函数的的重载，重载运算符函数的一般格式为：
+>   >
+>   > ```c++
+>   > 返回类型 operator 符号（参数表（根据操作符的操作数来写））
+>   > {
+>   >     重载函数体
+>   > }
+>   > ```
+>   >
+>   > 不能重载的运算符：.           *        ::      ?:     sizeof
+>   >
+>   > 运算符重载的两种形式：成员运算符函数；友元运算符函数
+>   >
+>   > ​	友元主要是为了方便访问类里的一些变量。（在类里 friend）
 >
 > **所以说，仿函数就是仿造的函数，它并不是一个真正意义上的函数。它是一个类中的运算符（）重载，但它具有函数的功能。**
 >
@@ -821,12 +840,7 @@ found value: 21
 
 ```c++
 while ((iter = find_if(iter, vec.end(), not1(bind2nd(less<int>, 10)))) != vec.end()) 
-
 ```
-
-
-
-
 
 ### 7、使用Map Using a Map
 
@@ -849,6 +863,8 @@ iset are {1,3,5,8}.
 ### 9、如何使用Iterator Inserter How to Use Iterator Insertors
 
 之前我们主要是讨论从源端将符合条件的元素赋值到目的端，那么目的端的容器必须保证足够大。但是如果将目的端开的大小与源端大小一致，就会造成大量的资源浪费。
+
+算法库对所有在容器上的操作有个承诺：决不修改容器的大小（不插入、不删除）。有了插入迭代器，既使得算法库可以通过迭代器对容器插入新的元素，又不违反这一承诺，即保持了设计上的一致性。
 
 标准库提供了三个所谓的insertion adapter，让我们避免使用容器的assignment符。**变赋值为插入**，欲使用之，需要使用#include<iterator>
 
@@ -982,9 +998,19 @@ world
 
 
 
+### 个人本章总结
 
+第三章读起来比起前面吃力的多，泛型这部分是翁恺老师的oop讲的也不多的部分。
 
+这里SBL的教学一直体现着某种程序员write once,run everywhere的感觉，之所以用iterator，也是希望用更加安全的方式操作内存空间，以及统一一些共通操作，可以进行进行某种重写迭代，套用进模版里。
 
+比如说用插入代替赋值就是利用原本模板就有的操作。**todo**：我思考了很久为什么要用插入代替赋值，除了可以用现成的容器函数以外，还真没想到别的。
+
+但是个人直觉感觉这部分很重要，值得花精力来读，一方面是STL这个c++很重要的组成部分应该都是用泛型写的。另外这部分与类、继承、重载等牵扯很深。
+
+可能需要把这本书啃完，对于泛型也只能说是堪堪入门，估计要把EC和MEC都看完，加上侯捷的STL剖析以及C++标准库才行。
+
+慢慢来吧。
 
 
 
