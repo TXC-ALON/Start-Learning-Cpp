@@ -1,4 +1,4 @@
-# Start learing C++
+# Start Learning C++
 
 开始重头认真学一下C++
 
