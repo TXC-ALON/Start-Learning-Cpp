@@ -12,7 +12,9 @@
 
 
 
-### 1、如何撰写C++程序 How to Write a C++ Program
+### 1、如何撰写C++程序 
+
+**How to Write a C++ Program**
 
 函数的参数列表（parameter list）
 
@@ -46,7 +48,9 @@ class机制，赋予了我们增加程序内置类型抽象化层次的能力。
 
 命名空间像是在诸多名称的可见范围之间竖起的一道道围墙。
 
-### 2、对象的定义与初始化 Defining and Initializing a Date Object
+### 2、对象的定义与初始化 
+
+**Defining and Initializing a Date Object**
 
 命名不能以数字开头，不能用到关键字
 
@@ -68,7 +72,9 @@ int num_tries2(0);
 complex<double>pure(0,7);
 ```
 
-### 3、撰写表达式 Writing Expressions
+### 3、撰写表达式 
+
+**Writing Expressions**
 
 #### 前置prefix与后置postfix
 
@@ -90,7 +96,9 @@ complex<double>pure(0,7);
 | 逻辑运算符 | AND,OR     |
 | 赋值运算符 | assignment |
 
-### 4、条件语句和循环语句 Writing Conditions and Loop Statements
+### 4、条件语句和循环语句 
+
+**Writing Conditions and Loop Statements**
 
 while
 
@@ -125,11 +133,15 @@ for（init-statement;condition;expresstion）{
 }             
 ```
 
-### 5、数组与变长数组 How to Use Array and Vectors
+### 5、数组与变长数组 
+
+**How to Use Array and Vectors**
 
 Array 定长，Vector可变长
 
-### 6、指针带来弹性 Pointers Allow for Flexibility
+### 6、指针带来弹性 
+
+**Pointers Allow for Flexibility**
 
 操作指针（代表某特定内存地址），舍弃以名城指定的方式，间接地访问每个对象，以达到透明化的目的。
 
@@ -141,7 +153,9 @@ int *p = &val;
 
 **注意：要记得初始化每一个指针，并确保他们不是乱指的**
 
-### 7、文件的读写 Writing and Reading Files
+### 7、文件的读写 
+
+**Writing and Reading Files**
 
 ```c++
 #include <fstream>
@@ -205,7 +219,9 @@ int main()
 
 ## 二、面向过程的编程风格 Procedural Programming
 
-### 1、如何编写函数 How to Write a Function
+### 1、如何编写函数 
+
+**How to Write a Function**
 
 #### 函数定义四部分
 
@@ -222,7 +238,9 @@ int main()
 
 或者可以抛出异常exception。 第七章再说
 
-### 2、调用函数 Invoking a Function
+### 2、调用函数 
+
+**Invoking a Function**
 
 #### 传参方式
 
@@ -271,7 +289,9 @@ C++没有提供任何语法让我们在从heap分配内存时设定初值。
 
 如果程序员没有使用delete释放内存，就会造成内存泄漏memory leak。
 
-### 3、提供默认参数值Providing Default Parameter Values
+### 3、提供默认参数值
+
+**Providing Default Parameter Values**
 
 我们不仅需要了解函数的工作逻辑，也得了解定义与file scope中的那些对象的工作逻辑。函数如果过于依赖于定义于file scope 内的对象，比较难以在其他环境中重用，也难以查找修改。
 
@@ -297,11 +317,15 @@ void display(const vector<int>&vec,ostream &os = cout){
 
 第二个规则是，默认值只能够指定一次，可以在函数声明处，也可以在函数定义处，但是不能够两个地方都指定。为了更高的可见性，我们决定将默认值，放在函数声明处而非定义处，一般会在头文件里定义了参数的默认值。
 
-### 4、使用局部静态对象 Using Local Static Objects
+### 4、使用局部静态对象 
+
+**Using Local Static Objects**
 
 局部静态对象处的空间，即使在不同的函数调用过程中，依然持续存在。由此也可以安全地返回elems的地址。
 
-### 5、声明inline 函数 Declaring a Function Inline
+### 5、声明inline 函数 
+
+**Declaring a Function Inline**
 
 将函数声明为inline，表示要求编译器在每个函数调用点上，将函数的内容展开。
 
@@ -317,11 +341,15 @@ void display(const vector<int>&vec,ostream &os = cout){
 
 另外由于编译器在调用inline的时候必须展开，所以这个定义必须是有效的。
 
-### 6、提供重载函数 Providing Overloaded Functions
+### 6、提供重载函数 
+
+**Providing Overloaded Functions**
 
 我们可以通过传入不同类型甚至不同数量的参数，使有相同函数名的函数有着不同的效果。而相反的，编译器无法判断返回类型不同的同名函数。
 
-### 7、定义并使用模板函数 Defining and Using Template Functions
+### 7、定义并使用模板函数 
+
+**Defining and Using Template Functions**
 
 function template 将参数列表中指定的全部（或部分）参数的类型抽离了出来，除了类型信息。
 
@@ -339,7 +367,9 @@ void display_message(const string &msg,const vector<elemType> &vec)
 
 很像种子，编译器对其进行绑定bind，产生一份函数实例进行后续的操作。
 
-### 8、函数指针带来更大的弹性 Pointers to Functions Add Flexibility
+### 8、函数指针带来更大的弹性 
+
+**Pointers to Functions Add Flexibility**
 
 函数指针，其形式相当复杂。他必须指明其所指函数的返回类型及参数列表。
 
@@ -349,7 +379,9 @@ void display_message(const string &msg,const vector<elemType> &vec)
 const vector<int>* (*seq_ptr)(int) = nullptr;
 ```
 
-### 9、设定头文件 Setting Up a Header File
+### 9、设定头文件 
+
+**Setting Up a Header File**
 
 函数的定义只有一份，不过可以有很多份声明。不过inline函数是个例外，为了能让在每个调用点，编译器都能取得他的定义，所以一般将inline函数定义写在头文件里。
 
@@ -369,7 +401,9 @@ Standard Template Library （STL）主要由两种组件构成，一是容器（
 
 泛型算法，通过function template技术，达到与操作对象的类型相互独立的目的，而实现与容器无关的诀窍，就是不直接在容器身上进行操作。而是借由一对iterator（first，last），标识我们要进行迭代的元素范围。
 
-### 1、指针的算术运算 The Arithmetic of Pointers
+### 1、指针的算术运算 
+
+**The Arithmetic of Pointers**
 
 ```c++
 template <typename elemType>
@@ -482,7 +516,9 @@ find (begin(svec),end(svec),search_value);
 
 而解决这个办法，就需要在底层指针的行为之上提供一层抽象，取代程序原本的指针直接操作。
 
-### 2、了解Iterator（泛型指针） Make sense of Iterators
+### 2、了解Iterator（泛型指针） 
+
+**Make sense of Iterators**
 
 所有的标准容器都提供了begin()和end()，他们都会返回iterator，接下里介绍的对泛型指针的各种操作，
 
@@ -547,7 +583,9 @@ find(IteratorType first, IteratorType last,
 | 数值 numeric                            | accmulate(),adjacent_difference(),partial_sum(),inner_product() |
 | 集合 set                                | set_union(),set_difference()                                 |
 
-### 3、所有容器的共通操作 Operations Common to All Containers
+### 3、所有容器的共通操作 
+
+**Operations Common to All Containers**
 
 - equality(==) 以及 inequality (!=) 返回true和false
 - assignment(=) 将某个容器赋值给另一个容器
@@ -561,7 +599,9 @@ find(IteratorType first, IteratorType last,
 
 insert()和erase()的行为视容器本身为顺序性sequential容器或关联associative容器而有所不同。
 
-### 4、使用顺序性容器 Using the Sequential Containers
+### 4、使用顺序性容器 
+
+**Using the Sequential Containers**
 
 Vector 方便顺序读写，不方便删除插入
 
@@ -588,7 +628,9 @@ front() end()
 3. count() 返回数目相符的元素数目
 4. search()  某个容器内是否存在某个子序列，若在，返回子序列起始处，若不在，就返回iterator指向末尾
 
-### 6、如何设计一个泛型算法 How to Design a Generic Algorithm
+### 6、如何设计一个泛型算法 
+
+**How to Design a Generic Algorithm**
 
 #### 将比较函数参数化
 
@@ -842,11 +884,15 @@ found value: 21
 while ((iter = find_if(iter, vec.end(), not1(bind2nd(less<int>, 10)))) != vec.end()) 
 ```
 
-### 7、使用Map Using a Map
+### 7、使用Map 
+
+**Using a Map**
 
 键值对 key-value
 
-### 8、使用Set Using a Set
+### 8、使用Set 
+
+**Using a Set**
 
 集合 不重复 
 
@@ -860,7 +906,9 @@ set<int> iset(vec.begin(), vec.end());
 
 iset are {1,3,5,8}. 
 
-### 9、如何使用Iterator Inserter How to Use Iterator Insertors
+### 9、如何使用Iterator Inserter 
+
+**How to Use Iterator Insertors**
 
 之前我们主要是讨论从源端将符合条件的元素赋值到目的端，那么目的端的容器必须保证足够大。但是如果将目的端开的大小与源端大小一致，就会造成大量的资源浪费。
 
@@ -1014,25 +1062,413 @@ world
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## 四、基于对象的编程风格 Object-Based Programming
+
+这一章我们会自己实现自己的class
+
+class 名称会被视为一个类型type名称。
+
+每个class都会提供一组操作函数，让我们作用于其object上，这些操作函数包括具名函数，和重载运算符。
+
+身为class的用户，只能访问其公开接口，在使用这个类的时候忽略其实现细节。
+
+### 1、如何实现一个Class 
+
+**How to Implement a Class**
+
+**abstraction抽象   类似DS中的 Abstract Data Type ADT抽象数据类型**
+
+#### Class定义
+
+由两部分组成，其一是class的声明，其二是紧接在声明之后的主体。主体部分由一对大括号扩住，并以分号结尾。主体内的两个关键字public和private 标识每个块的成员访问权限，public member在程序任何部分被访问，但是private member只能在成员函数（类内部）以及class friend 内被访问。
+
+#### 成员函数声明
+
+所有成员函数都必须在class主体内进行声明，
+
+如果在class之内定义，这个成员变量会被自动视为inline函数，要是在class 主体外定义成员变量，必须使用特殊语法如stack::pop(string &elem)，目的在于分辨该函数属于哪一个class。如果想要让它内联，得加inline。
+
+对于inline 函数而言，定义在class主体内或主体外，没有什么区别，然而它应该被放在头文件中。
+
+### 2、什么是构造函数和析构函数 
+
+**What Are Class Constructors and the Class Destructor?**
+
+#### 构造函数
+
+为编译器提供的初始化函数
+
+constructor 的函数名称必须与class 名称相同，不应指定返回类型，也不用返回任何值，它可以被重载（一个类多个构造函数），在定义class object定义出来后，编译器就自动根据获得的参数，挑选出应该被调用的constructor。
+
+```c++
+class Triangular { 
+public: 
+ // overloaded set of constructors 
+ Triangular(); // default constructor 
+ Triangular(int len); 
+ Triangular(int len, int beg_pos); 
+ // ... 
+}; 
+
+这里我们使用Triangular t;就会调用默认构造函数；
+如果用 Triangular t2 = 8; 会调用constructor而不是assignment operator。会调用带有单一参数的constructor。
+**Triangular t3(); 这不是一个正常的构造函数，这里会将t3定义为一个函数，其参数列表为空，返回Triangular 类
+```
+
+默认构造函数又可以分为两类，一是不接受任何参数，二是为每个参数设置默认值。
+
+##### 成员初始化列表 
+
+##### Member Initialization List
+
+成员初始化列表紧接着参数列表最后的冒号后面，是以逗号分隔的列表。其中，欲赋值给member的数值被放在member名称后面的小括号中，使他们看起来像是调用constructor。主要用于将参数传给类成员对象的构造函数。
+
+##### 成员逐一初始化 
+
+##### Memberwise Initialization
+
+classname tri2 = tri1;
+
+会将class data member依次复制，但是有一点需要注意，即如果类成员如果有指针，也会被一同复制过去，这样两个指针都会指向heap的一块内存，这样当其中一个class 的析构函数发挥作用时，另一的指针还指在那个位置。
+
+为了解决这个问题，我们需要改变这种“逐一初始化”的行为模式，为这个类自己设计一个copy constructor。
+
+#### 析构函数
+
+一旦某个class提供有destructor，当其对象结束生命时，就会自动调用destructor处理后事，主要用来释放在构造以及对象生命周期中分配的资源。
+
+Destructor的名称有严格规定，class前面加上~，它绝对不会有返回值，也没有任何参数，由于参数列表为空，也绝不可能被重载。
+
+析构函数并非必须，如果数据成员以储值方式存放，那么就会自动释放。事实上，C++一大问题就是何时定义析构函数，何时不需要。
+
+> 如果未定义析构函数，编译器将提供默认的析构函数;对于许多类，这已经足够了。 类仅当类存储需要释放的系统资源的句柄或拥有它们指向的内存的指针时，才需要定义自定义析构函数。
+
+### 3、何谓mutable可变和const不变 
+
+**What Are mutable and const?**
+
+const 参数，编译器就必须保证trian在函数中不会被修改。那么就需要在成员函数中标注const。
+
+const修饰符紧接于函数参数列表之后，凡是在class主体以外定义者，如果它是一个const member Function，那就必须在声明和定义中同时制定const。
+
+mutable 可以在const变量时依旧标注某些值是可变的。此关键字只能应用于类的非静态和非常量数据成员。 如果声明 **`mutable`**数据成员，则从 **`const`** 成员函数向此数据成员赋值是合法的。
+
+### 4、什么是this指针 
+
+**what is the this Pointers？**
+
+this指针系在成员函数内用来指向其调用者（一个对象）。内部工作中，编译器自动将this指针，加到每一个member Function的参数列表。
+
+```c++
+the two class objects are not the same. To do this, we again use the this pointer: 
+Triangular& Triangular:: 
+copy(const Triangular &rhs) 
+{ 
+ // check that the two objects are not the same 
+ if (this != &rhs) 
+ 	{ 
+	 _length = rhs._length; 
+ 	 _beg_pos = rhs._beg_pos; 
+ 	 _next = rhs._beg_pos-1; 
+ 	} 
+    return *this;
+}
+
+```
+
+### 5、静态类成员 
+
+**Static Class Members**
+
+#### 	静态数据成员
+
+- 用关键词static声明
+- 为该类所有对象共享，静态数据成员具有静态生存期
+- 必须在类外定义和初始化，用::来指明所属的类
+
+局部静态变量的生存期和程序的运行时间相同。可以看做是所有类对象可以共同访问的一般对象，所以一般用于统计对象个数等类似的功能。
+
+#### 	静态成员函数
+
+​	在还是成员函数的情况下，用对象名.函数的方式调用。当他变成静态成员函数之后，那么就支持另一种（之前的也支持）调用方式，Classname::函数名();
+
+​	在静态函数中只能包含静态变量。因为在生成对象之前就已经有静态成员了。
+
+```c++
+#include <iostream>
+using namespace std;
+class Point2D {
+private:
+    int x;
+    int y;
+    static int count;
+public:
+    Point2D(int xval = 0, int yval = 0)
+        :x(xval), y(yval)
+    {
+        count++;
+    }
+    ~Point2D() { count--; }
+    int getX() { return x; }
+    int getY() { return y; }
+    static void showCount() {
+        cout << "  object count = " << count << endl;
+    }
+};
+int Point2D::count = 0;
+int main()
+{
+    Point2D::showCount();//在生成类之前就可以被调用
+    Point2D m(3, 4);
+    Point2D n(12, 13);
+    cout << m.getX() << endl;
+    n.showCount();
+    Point2D::showCount();
+    return 0;
+}
+```
+
+### 6、打造一个Iterator Class 
+
+**Building an Iterator Class**
+
+#### 类中运算符重载
+
+```c++
+class Triangular_iterator 
+{ 
+public: 
+// set _index to index-1 in order not to subtract 1 with 
+// each element access ... 
+ 	Triangular_iterator(int index) : _index(index-1){} 
+ 	bool operator==(const Triangular_iterator&) const; 
+ 	bool operator!=(const Triangular_iterator&) const; 
+ 	int operator*() const; 
+ 	int& operator++(); // prefix version 
+ 	int operator++(int); // postfix version 
+private: 
+ void check_integrity() const; 
+ int _index; 
+}; 
+```
+
+#### 运算符重载的规则
+
+- 不可以引入新的运算符，除了. .* :: ?: 其他的运算符都可以被重载
+- 运算符的操作数operand个数不可改变
+- 运算符的优先级不可改变
+- 运算符函数的参数列表中，必须至少有一个参数为class类型。也就是说我们无法为诸如指针之类的non-class类型，重写定义其原已存在的运算符，当然更无法为他引进新运算符。
+
+#### 嵌套类型 Nested Type
+
+typedef 可以为某个类型设定另一个不同的名称，其通用形式为
+
+​	typedef existing_type new_name;
+
+
+
+### 7、合作关系必须建立在友谊的基础上 
+
+**Collaboration Sometimes Requires Friendship**
+
+任何class都可以将其他Function 或 class 指定为友元。所谓friend， 具备了类成员函数相同的访问权限。可以访问private member。
+
+#### :star::star:public/private/protected/friend的具体区别
+
+> 对象应该是封装起来的，外界触摸到的应该只是函数.
+> 在说明这四个关键字之前，就class之间的关系做一个简单的定义，对于继承自己的class，base class可以认为他们都是自己的子女，而对于和自己一个目录下的classes，认为都是自己的朋友。
+>
+> 1. public：public表明该数据成员、成员函数是对所有用户开放的，所有用户都可以直接进行调用
+>
+> 2. private：private表示私有，私有的意思就是除了class自己之外，任何人都不可以直接使用，私有财产神圣不可侵犯嘛，即便是子女，朋友，都不可以使用。
+>
+>    ​	:star:**private是对类来说的，而不是对对象**，
+>
+>    ​	**private的检查仅仅在编译时刻，在运行时也有可能让你进入别的内存。**
+>
+>    ​	**C++的OOP仅存在于编译，他生成的.o和c、汇编生成的一样。**
+>
+> 3. protected：protected对于子女、朋友来说，就是public的，可以自由使用，没有任何限制，而对于其他的外部class，protected就变成private。
+>
+> 4. friend: 类的友元函数是定义在类外部，但有权访问类的所有私有（private）成员和保护（protected）成员。尽管友元函数的原型有在类的定义中出现过，但是友元函数并不是成员函数(没有this指针)。
+>
+> > public、protected 和 private 子类都不能访问父类的 private 成员
+> >
+> > public 作用域下，父类的 public 成员会被继承为 public，父类的 protected 成员会被继承为 protected
+> >
+> > protected 作用域下，父类的 public 和 protected 成员会被继承为 protected 成员
+> >
+> > private 作用域下，父类的 public 和 protected 成员会被继承为 private 成员
+> >
+> >
+> > 作者：程序员在深圳
+> > 链接：https://juejin.cn/post/6844903866316636168
+> > 来源：稀土掘金
+> > 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+>
+> 注:同一文件下默认friendly，class默认private，struct默认public
+>
+> 但这不意味着private里的东西完全无法碰触。
+
+
+
+### 8、实现一个copy assignment operator 
+
+**Implementing a Copy Assignment Operator**
+
+明确地提供一个copy的方案，来代替default memberwise copy，以避免类似复制指针的操作。
+
+```c++
+Matrix & Matrix::
+    operator=(const Matrix &rhs)
+    {
+        cout << "copy assignment operator was called" << endl;
+        if(this != &rhs)
+        {
+            _row = rhs._row;
+            _col = rhs._col;
+            pmat = new double[_row * _col];
+            for(int ix = 0; ix < _row * _col; ++ix)
+                pmat[ix] = rhs.pmat[ix];
+        }
+        return *this;
+    }
+```
+
+### 9、实现一个Function object
+
+**Implementing a Function Object**
+
+所谓function object 乃是一种提供有function call 运算符的class。
+
+function object 可以接受任意个数的参数。
+
+用起来很像函数，但是又有类的一些特征。
+
+```c++
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+class LessThan
+{
+public:
+    LessThan(int val): _val(val) {}
+    int com_val() const {return _val;}
+    void com_val(int nval) {_val = nval;}
+
+    inline bool operator()(int value) const;
+private:
+    int _val;
+};
+
+bool LessThan::operator()(int value) const
+{
+    return value < _val;
+}
+#include "LessThan.hpp"
+#include <vector>
+
+int count_less_than(const vector<int> & vec, int comp)
+{
+    LessThan lt(comp);
+    int count = 0;
+    for(int ix = 0; ix < vec.size(); ix++)
+        if(lt(vec[ix]))
+            ++count;
+    return count;
+}
+
+void print_less_than(const vector<int> & vec, int comp, ostream &os = cout)
+{
+    LessThan lt(comp);
+    vector<int>::const_iterator iter = vec.begin();
+    vector<int>::const_iterator iter_end = vec.end();
+
+    while((iter = find_if(iter, iter_end, lt)) != iter_end)
+    {
+        os << *iter << ' ';
+        iter++;
+    }
+    cout << endl;
+}
+
+int main()
+{
+    int ia[16] = {17, 12, 44, 9, 18, 45, 6, 14,
+                  23, 67, 9, 0, 27, 55, 8, 16};
+    vector<int> ivec(ia, ia + 16);
+    int comp_val = 20;
+
+    cout << "Number of elements less than " << comp_val << " are " 
+         << count_less_than(ivec, comp_val) << endl;
+        
+    print_less_than(ivec, comp_val);
+    return 0;
+}
+```
+
+### 10、重载iostream运算符
+
+**Providing Class Instances of the iostream Operators**
+
+我们希望对某个class Object 进行读取写入操作。
+
+```c++
+cout<<trian<endl;
+```
+
+为此，我们得另外提供一份重载的output运算符。
+
+【越来越感觉c++就像一个固定接口无限外挂的乐高玩具了，就好像一个海盗船船身有几个孔位，你可以在里面放大炮，船桨，你要是有本事放龙翅膀都行】
+
+```c++
+ostream &operator<<(ostream &os, const Triangular &rhs)
+{
+    os << "( " << rhs.beg_pos() << ", " << rhs.length() << " )";
+    rhs.display(rhs.length(), rhs.beg_pos(), os);
+    return os;
+}
+
+istream & operator>>(istream & is, Triangular & rhs)
+{
+    int bp, len;
+    is >> bp >> len;
+    rhs.beg_pos(bp);
+    rhs.length(len);
+    rhs.next_reset();
+
+    int elem_cnt = bp + len - 1;
+    if (Triangular::cur_size() < elem_cnt)
+        Triangular::gen_elements(elem_cnt);
+    return is;
+}
+```
+
+对于ostream，参数列表中两个对象都是以传址 by reference方式传入。
+
+而输入，只读取triangular的前四个部分。
+
+### 11、指针，指向Class Member Function
+
+**Pointers to Class Member Functions**
+
+> **定义：**类成员函数指针（member function pointer），是 C++ 语言的一类指针数据类型，用于存储一个指定类具有给定的形参列表与返回值类型的成员函数的访问信息。
+>
+> 基本上要注意的有两点：
+>
+> - 1、函数指针赋值要使用 **&**
+> - 2、使用 **.\*** (实例对象)或者 **->\***（实例对象指针）调用类成员函数指针所指向的函数
+>
+> 类成员函数指针与普通函数指针不是一码事。前者要用 **.\*** 与 -**>\*** 运算符来使用，而后者可以用 ***** 运算符（称为"解引用"dereference，或称"间址"indirection）。
+>
+> 普通函数指针实际上保存的是函数体的开始地址，因此也称"代码指针"，以区别于 C/C++ 最常用的数据指针。
+>
+> 而类成员函数指针就不仅仅是类成员函数的内存起始地址，还需要能解决因为 C++ 的多重继承、虚继承而带来的类实例地址的调整问题，所以类成员函数指针在调用的时候一定要传入类实例对象。
+
+
+
+
 
 ## 五、面向对象编程风格 Object-Oriented Programming
 
