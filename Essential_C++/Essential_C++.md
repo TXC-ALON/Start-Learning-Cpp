@@ -1,5 +1,9 @@
 # Essential C++
 
+[toc]
+
+
+
 ## 序
 
 作者除了计算机科学方面的学位，还有艺术硕士的头衔。
@@ -1472,6 +1476,104 @@ istream & operator>>(istream & is, Triangular & rhs)
 
 ## 五、面向对象编程风格 Object-Oriented Programming
 
-## 六、以template进行编程 Programming with Templates
+第四章的学习，主要是通过实现Class 类，来引入一个崭新的数据类型，可以更加直接地在我们设计的程序系统中，表现我们想表现的主体。
+
+在编程的积累中，往往会有一种 is-a-kind-of的关系，很多类可能共享一些data member 和 member functions，也能增加一些额外特殊数据。
+
+所以我们需要从**基于对象**拓展到**面向对象**。
+
+### 1、面向对象编程概念
+
+**Object-Oriented Programming Concepts**
+
+### 2、漫游：面向对象编程思维
+
+**A Tour of Object-Oriented Programming**
+
+### 3、不带继承的多态
+
+**Polymorphism without Inheritance**
+
+### 4、定义一个抽象基类
+
+**Defining an Abstract Base Class**
+
+### 5、定义一个派生类
+
+**Defining a Derived Class**
+
+### 6、运用继承体系
+
+**Using an Inheritance Hierarchy**
+
+### 7、基类应该多么抽象
+
+**How Abstract Should a Base Class Be?**
+
+### 8、初始化、析构、复制
+
+**Initialization, Destruction,and Copy**
+
+### 9、在派生类中定义一个虚函数
+
+**Defining a Derived Class Virtual Function**
+
+### 10、运行时的类型鉴定机制
+
+**Run-Time Type Identification**
+
+## 六、以Template进行编程 Programming with Templates
+
+### 1、被参数化的类型
+
+**Parameterized Types**
+
+### 2、ClassTemplate 的定义
+
+**The Template Class Definition**
+
+### 3、Template 类型参数的处理
+
+**Handling Template Type Parameters**
+
+### 4、实现一个ClassTemplate
+
+**Implementing the Template Class**
+
+### 5、一个以Function Template完成的Output运算符
+
+**A Function Template Output Operator**
+
+### 6、常量表达式与默认参数值
+
+**Constant Expressions and Default Parameters**
+
+### 7、以Template参数作为一种设计策略
+
+**Template Parameters as Strategy**
+
+### 8、Member Template Function
+
+
 
 ## 七、异常处理 Exception Handling
+
+### 1、抛出异常
+
+**Throwing an Exception**
+
+### 2、捕获异常
+
+**Catching an Exception**
+
+### 3、提炼异常
+
+**Trying for an Exception**
+
+### 4、局部资源管理
+
+**Local Resource Management**
+
+### 5、标准异常
+
+**The Standard Exceptions**
