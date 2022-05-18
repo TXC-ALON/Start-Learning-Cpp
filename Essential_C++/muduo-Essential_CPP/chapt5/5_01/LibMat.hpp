@@ -7,12 +7,12 @@ class LibMat
 public:
     LibMat()
     {
-        cout << "LibMat::LibMat() default constructor was called" << endl;
+       // cout << "LibMat::LibMat() default constructor was called" << endl;
     }
 
     virtual ~LibMat()
     {
-        cout << "LibMat::~LibMat() default destructor was called" << endl;
+        //cout << "LibMat::~LibMat() default destructor was called" << endl;
     }
     virtual void print() const
     {
@@ -25,12 +25,12 @@ class Book : public LibMat
 public:
     Book(const string &title, const string &author) : _title(title), _author(author)
     {
-        cout << "Book::Book( " << _title << ", " << _author << " ) constructor was called" << endl; 
+        //cout << "Book::Book( " << _title << ", " << _author << " ) constructor was called" << endl; 
     }
 
     virtual ~Book()
     {
-        cout << "Book::~Book() was called" << endl;
+        //cout << "Book::~Book() was called" << endl;
     }
 
     virtual void print() const
@@ -53,13 +53,13 @@ class AudioBook : public Book
 public:
     AudioBook(const string &title, const string &author, const string &narrator) : Book(title, author), _narrator(narrator)
     {
-        cout << "AudioBook::AudioBook(" << _title << ", " << _author << ", " << _narrator
-            << " ) constructor was called" << endl;
+        //cout << "AudioBook::AudioBook(" << _title << ", " << _author << ", " << _narrator
+        //    << " ) constructor was called" << endl;
     }
 
     ~AudioBook()
     {
-        cout << "AudioBook::~AudioBook() destructor was called" << endl;
+        //cout << "AudioBook::~AudioBook() destructor was called" << endl;
     }
 
     virtual void print() const

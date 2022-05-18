@@ -1486,41 +1486,830 @@ istream & operator>>(istream & is, Triangular & rhs)
 
 **Object-Oriented Programming Concepts**
 
+面向对象编程概念的两项最主要特质是：继承inheritance和多态polymorphism
+
+​	前者使我们得以将一群相关的类组织起来，并让我们得以分享其间的共通数据和操作行为。
+
+​	后者让我们在这些类之上进行编程，可以如同操控单一个体，而非相互独立的类，并赋予我们更多弹性来加入或移除任何特定类。
+
+#### 继承 inheritance
+
+继承机制定义了父子关系，父类定义了所有子类共通的公有接口 public interface和私有实现private implementation。每个子类都可以增加或覆盖override继承而来的东西。
+
+在C++中，父类被称为基类base class，子类被称为派生类derived class。父子类之间的关系被称为继承体系，inheritance hierarchy。
+
+继承体系中最根本的乃是一个抽象基类 abstract base class，在面向对象应用程序中，我们会间接利用指向抽象基类的pointer 或 reference来操作系统中的个对象，而不是直接操作各个实际对象。
+
+#### 多态 polymorphism
+
+让基类的pointer或reference得以透明地transparently 指向其任何一个派生类的对象。
+
+#### 动态绑定 dynamic binding
+
+解析操作会延迟到运行时才进行。
+
+#### 总结：
+
+继承特性让我们得以定义一整群互有关联的类，并共享互通的接口。
+
+多态则让我们得以用一种与类型无关type-independent的方式来操作这些类对象。
+
+我们通过抽象基类的指针和引用来操控其共通接口，实际执行的操作要等到运行时，根据他们所指的实际对象的类型才能决定。
+
+**多态和动态绑定的特性，只有在使用指针和引用时才能发挥**
+
 ### 2、漫游：面向对象编程思维
 
 **A Tour of Object-Oriented Programming**
+
+#### 虚函数 virtual
+
+默认情形下，member function 的解析resolution皆在编译时静态地进行，若要令其在运行时动态进行，我们就得在它的声明前加上关键字virtual。
+
+#### [todo]override
+
+> #### C++多态
+>
+> C++多态(polymorphism)是通过虚函数来实现的，虚函数允许子类重新定义成员函数，而子类重新定义父类的做法称为覆盖(override)，或者称为**重写**。
+>
+> 最常见的用法就是声明基类的指针，利用该指针指向任意一个子类对象，调用相应的虚函数，动态绑定。由于编写代码的时候并不能确定被调用的是基类的函数还是哪个派生类的函数，所以被成为“虚”函数。如果没有使用虚函数的话，即没有利用C++多态性，则利用基类指针调用相应的函数的时候，将总被限制在基类函数本身，而无法调用到子类中被重写过的函数。
+>
+> 用下面代码演示多态和非多态。
+>
+> ```c++
+> #include<iostream>  
+> using namespace std;  
+> 
+> class A  
+> {  
+> public:  
+>     void foo()  
+>     {  
+>         printf("1\n");  
+>     }  
+>     virtual void fun()  
+>     {  
+>         printf("2\n");  
+>     }  
+> };  
+> class B : public A  
+> {  
+> public:  
+>     void foo()  //隐藏：派生类的函数屏蔽了与其同名的基类函数
+>     {  
+>         printf("3\n");  
+>     }  
+>     void fun()  //多态、覆盖
+>     {  
+>         printf("4\n");  
+>     }  
+> };  
+> int main(void)  
+> {  
+>     A a;  
+>     B b;  
+>     A *p = &a;  
+>     p->foo();  //输出1
+>     p->fun();  //输出2
+>     p = &b;  
+>     p->foo();  //取决于指针类型，输出1
+>     p->fun();  //取决于对象类型，输出4，体现了多态
+>     return 0;  
+> } 
+> ```
+>
+> 
+>
+> #### C++纯虚函数及虚函数
+>
+> 纯虚函数是在基类中声明的虚函数，它在基类中没有定义，但要求任何派生类都要定义自己的实现方法。在基类中实现纯虚函数的方法是在函数原型后加“=0” 。
+>
+> 引入纯虚函数的原因：
+>
+>        （1）为了方便使用多态特性，我们常常需要在基类中定义虚拟函数。
+>         
+>        （2）在很多情况下，基类本身生成对象是不合情理的。例如，动物作为一个基类可以派生出老虎、孔雀等子类，但动物本身生成对象明显不合常理。 
+>
+> 包含纯虚函数的类称为抽象类。由于抽象类包含了没有定义的纯虚函数，所以不能定义抽象类的对象。抽象类的主要作用是将有关的操作作为结果接口组织在一个继承层次结构中，由它来为派生类提供一个公共的根，派生类将具体实现在其基类中作为接口的操作。
+>
+>        虚函数的作用是允许在派生类中重新定义与基类同名的函数，并且可以通过基类指针或引用来访问基类和派生类中的同名函数。
+>
+> 虚函数是C++中用于实现多态的机制。核心理念就是通过基类访问派生类定义的函数。如果父类或者祖先类中函数func()为虚函数，则子类及后代类中，函数func()是否加virtual关键字，都将是虚函数。为了提高程序的可读性，建议后代中虚函数都加上virtual关键字。
+>
+> #### C++保留字override
+>
+> ​       override 仅在成员函数声明之后使用时才是区分上下文的且具有特殊含义；否则，它不是保留的关键字。使用 override 有助于防止代码中出现意外的继承行为。以下示例演示在未使用override 的情况下，可能不打算使用派生类的成员函数行为。编译器不会发出此代码的任何错误。
+>
+> ```c++
+> class BaseClass
+> {
+>   virtual void funcA();
+>   virtual void funcB() const;
+>   virtual void funcC(int = 0);
+>   void funcD();
+> };
+> 
+> class DerivedClass: public BaseClass
+> {
+>   virtual void funcA(); // ok, works as intended
+> 
+>   virtual void funcB(); // DerivedClass::funcB() is non-const, so it does not
+>              // override BaseClass::funcB() const and it is a new member function
+> 
+>   virtual void funcC(double = 0.0); // DerivedClass::funcC(double) has a different
+>                    // parameter type than BaseClass::funcC(int), so
+>                    // DerivedClass::funcC(double) is a new member function
+> };
+> 
+> 当使用 override时，编译器会生成错误，而不会在不提示的情况下创建新的成员函数。
+> 
+> class BaseClass
+> {
+>   virtual void funcA();
+>   virtual void funcB() const;
+>   virtual void funcC(int = 0);
+>   void funcD();
+> };
+> 
+> class DerivedClass: public BaseClass
+> {
+>   virtual void funcA() override; // ok
+> 
+>   virtual void funcB() override; // compiler error: DerivedClass::funcB() does not 
+>                   // override BaseClass::funcB() const
+> 
+>   virtual void funcC( double = 0.0 ) override; // compiler error: 
+>                          // DerivedClass::funcC(double) does not 
+>                          // override BaseClass::funcC(int)
+> 
+>   void funcD() override; // compiler error: DerivedClass::funcD() does not 
+>               // override the non-virtual BaseClass::funcD()
+> };
+> 
+> 
+> ```
+>
+> 下面代码展示了手动调用虚函数的过程
+>
+> ```c++
+> #include<iostream>
+> using namespace std;
+> 
+> class A {
+> public:
+> 	virtual void vfunc1() { cout << "A::vfunc1()" << endl; };
+> 	virtual void vfunc2() { cout << "A::vfunc2()" << endl; };
+> 	void func1() { cout << "A::func1()" << endl; };
+> 	void func2() { cout << "A::func2()" << endl; };
+> private:
+> 	int data1_;
+> 	int data2_;
+> };
+> 
+> class B :public A {
+> public:
+> 	virtual void vfunc1() override { cout << "B::vfunc1()" << endl; };
+> 	void func2() { cout << "B::func2()" << endl; };
+> private:
+> 	int data3_;
+> };
+> 
+> class C :public B {
+> public:
+> 	virtual void vfunc1() override { cout << "C::vfunc1()" << endl; };
+> 	void func2() { cout << "C::func2()" << endl; };
+> private:
+> 	int data1_, data4_;
+> };
+> 
+> //演示了手动调用虚函数的过程
+> int main() {
+> 	B a;
+> 	typedef void(*Fun)(void);
+> 	Fun pFun = nullptr;
+> 	cout << "虚函数表地址：" << (int*)(&a) << endl;
+> 	cout << "虚函数表第1个函数地址："<<(int*)*(int*)(&a) << endl;
+> 	cout << "虚函数表第2个函数地址：" << (int*)*(int*)(&a) + 1 << endl;
+> 	pFun = (Fun)*((int*)*(int*)(&a));
+> 	pFun();
+> 	pFun = (Fun)*((int*)*(int*)(&a) + 1);
+> 	pFun();
+> 	return 0;
+> }
+> ```
+>
+>
+> 参考文章：
+>
+> [1] http://blog.csdn.net/hackbuteer1/article/details/7475622
+>
+> [2] http://blog.csdn.net/hackbuteer1/article/details/7558868
+>
+> [3] http://www.jb51.net/article/78489.htm
+> ————————————————
+> 版权声明：本文为CSDN博主「i_chaoren」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/i_chaoren/article/details/77281785
 
 ### 3、不带继承的多态
 
 **Polymorphism without Inheritance**
 
-### 4、定义一个抽象基类
+通过编程技巧实现，非常复杂，难以维护。
+
+### 4、:star:定义一个抽象基类
 
 **Defining an Abstract Base Class**
+
+#### 三大步骤
+
+第一步是找出所有子类共通的操作行为。这些操作所代表的就是num_sequence这个基类的公有接口 public interface。
+
+第二步便是设法找出哪些操作行为与类型相关type-dependent。这些操作行为根据不同的派生类而有不同的实现方式，这些操作行为一个是整个类继承体系中的虚函数。
+
+​	注意：static member Function 无法被声明为虚拟函数。
+
+第三步，试着找出每个操作行为的访问层级，即划分public和private，protected
+
+| 类型      | 特点                                             |
+| --------- | ------------------------------------------------ |
+| Public    | 某个操作行为让一般程序皆能访问。                 |
+| Private   | 某个操作行为在基类外不需要被用到，子类都不可以用 |
+| Protected | 某个操作可以让派生类访问，却不允许一般程序使用   |
+
+#### 纯虚函数
+
+如果对于这个类而言，这个虚函数并无意义，那么就将虚函数赋值为0，意思便是它为一个纯虚函数。
+
+任何类如果声明有一个或多个纯虚函数，那么由于其接口的不完整性（纯虚函数没有函数定义），程序无法为它产生任何对象，这种类只能作为派生类的子对象使用，而且前提是这些派生类必须为所有虚函数提供确切的定义。
+
+>1、为了方便使用多态特性，我们常常需要在基类中定义虚拟函数。
+>
+>2、在很多情况下，基类本身生成对象是不合情理的。例如，动物作为一个基类可以派生出老虎、孔雀等子类，但动物本身生成对象明显不合常理。
+>
+>　　
+>
+>为了解决上述问题，引入了纯虚函数的概念，将函数定义为纯虚函数（方法：**virtual ReturnType Function()= 0;**），则编译器要求在派生类中必须予以重写以实现多态性。同时含有纯虚拟函数的类称为抽象类，它不能生成对象。这样就很好地解决了上述两个问题。
+>
+>声明了纯虚函数的类是一个抽象类。所以，用户不能创建类的实例，只能创建它的派生类的实例。
+>
+>**纯虚函数最显著的特征是**：它们必须在继承类中重新声明函数（不要后面的＝0，否则该派生类也不能实例化），而且它们在抽象类中往往没有定义。
+>
+>定义纯虚函数的目的在于，使派生类仅仅只是继承函数的接口。
+>
+>纯虚函数的意义，让所有的类对象（主要是派生类对象）都可以执行纯虚函数的动作，但类无法为纯虚函数提供一个合理的默认实现。所以类纯虚函数的声明就是在告诉子类的设计者，"你必须提供一个纯虚函数的实现，但我不知道你会怎样实现它"。
+
+
+
+#### 总结：
+
+- 1、纯虚函数声明如下： **virtual void funtion1()=0;** 纯虚函数一定没有定义，纯虚函数用来规范派生类的行为，即接口。包含纯虚函数的类是抽象类，抽象类不能定义实例，但可以声明指向实现该抽象类的具体类的指针或引用。
+
+- 2、虚函数声明如下：**virtual ReturnType FunctionName(Parameter)** 虚函数必须实现，如果不实现，编译器将报错，错误提示为：
+
+  ```
+  error LNK****: unresolved external symbol "public: virtual void __thiscall ClassName::virtualFunctionName(void)"
+  ```
+
+- 3、对于虚函数来说，父类和子类都有各自的版本。由多态方式调用的时候动态绑定。
+
+- 4、实现了纯虚函数的子类，该纯虚函数在子类中就编程了虚函数，子类的子类即孙子类可以覆盖该虚函数，由多态方式调用的时候动态绑定。
+
+- 5、虚函数是C++中用于实现多态(polymorphism)的机制。核心理念就是通过基类访问派生类定义的函数。
+
+- 6、在有动态分配堆上内存的时候，析构函数必须是虚函数，但没有必要是纯虚的。
+
+- 7、友元不是成员函数，只有成员函数才可以是虚拟的，因此友元不能是虚拟函数。但可以通过让友元函数调用虚拟成员函数来解决友元的虚拟问题。
+
+- 8、析构函数应当是虚函数，将调用相应对象类型的析构函数，因此，如果指针指向的是子类对象，将调用子类的析构函数，然后自动调用基类的析构函数。
+
+有纯虚函数的类是抽象类，不能生成对象，只能派生。他派生的类的纯虚函数没有被改写，那么，它的派生类还是个抽象类。
+
+定义纯虚函数就是为了让基类不可实例化化，因为实例化这样的抽象数据结构本身并没有意义，或者给出实现也没有意义。
+
+实际上我个人认为纯虚函数的引入，是出于两个目的：
+
+- 1、为了安全，因为避免任何需要明确但是因为不小心而导致的未知的结果，提醒子类去做应做的实现。
+- 2、为了效率，不是程序执行的效率，而是为了编码的效率。
+
+> 原文地址：https://blog.csdn.net/hackbuteer1/article/details/7558868
+
+
 
 ### 5、定义一个派生类
 
 **Defining a Derived Class**
 
+子类由两部分组成，一是基类构成的子对象subject，由基类的non-static data member(如果) 组成，二是子类自己的部分
+
+语法：
+
+```c++
+#include"baseclass.h"
+class Derivedclassname : Baseclassname{
+public:
+		...    
+private:
+    	...
+}
+```
+
+通过class scope运算符，我们可以明确告诉编译器，我们想调用哪些函数实例。这样运算时发生的虚拟机制就被遮掩了。
+
+每当派生类有某个成员与基类的成员同名，那么就会遮掩基类的成员。如果要用，必须用class scope加以限定。
+
+```c++
+#include<iostream>
+using namespace std;
+class A
+{
+public:
+    virtual void foo()
+    {
+        cout << "A::foo() is called" << endl;
+    }
+};
+class B :public A
+{
+public:
+    virtual void foo()
+    {
+        cout << "B::foo() is called" << endl;
+    }
+};
+int main(void)
+{
+    A* a = new B();
+    a->foo();   // 在这里，a虽然是指向A的指针，但是被调用的函数(foo)却是B的!
+    B t;
+    t.A::foo();
+    return 0;
+}
+```
+
+
+
 ### 6、运用继承体系
 
 **Using an Inheritance Hierarchy**
+
+> ## 继承类型
+>
+> 当一个类派生自基类，该基类可以被继承为 **public、protected** 或 **private** 几种类型。继承类型是通过上面讲解的访问修饰符 access-specifier 来指定的。
+>
+> 我们几乎不使用 **protected** 或 **private** 继承，通常使用 **public** 继承。当使用不同类型的继承时，遵循以下几个规则：
+>
+> - **公有继承（public）：**当一个类派生自**公有**基类时，基类的**公有**成员也是派生类的**公有**成员，基类的**保护**成员也是派生类的**保护**成员，基类的**私有**成员不能直接被派生类访问，但是可以通过调用基类的**公有**和**保护**成员来访问。
+> - **保护继承（protected）：** 当一个类派生自**保护**基类时，基类的**公有**和**保护**成员将成为派生类的**保护**成员。
+> - **私有继承（private）：**当一个类派生自**私有**基类时，基类的**公有**和**保护**成员将成为派生类的**私有**成员。
+>
+> ## 多继承
+>
+> 多继承即一个子类可以有多个父类，它继承了多个父类的特性。
+>
+> C++ 类可以从多个类继承成员，语法如下：
+>
+> ```
+> class <派生类名>:<继承方式1><基类名1>,<继承方式2><基类名2>,…
+> {
+> <派生类类体>
+> };
+> ```
+>
+> 其中，访问修饰符继承方式是 **public、protected** 或 **private** 其中的一个，用来修饰每个基类，各个基类之间用逗号分隔，如上所示。现在让我们一起看看下面的实例：
+
+
 
 ### 7、基类应该多么抽象
 
 **How Abstract Should a Base Class Be?**
 
+还有一种设计思路--将所有派生类共有的实现内容剥离出来，移植进基类内。基本上需要将一些对象的访问权限降低。
+
 ### 8、初始化、析构、复制
 
 **Initialization, Destruction,and Copy**
+
+初始化可以留给子类来做，不过一种较好的设计方式，是为基类提供constructor，并利用这个构造函数处理基类所声明的所有data member 的初始化操作。
+
+因为抽象基类无法被定义任何对象，所以将其构造函数声明为Protected。
+
+子类的构造函数u，不仅要为子类的数据成员进行初始化操作，有时候还需要为基类的数据成员传值。
+
+```c++
+inline Fibonacci::
+Fibonacci( int len , int beg_pos)
+    : num_sequence(len,beg_pos,_elems)
+{}
+```
+
+还有一种做法是为基类提供默认构造函数，这样当子类的构造函数未能明确指出调用基类的哪一个构造函数时，编译器就会自动调用基类的默认构造。
+
+
 
 ### 9、在派生类中定义一个虚函数
 
 **Defining a Derived Class Virtual Function**
 
+在我们定义派生类时，我们需要决定是要将基类中的虚函数覆盖掉，还是继承之。如果我们继承了纯虚函数，那么这个派生类也是不完整的，会被视为抽象类，无法为它定义任何对象。
+
+如果我们决定覆盖基类所提供的虚函数，那么派生类提供的新定义，其函数原型必须完全符合基类所声明的函数原型。包括：**参数列表，返回类型，是否为const。**
+
+<font color='#DB4437'>我的一种非常不贴切的理解：我去餐厅点菜，以我最终得到的为准，那么在最终菜之前有两种状态，一是很粗浅的需求比如说来个肉菜，类似纯虚函数，二是在厨房备菜，确定是红烧肉，类似虚函数。备菜，不代表这个菜没有做好，有的半成品也能吃了，或者说等你挑细节的口味，比如大碗牛肉面就是多放两根面条。类似虚函数的动态绑定，在端上桌前不知道具体是什么。当我点菜的时候，比如说五道菜，那么我就是给出五种需求，随着点菜明确和师傅做饭，那么会有一些进厨房，一些到餐桌。如果有一张菜单没在厨房得到确定，那么这个阶段就不完整，不能称之为备料结束。                        还有很大的优化空间，感觉有点意思。</font>
+
+#### 返回类型完全吻合？
+
+要一直注意返回类型是否和声明里定义的一样。但也有个例外，就是当基类的虚函数返回某个基类形式，通常是指针或引用时，比如说子类里的指针指回上一层，重新进行选择其他类型。
+
+#### 子类中覆盖基类虚函数
+
+在子类中为了覆盖基类的虚函数而进行声明操作时，不一定得加上virtual，编译器会根据两个函数的原型声明，决定某个函数是否会覆盖其基类中的同名函数。
+
+#### -虚函数的静态解析
+
+有两种情况，虚函数机制不会出现预期行为：
+
+1. 基类的构造和析构函数
+
+   > 我们构造子类时，父类的构造函数会先用，如果调用存在于这里的虚函数，子类中的data member并未初始化，那么虚函数就可能访问未初始化的datamember。
+
+   <font color='#4285F4'>基类的构造函数中，子类的虚函数绝对不会被调用</font>
+
+2. 当我们使用得是基类的对象，而非基类对象的指针或引用时。
+
+   > 当我们为基类声明一个实际对象，那么就分配出了足以容纳该实际对象的内存空间。如果稍后传入的是个派生类对象，那么就没有足够的内存放置子类中的各个data member,只有基类子对象复制到为基类保留的内存中，其他的子对象被切掉，基类所需的另外的参数被初始化为子类对象的内存地址。
+   >
+   > ```c++
+   > #include <iostream>
+   > #include <string>
+   > using namespace std;
+   > 
+   > class LibMat
+   > {
+   > public:
+   >     LibMat()
+   >     {
+   >         // cout << "LibMat::LibMat() default constructor was called" << endl;
+   >     }
+   > 
+   >     virtual ~LibMat()
+   >     {
+   >         //cout << "LibMat::~LibMat() default destructor was called" << endl;
+   >     }
+   >     virtual void print() const
+   >     {
+   >         cout << "LibMat::print() -- I am a LibMat object" << endl;
+   >     }
+   > };
+   > 
+   > class Book : public LibMat
+   > {
+   > public:
+   >     Book(const string& title, const string& author) : _title(title), _author(author)
+   >     {
+   >         //cout << "Book::Book( " << _title << ", " << _author << " ) constructor was called" << endl; 
+   >     }
+   > 
+   >     virtual ~Book()
+   >     {
+   >         //cout << "Book::~Book() was called" << endl;
+   >     }
+   > 
+   >     virtual void print() const
+   >     {
+   >         cout << "Book::print() -- I am a Book object" << endl;
+   >         cout << "My title is: " << _title << endl;
+   >         cout << "My author is: " << _author << endl;
+   >     }
+   > 
+   >     const string& title() const { return _title; }
+   >     const string& author() const { return _author; }
+   > 
+   > protected:
+   >     string _title;
+   >     string _author;
+   > };
+   > 
+   > class AudioBook : public Book
+   > {
+   > public:
+   >     AudioBook(const string& title, const string& author, const string& narrator) : Book(title, author), _narrator(narrator)
+   >     {
+   >         //cout << "AudioBook::AudioBook(" << _title << ", " << _author << ", " << _narrator
+   >         //    << " ) constructor was called" << endl;
+   >     }
+   > 
+   >     ~AudioBook()
+   >     {
+   >         //cout << "AudioBook::~AudioBook() destructor was called" << endl;
+   >     }
+   > 
+   >     virtual void print() const
+   >     {
+   >         cout << "AudiBook::print() -- I am a AudiBook object" << endl;
+   >         cout << "My title is: " << _title << endl;
+   >         cout << "My author is: " << _author << endl;
+   >         cout << "My narrator is: " << _narrator << endl;
+   >     }
+   > 
+   >     const string& narrator() const { return _narrator; }
+   > protected:
+   >     string _narrator;
+   > };
+   > 
+   > void print(LibMat object, const LibMat* pointer, const LibMat& reference)
+   > {
+   >     cout << "In global print(): about to print 对象.print()" << endl;
+   >     object.print();
+   >     cout << "指针打印" << endl;
+   >     pointer->print();
+   >     cout << "引用打印" << endl;
+   >     reference.print();
+   >     cout << "*********" << endl;
+   > }
+   > 
+   > int main()
+   > {
+   >     // cout << "\nCreating a LibMat object to print()" << endl;
+   >     // LibMat libmat;
+   >     // print(libmat);
+   > 
+   >     // cout << "\nCreating a Book object to print()" << endl;
+   >     // Book b("The Castle", "Franz Kafka");
+   >     // print(b);
+   >     //cout<<endl;
+   >     //cout << "\nCreating a AudiBook object to print()" << endl;
+   >     //AudioBook ab("Man Without Qualities", "Robert Musil", "Keneth Meyer");
+   >     //cout << "\nthe author of the book is" << endl;
+   >     //<<ab.author()<<endl;
+   >     // print(ab);
+   >     cout << endl;
+   > 
+   >     cout << "**test put an child object to parent" << endl;
+   >     //LibMat * audio = new AudioBook("Man Without Qualities", "Robert Musil", "Keneth Meyer");
+   >     //print(*audio);
+   >     //delete audio;
+   >     AudioBook iwash("Man Without Qualities", "Robert Musil", "Keneth Meyer");
+   >     print(iwash, &iwash, iwash);
+   >     cout << endl;
+   > 
+   > 
+   >     return 0;
+   > }
+   > /*
+   > **test put an child object to parent
+   > In global print(): about to print 对象.print()
+   > LibMat::print() -- I am a LibMat object
+   > 这里并没有打印audiobook的内容
+   > 指针打印
+   > AudiBook::print() -- I am a AudiBook object
+   > My title is: Man Without Qualities
+   > My author is: Robert Musil
+   > My narrator is: Keneth Meyer
+   > 引用打印
+   > AudiBook::print() -- I am a AudiBook object
+   > My title is: Man Without Qualities
+   > My author is: Robert Musil
+   > My narrator is: Keneth Meyer
+   > *********
+   > */
+   > ```
+   >
+   > 
+
+   https://blog.csdn.net/shltsh/article/details/45966209
+
 ### 10、运行时的类型鉴定机制
 
 **Run-Time Type Identification**
+
+#### typeid运算符
+
+是运行时类型鉴定机制 Run-Time Type Identification RTTI 的一部分
+
+需要包含#include<typeinfo>
+
+```c++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class num_sequence
+{
+public:
+    virtual const char *what_am_i() const
+    {
+        return  "num_sequence";
+    }
+};
+
+class Fibonacci : public num_sequence
+{
+public:
+    virtual const char *what_am_i() 
+    {
+         return "Fibonacci"; 
+    }
+};
+int main()
+{
+    Fibonacci fib;
+    Fibonacci fib2;
+    num_sequence ns;
+
+    num_sequence * pns = &fib;
+
+    cout << fib.what_am_i() << endl;
+    cout << pns->what_am_i() << endl;
+    cout << typeid(fib).name() << endl;
+    cout << typeid(fib2). name() << endl;
+    cout << (typeid(fib)==typeid(fib2)) << endl;
+
+    cout << typeid(ns).name() << endl;
+    cout << (typeid(fib)==typeid(ns)) << endl;
+
+    cout << typeid(*pns).name() << endl; 
+
+    return 0;
+}
+
+/*
+Fibonacci
+num_sequence
+class Fibonacci
+class Fibonacci
+1
+class num_sequence
+0
+class Fibonacci
+*/
+```
+
+> 这里出现一个情况，就是我在visual studio是得到这个结果，但是在vscode直接用g++编译，得到的结果却是
+>
+> ```c++
+> Fibonacci
+> num_sequence
+> 9Fibonacci
+> 9Fibonacci
+> 1
+> 1
+> 12num_sequence
+> 0
+> 9Fibonacci
+> ```
+>
+> 后来在虚拟机linux 测了一下，
+>
+> ```c++
+> #include<iostream>
+> #include<typeinfo>
+> using namespace std;
+> int main()
+> {
+>     int iVal;
+>     double dVal;
+>     cout << typeid(iVal).name() << endl;
+>     cout << typeid(dVal).name() << endl;
+> }
+> 
+> /*
+> i
+> d
+> */
+> ```
+>
+> 看来g++就是缩写了
+
+#### static_cast&dynamic_cast 
+
+dynamic_cast 也是一个RTTI运算符。
+
+> **static_cast< new_type >(expression)**
+> **dynamic_cast< new_type >(expression)**
+> 备注：new_type为目标数据类型，expression为原始数据类型变量或者表达式。
+> 尽量少使用转型操作，尤其是dynamic_cast，耗时较高，会导致性能的下降，尽量使用其他方法替代。
+>
+> ### static_cast
+>
+> static_cast相当于传统的C语言里的强制转换，该运算符把expression转换为new_type类型，用来强迫隐式转换如non-const对象转为const对象，编译时检查，用于非多态的转换，可以转换指针及其他，但没有运行时类型检查来保证转换的安全性。它主要有如下几种用法：
+> ①用于类层次结构中基类（父类）和派生类（子类）之间指针或引用的转换。
+> 进行上行转换（把派生类的指针或引用转换成基类表示）是安全的；
+> 进行下行转换（把基类指针或引用转换成派生类表示）时，由于没有动态类型检查，所以是不安全的。
+> ②用于基本数据类型之间的转换，如把int转换成char，把int转换成enum。
+> ③把空指针转换成目标类型的空指针。
+> ④把任何类型的表达式转换成void类型。
+> 注意：static_cast不能转换掉expression的const、volatile、或者__unaligned属性
+> (1) 基本类型数据转换举例如下：
+>
+> ```c++
+> char a = 'a';
+> int b = static_cast<char>(a);//正确，将char型数据转换成int型数据
+> 
+> double *c = new double;
+> void *d = static_cast<void*>(c);//正确，将double指针转换成void指针
+> 
+> int e = 10;
+> const int f = static_cast<const int>(e);//正确，将int型数据转换成const int型数据
+> 
+> const int g = 20;
+> int *h = static_cast<int*>(&g);//编译错误，static_cast不能转换掉g的const属性
+> ```
+>
+> ```c++
+> #include <iostream>
+> #include <vector>
+> using namespace std;
+> int main()
+> {
+>     char a = 'a';
+>     int b = static_cast<char>(a);
+>     double c = 45.78974;
+>     int d = static_cast<double>(c);
+>     double e = static_cast<int>(b);
+>     cout << a << "\t" << typeid(a).name() << endl;
+>     cout << b << "\t" << typeid(b).name() << endl;
+>     cout << c << "\t" << typeid(c).name() << endl;
+>     cout << d << "\t" << typeid(d).name() << endl;
+>     cout << e << "\t" << typeid(e).name() << endl;
+>     return 0;
+> }
+> /*
+> a       char
+> 97      int
+> 45.7897 double
+> 45      int
+> 97      double
+> */
+> ```
+>
+> (2) 类上行和下行转换：
+>
+> ```c++
+> class Base {};
+> class Derived : public Base {}
+> 
+> Base *pB = new Base();
+> if(Derived *pD = static_cast<Derived *>(pB))//下行转换是不安全的(坚决抵制这种方法)
+> {}
+> 
+> Derived *pD = new Derived();
+> if(Base *pB = static_cast<Base *>(pD))//上行转换是安全的
+> {}
+> ```
+>
+> ### dynamic_cast
+>
+> 有人说dynamic_cast是强制类型转换，转换成需要的类型指针，前提是你要知道这个对象的继承方式。dynamic_cast可以用"是否可以安全地将对象的地址赋值给特定类型的指针"这样的描述。知道类型后，就可以调用这个类型特有的方法了。通过dynamic_cast运算符就可以保证类型安全了。
+> dynamic_cast能够在类层次中进行向上转换（类之间是is-a关系），而不允许其他装换。其他转换返回NULL指针，比如向下转换。
+>
+> （wb175208 2018-09-29 11:55:43 2523 收藏 5）
+> 转换方式：
+> dynamic_cast< type >(e) type必须是一个类类型且必须是一个有效的指针
+> dynamic_cast< type& >(e) type必须是一个类类型且必须是一个左值
+> dynamic_cast< type&& >(e) type必须是一个类类型且必须是一个右值*
+>
+> e的类型必须符合以下三个条件中的任何一个：
+> 1、e的类型是目标类型type的公有派生类
+> 2、e的类型是目标type的共有基类
+> 3、e的类型就是目标type的类型。
+>
+> 如果一条dynamic_cast语句的转换目标是指针类型并且失败了，则结果为0。如果转换目标是引用类型并且失败了，则dynamic_cast运算符将抛出一个std::bad_cast异常(该异常定义在typeinfo标准库头文件中)。e也可以是一个空指针，结果是所需类型的空指针。
+> dynamic_cast主要用于类层次间的上行转换和下行转换，还可以用于类之间的交叉转换（cross cast）。
+> 在类层次间进行上行转换时，dynamic_cast和static_cast的效果是一样的；在进行下行转换时，dynamic_cast具有类型检查的功能，比static_cast更安全。dynamic_cast是唯一无法由旧式语法执行的动作，也是唯一可能耗费重大运行成本的转型动作。
+>
+> (1) 指针类型
+> 举例，Base为包含至少一个虚函数的基类，Derived是Base的共有派生类，如果有一个指向Base的指针bp，我们可以在运行时将它转换成指向Derived的指针，代码如下：
+>
+> ```c++
+> if(Derived *dp = dynamic_cast<Derived *>(bp)){
+>   //使用dp指向的Derived对象  
+> }
+> else{
+>   //使用bp指向的Base对象  
+> }
+> ```
+>
+> 值得注意的是，在上述代码中，if语句中定义了dp，这样做的好处是可以在一个操作中同时完成类型转换和条件检查两项任务。
+>
+> (2) 引用类型
+> 因为不存在所谓空引用，所以引用类型的dynamic_cast转换与指针类型不同，在引用转换失败时，会抛出std::bad_cast异常，该异常定义在头文件typeinfo中。
+>
+> ```c++
+> void f(const Base &b){
+>     try{
+>         const Derived &d = dynamic_cast<const Base &>(b);  
+>         //使用b引用的Derived对象
+>     }
+>     catch(std::bad_cast){
+>         //处理类型转换失败的情况
+>     }
+> }
+> ```
+>
+>
+> ————————————————
+> 版权声明：本文为CSDN博主「night boss」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/qq_43491149/article/details/121178860
 
 ## 六、以Template进行编程 Programming with Templates
 
