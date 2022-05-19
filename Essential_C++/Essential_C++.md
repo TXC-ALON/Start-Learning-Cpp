@@ -2790,22 +2790,204 @@ int main() {
 
 ## 七、异常处理 Exception Handling
 
+在我们使用指针，迭代器iterator这类工具的时候，有时候会有潜在错误的可能，比如设定为非法值，或是越过边界等等
+
+所以我们需要c++的异常处理机制exception handling facility 来完成通知用户的任务。
+
 ### 1、抛出异常
 
 **Throwing an Exception**
+
+异常处理机制有两个主要部分：异常的鉴定与发出，以及异常的处理方式。
+
+异常出现后，正常程序的执行便被暂停suspended。然后ehf就开始搜索程序中有能力处理这一异常的地点。异常处理完毕后，程序的执行会继续resume，从异常处理点接着执行下去。
+
+C++ 通过throw表达式表示异常，看起来有点像函数调用。
+
+何谓抛出异常？
+
+异常是某种对象，通常情况下，被抛出的异常属于特定的异常类。
 
 ### 2、捕获异常
 
 **Catching an Exception**
 
+catch 由三部分组成，关键词catch，小括号内的一个类型或对象，大括号内的一组语句（用以处理异常）
+
+异常对象的类型会拿来与catch子句比对，符合的话，那么该catch的子句就被会执行。通过所有catch语句后，由正常程序接手。
+
 ### 3、提炼异常
 
 **Trying for an Exception**
+
+#### try-catch 组合基本规则
+
+　　1）同一个 try 语句可以跟上多个 catch 语句（在工程中，将可能产生异常的代码放在 try 语句块中，然后后面跟上多个 catch 语句）；
+
+　　2）try 语句中通过 throw 关键字 可以抛出任何类型的异常（int、字符串、对象等等）；　
+
+　　3）catch 语句可以定义具体处理的异常类型，如 **catch( int )** 只捕获 int 类型异常, 但无法进一步获取异常信息；**catch( int a )** 只捕获 int 类型异常，可以进一步获取异常信息；
+
+　　4）不同类型的异常由不同的 catch 语句负责处理；
+
+　　5）catch(...) 用于处理所有类型的异常（只能放在所有 catch语句 的后面）；
+
+　　6）任何异常都只能被捕获（catch）一次；
+
+　　7）只要被 catch 捕获一次，其它的 catch 就没有捕获机会了；
+
+　　8）throw 抛出异常的类型 与 catch 捕获异常的类型 必须严格匹配（不能进行类型转换）；若匹配成功，则能够捕获该异常；否则捕获失败，程序停止执行。
+
+
+
+```c++
+#include <iostream>
+using namespace std;
+ 
+double division(int a, int b)
+{
+   if( b == 0 )
+   {
+      throw "Division by zero condition!";
+   }
+   if (b == -4) {
+       throw - 555;
+       
+   }
+   if (b < 0) {
+       throw "this is smaller than 0";
+   }
+   
+   return (a / b);
+}
+ 
+int main ()
+{
+   int x = 50;
+   int y = -4;
+   double z = 0;
+ 
+   try {
+     z = division(x, y);
+     cout << z << endl;
+   }
+   catch(int mm){
+       cerr << "this is the error number  " << mm << endl;
+       y = 2;
+
+   }
+   catch (...) {
+       cerr << "------------------this is the error number  " << endl;
+       y = 5;
+   }
+   cout << x / y << endl;
+   return 0;
+}
+```
+
+
 
 ### 4、局部资源管理
 
 **Local Resource Management**
 
+函数会要求申请一些资源，理论上在函数结束之前会被释放。
+
+但是无法保证函数执行之初分配的资源一定会被释放掉，如果函数本身或调用的函数内抛出异常，那么释放资源的语句就不会执行，那么这种情况其实并不理想。
+
+有种解决方式是try-catch(...)
+
+```c++
+void f()
+{
+    try{
+        int *p = new int;
+        m.acquire();
+        process(p);
+    }
+    catch(...){
+        m.release();
+        delete p;
+    }
+}
+```
+
+BS 觉得还是要有一个更具防护性，更自动化的处理方式----在c++一般意味着定义一个class。
+
+于是他引入了资源管理resource management的手法。他自己称为resource acquisition is initialization（在初始化阶段即进行资源请求）。对对象而言，初始化和资源请求在constructor里完成，资源释放应该在destructor里完成。
+
+C++保证，在异常处理机制终结某个函数之前，函数中所有局部对象的destructor都会被调用。
+
+auto_ptr是标准库提供的class template，他会自动删除通过new表达式分配的对象。使用它需要包含#include<memory>
+
+```c++
+auto_ptr<int>p(new int);
+```
+
+auto_ptr 将dereference和arrow重载，可以是我们想使用一般指针一样使用auto_ptr对象。
+
 ### 5、标准异常
 
 **The Standard Exceptions**
+
+标准库提供了一套异常类体系exception class hierarchy。根部是名为exception 的抽象基类。exception 声明有一个what虚函数，会返回一个const char *，用以表示抛出异常的文字描述。
+
+![image-20220519181537019](Essential_C++.assets/image-20220519181537019.png)
+
+可以自己编写异常类，需要包括标准头文件exception。继承exception，也得提供自己的what()
+
+```c++
+#include<exception>
+#include<string>
+class iterator_overflow :public exception {
+private:
+    int _index;
+    int _max;
+public:
+    iterator_overflow(int index, int max):_index(index),_max(max){}
+    int index() { return _index; }
+    int max() { return _max; }
+    const char* what()  const {
+        static string msg = "Error:: iterator_overflow";
+        return msg.c_str();
+    }
+};
+```
+
+通过string类的c_str()，将string对象转成C-style字符串。
+
+> istringstream是一个比较有用的c++的输入输出控制类。
+>
+> C++引入了ostringstream、istringstream、stringstream这三个类，要使用他们创建对象就必须包含<sstream>这个头文件。
+> istringstream类用于执行C++风格的串流的输入操作。
+> ostringstream类用于执行C风格的串流的输出操作。
+> strstream类同时可以支持C风格的串流的输入输出操作。
+>
+>
+> istringstream的构造函数原形如下：
+> istringstream::istringstream(string str);
+> 它的作用是从string对象str中读取字符。
+>
+> #include<iostream>  
+> #include<sstream>        //istringstream 必须包含这个头文件
+> #include<string>  
+> using namespace std;  
+> int main()  
+> {  
+>     string str="i an a boy";  
+>     istringstream is(str);  
+>     string s;  
+>     while(is>>s)  
+>     {  
+>         cout<<s<<endl;  
+>     }  
+>       
+> } 
+> 输出是:
+> i
+> am
+> a
+> boy
+> ————————————————
+> 版权声明：本文为CSDN博主「longzaitianya1989」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/longzaitianya1989/article/details/52909786
