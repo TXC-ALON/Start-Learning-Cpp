@@ -335,7 +335,7 @@ void display(const vector<int>&vec,ostream &os = cout){
 
 面对一个inline函数，编译器可将该函数的调用操作改为以一份函数代码副本以代替。
 
-
+> **定义**在类中的**成员函数**默认都是**内联的**，如果在类定义时就在类内给出函数定义，那当然最好。如果在类中未给出成员函数定义，而又想内联该函数的话，那在类外要加上 **inline**，否则就认为不是内联的。
 
 注：将函数指定为inline，只是对编译器提出的一种要求，编译器是否执行这项请求，视具体的编译器而定。具体要参考bs老爷子的教材书7.1.1
 
@@ -1587,7 +1587,7 @@ istream & operator>>(istream & is, Triangular & rhs)
 > 引入纯虚函数的原因：
 >
 >        （1）为了方便使用多态特性，我们常常需要在基类中定义虚拟函数。
->         
+>             
 >        （2）在很多情况下，基类本身生成对象是不合情理的。例如，动物作为一个基类可以派生出老虎、孔雀等子类，但动物本身生成对象明显不合常理。 
 >
 > 包含纯虚函数的类称为抽象类。由于抽象类包含了没有定义的纯虚函数，所以不能定义抽象类的对象。抽象类的主要作用是将有关的操作作为结果接口组织在一个继承层次结构中，由它来为派生类提供一个公共的根，派生类将具体实现在其基类中作为接口的操作。
@@ -2313,35 +2313,478 @@ dynamic_cast 也是一个RTTI运算符。
 
 ## 六、以Template进行编程 Programming with Templates
 
+BS 在最初设计的时候，将template称为被参数化的类型 **parameterized type**，称其参数化是因为，类型相关信息可自template定义中剥离，称其类型每一个class template或function template 基本上都伴随着他作用或内含的类型而有性质上的变化。至于他所接受的类型，由template用户于使用中指定。
+
+之后BS将名称改为比较顺口的**template** 模板，Template扮演的是处方的角色，能根据用户指定的特定值或特定类型，自动产生一个函数或类。
+
 ### 1、被参数化的类型
 
 **Parameterized Types**
+
+template机制帮助我们将类定义中，“与类型相关type-dependent”和“独立于类型之外”的两部分分离开。
+
+```c++
+//BTnode class template的前置声明 forward declaration
+template <typename valType>
+class BTnode;
+//因为接下来的BinaryTree会用到BTnode，所以得加一下
+```
+
+这里valType被当做一个占位符。在指定某个特定类型之前，他被视为一个可取代为任何类型的东西。
+
+这里我们想实现一个二叉树的template，那么BTnode 和 BinaryTree需要建立友谊。
+
+```c++
+template <typename elemType>
+class BinaryTree{
+public:
+private:
+    // BTnode需要template parameter list 模板参数加以限定
+    BTnode<elemType> *_root;
+};
+
+template <typename valType>
+class BTnode{
+public:
+private:
+    valType _val;
+    int _cnt;
+    BTnode *_lchild;
+    BTnode *_rchild;
+    friend class BinaryTree<valType>;
+};
+```
+
+<font color='#4285F4'>注：什么时候需要以模板参数进一步限定class template</font>
+
+一般规则是，在class template 以及其member的定义中，不必如此，除此以外的其他场合就需要它加以限定了。
 
 ### 2、ClassTemplate 的定义
 
 **The Template Class Definition**
 
+```c++
+template <typename elemType>
+class BinaryTree{
+public:
+    BinaryTree();
+    BinaryTree(const BinaryTree&);
+    ~BinaryTree();
+    BinaryTree& operator = (const BinaryTree&);
+    bool empty(){return _root == nullptr;}
+    void clear();
+private:
+    // BTnode需要template parameter list 模板参数加以限定
+    BTnode<elemType> *_root;
+    void copy (BTnode<elemType>*tar,BTnode<elemType>*src);
+};
+```
+
+为class template定义一个inline，其做法就像为一个non-template class 定义一个inline函数一样，如同这里的empty。但是如果在类外，那么定义就很不同了。
+
+```c++
+template<typename elemType>
+inline BinaryTree<elemType>::
+BinaryTree():_root(0){}//这里是构造函数的初始化，将_root置为空，写的让人很有歧义。
+//inline必须紧接在关键词template和参数列表之后。
+//至于为什么第二个BinaryTree不需要加<elemtype>，是因为用了BinaryTree<elemType>::后，后面的都被视为class范围内。
+```
+
+以下是BinaryTree的copy constructor、copy assignment operator以及destructor的定义。
+
+```c++
+template <typename elemType>
+inline 
+BinaryTree<elemType>:: 
+BinaryTree( const BinaryTree &rhs )
+      { copy( _root, rhs._root ); }
+
+template <typename elemType>
+inline BinaryTree<elemType>& //返回一个BinaryTree<elemType>的引用
+BinaryTree<elemType>:://范围限定，新手乍一看真的好容易搞不明白。
+operator=( const BinaryTree &rhs )
+{ 
+    if ( this != &rhs )
+    {
+	     clear();
+         copy( _root, rhs._root ); 
+    }
+	return this;
+}
+
+template <typename elemType>
+inline 
+BinaryTree<elemType>:: 
+~BinaryTree(){ clear(); }
+```
+
+
+
 ### 3、Template 类型参数的处理
 
 **Handling Template Type Parameters**
+
+正常我们传递参数，是通过传值或是传址。
+
+```c++
+bool find(int val);//传值
+bool find(const Matrix &val);//传址
+bool find(Matrix val);//这样也不错，但是效率比较低
+```
+
+但是当我们处理template类型参数时，如果是语言内置类型，那就就可以用传值方式来写find的参数列表，但是如果是class类型，那就得换成reference。
+
+**实际操作中，建议将所有的template类型视为class类型，将它视为一个const reference**
+
+另外在构造函数中，一般选择在成员初始化表中对每一个类型进行初始化操作
+
+```c++
+template <typename valType>
+inline BTnode<valType>::
+BTnode(const valType &val)
+    : _val(val)
+    {
+        _cnt = 1;
+        _lchild = _rchild = 0;
+    }
+
+而不是
+template <typename valType>
+inline BTnode<valType>::
+BTnode(const valType &val)
+{
+	_val = val;
+    _cnt = 1;
+    _lchild = _rchild = 0;
+}    
+```
+
+第二种操作，会先调用Matrix的默认构造将_val构造成Matrix类型（假设valType是Matrix），再浅复制将val复制给\_val。
 
 ### 4、实现一个ClassTemplate
 
 **Implementing the Template Class**
 
+对于二叉树，每次插入一个新值，那么就需要从内存开辟一块空间，建立一个BTnode对象，初始化，将其链接至二叉树，并保证之后的销毁，那么我们就需要利用new/delete自己实现每个节点的内存管理和释放。
+
+#### 二叉树插入节点
+
+是一个左右递归额过程，其出口有2
+
+- 合乎资格的子树并不存在
+- 欲插入的数值已在树中，这时候将cnt+1
+
+```c++
+template <typename valType>
+void 
+BTnode<valType>::
+insert_value( const valType &val )
+{
+    if ( val == _val )
+    { 
+		_cnt++;
+		return; 
+	}
+
+	if ( val < _val ){
+		if ( ! _lchild ){
+             _lchild = new BTnode( val );
+		}
+		else _lchild->insert_value( val );
+	}
+	else {
+		if ( ! _rchild ){
+             _rchild = new BTnode( val );
+		}
+		else _rchild->insert_value( val );
+	}
+}
+
+```
+
+#### 二叉树删除节点
+
+为保持二叉树的次序不变
+
+- 以节点的右子节点取代节点本身
+- 搬移左子节点，让它成为右子节点的左子树的叶节点
+- 如果没有右节点，那就以左子节点取代节点本身
+
+```c++
+template <typename elemType>
+inline void 
+BinaryTree<elemType>::
+remove( const elemType &elem ) 
+{
+    if ( _root )
+    {
+         if ( _root->_val == elem )//进行根节点的特殊考虑
+              remove_root();
+         else _root->remove_value( elem, _root );
+    }
+}
+//因为不管如何，都会搬移左子节点，让它成为右子节点的左子叶的叶节点。
+//所以剥离这个操作单独成为BTnode的static的member function
+//-----找左根
+template <typename valType>
+void 
+BTnode<valType>::
+lchild_leaf( BTnode *leaf, BTnode *subtree ) 
+{
+    while ( subtree->_lchild )
+           subtree = subtree->_lchild;
+    subtree->_lchild = leaf;         
+}
+//-----删除根节点
+template <typename elemType>
+void 
+BinaryTree<elemType>::
+remove_root() 
+{
+    if ( ! _root ) return;
+    BTnode<elemType> *tmp = _root;
+
+    if ( _root->_rchild )
+    {
+        _root = _root->_rchild;
+        //根节点的右节点成为新的根节点
+        //下面将左子节点搬移到右子节点的左子树的根部
+        BTnode<elemType> *lc = tmp->_lchild;
+        BTnode<elemType> *newlc = _root->_lchild;
+        
+        if ( lc )
+			 if ( ! newlc )
+                 //如果没有任何子树，直接接上
+				  _root->_lchild = lc;
+        		//不然遍历整个左子树，找到某个可以接驳的null左子节点。
+			 else BTnode<elemType>::lchild_leaf( lc, newlc );
+    }
+    else _root = _root->_lchild;
+
+    delete tmp; //移除原先的根节点        
+}
+
+
+
+//-----删除节点
+template <typename valType>
+void 
+BTnode<valType>::
+remove_value( const valType &val, BTnode *&prev ) 
+//remove_value 拥有两个参数，1、将被删除的值，2、一个指针，指向目前关注的节点的父亲节点，且都是以传址的方式，为了避免昂贵的复制开销。
+
+{
+    if ( val < _val )
+    {
+         if ( ! _lchild )
+              return; // 不在左半边
+         else _lchild->remove_value( val, _lchild );
+    } 
+    else 
+    if ( val > _val )
+    {
+         if ( ! _rchild )
+              return; // 不在右半边
+         else _rchild->remove_value( val, _rchild );
+    } 
+    else 
+    { // ok: found it
+      // reset the tree then delete this node
+      if ( _rchild ) 
+      {
+         prev = _rchild;
+         if ( _lchild )
+			  if ( ! prev->_lchild )
+				   prev->_lchild = _lchild;
+			  else BTnode<valType>::lchild_leaf( _lchild, prev->_lchild );
+      }
+      else prev = _lchild;
+      delete this;
+    }         
+}
+```
+
+<font color='#DB4437'>注意，这里传的pre是指针的引用，BTnode *&prev 是指针的引用，&表示他是prev的引用，BTnode\*表示类型是BTnode的指针</font>
+
+这里之所以这样设计也是因为单独用pointer，我们只能修改pointer指向的对象，事实上我们还需要修改指针本身。
+
+#### 删除二叉树
+
+```c++
+template <typename elemType>
+void 
+BinaryTree<elemType>::
+clear( BTnode<elemType> *pt )
+{
+	if ( pt ){
+		 clear( pt->_lchild );
+		 clear( pt->_rchild );
+		 delete pt;
+	}
+}
+
+```
+
+
+
 ### 5、一个以Function Template完成的Output运算符
 
 **A Function Template Output Operator**
+
+```c++
+template <typename elemType>
+inline ostream&
+operator<<( ostream &os, const BinaryTree<elemType> &bt )
+{
+    os << "Tree: " << endl;
+    bt.print( os, &BinaryTree<elemType>::inorder ); 
+    return os;
+}
+```
+
+
 
 ### 6、常量表达式与默认参数值
 
 **Constant Expressions and Default Parameters**
 
+本节主要讨论的是以表达式expression为template参数，而在c++ primer中，被称为非类型参数 non-type parameter
+
+将常量表达式constant expression作为template 参数。甚至可以为其提供初始值
+
+```c++
+template <int len,int beg_pos>
+class num_sequence(...);
+
+template<int len, int beg_pos = 1>
+class Fibonacci : public num_sequence<len,beg_pos>
+{...};
+```
+
+全局作用域 global scope 内的函数及对象，其地址也是一种常量表达式，因此也可以被拿来表达这一形式的参数。
+
+```c+++
+template <void(*pf) (int pos, vector<int> &seq)>\
+//这里的pf是一个“依据特定数列(int)类型，产生pos个元素，放到vector seq内”的函数
+```
+
+
+
 ### 7、以Template参数作为一种设计策略
 
 **Template Parameters as Strategy**
 
+如今可以将4.9的Lessthan转为模板
+
+```c++
+template <typename elemType>
+class LessThan{
+public:
+    LessThan(const elemType &val) : _val(val){}
+    bool operator()(const elemType &val) const
+    	{return val < _val;}
+    void val(const elemType &newval){_val = newval;}
+    elemType val() const { return _val;}
+private:
+    elemType _val;
+};
+LessThan<int> lti(1024); //这里Lessthan是返回是否比1024小的bool函数
+LessThan<string> lts("string");
+```
+
+但是还有一大问题，这里的int，和string是支持"<"操作来做比较的，用户提供的类型可能并未定义这个，那么上述做法就告失败。
+
+所以我们得提供第二个类模板，将comparison运算符从类定义中剥离。甚至可以更进一步提供自制的更多的运算符
+
+```c++
+template <typename elemType,typename BinaryComp>
+class Compare;
+```
+
+这里先做lessthan
+
+```c++
+template <typename elemType,typename Comp = less<elemType> >//注意这里要加空格
+class LessThanPred{
+public:
+    LessThanPred(const elemType &val) : _val(val){}
+    bool operator()(const elemType &val) const
+    	{return Comp(val ,_val);}
+    void val(const elemType &newval){_val = newval;}
+    elemType val() const { return _val;}
+private:
+    elemType _val;
+};
+//这里并没有真正实现less<elemType>的函数。说到底还是得针对设计
+class StringLen{
+    public:
+    bool operator() ( const string &s1,const string &s2){
+        return s1.size()<s2.size();
+    }
+};
+//这里并没有实现同样长度下字符串的比较
+LessThanPred<int> lti(1024); //这里Lessthan是返回是否比1024小的bool函数
+LessThanPred<string,StringLen> lts("string");
+```
+
+
+
 ### 8、Member Template Function
+
+将member Function定义为Template形式。
+
+```c++
+#include<iostream>
+using namespace std;
+class PrintIt {
+public:
+	PrintIt(ostream &os)
+		: _os(os){}
+	template<typename elemType>
+	void print(const elemType& elem, char delimiter = '\n')
+	{
+		_os << elem << delimiter;
+	}
+private:
+	ostream& _os;
+};
+int main() {
+	PrintIt to_standard_out(cout);
+	to_standard_out.print("hello");
+	to_standard_out.print("1024");
+	string mystring = "i am a string";
+	to_standard_out.print(mystring);
+}
+```
+
+PrintIt 是一个non-template class ，其初值为一个output stream输出数据流。他提供了一个名为print()的member template function，后者能将任意类型的对象写至指定的output stream。
+
+更进一步，对于输出流，我们也可以进行参数模板化
+
+```c++
+#include<iostream>
+using namespace std;
+template <typename OutStream>
+class PrintIt {
+public:
+	PrintIt(OutStream& os)
+		: _os(os) {}
+	template<typename elemType>
+	void print(const elemType& elem, char delimiter = '\n')
+	{
+		_os << elem << delimiter;
+	}
+private:
+	ostream& _os;
+};
+int main() {
+	PrintIt<ostream> to_standard_out(cout);//这里选择标准输出流作为输出
+	to_standard_out.print("hello");
+	to_standard_out.print("1024");
+	string mystring = "i am a string";
+	to_standard_out.print(mystring);
+}
+```
 
 
 
