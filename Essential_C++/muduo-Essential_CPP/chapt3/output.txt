@@ -1,5 +1,0 @@
-CPP
-andy
-apple
-cat
-hello

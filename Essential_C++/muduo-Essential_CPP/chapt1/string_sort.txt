@@ -1,6 +1,0 @@
-abc
-andy
-andy
-hello
-hsu
-world
