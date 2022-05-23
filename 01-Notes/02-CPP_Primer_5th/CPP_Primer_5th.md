@@ -2,6 +2,54 @@
 
 # Preface
 
+C++ 是一门虽以十分成熟但仍不断进步的语言，而C++ 11标准的颁布延续了对编程效率的强调，而新标准的出发点是：
+
+*  使语言更加统一，更加易学
+* 使标准库更简单，更安全，使用起来更高效
+* 使编写高效的抽象和库更加简单
+
+一些普适的特性，诸如auto，使代码更加易读，程序员也可以更关注编程的意图。
+
+一些诸如smart pointers 和 可变(move-enabled)容器，也让我们可以编写更加复杂的类，而不必纠结于复杂的资源管理。
+
+## 为什么要读这本书？
+
+现代C++语言可以看做是由三部分组成
+
+- 低级语言，大部分继承inherited自C语言
+- 现代高级语言特性，允许我们定义自己的类型以及组织大规模的程序和系统
+- 标准库，它使用了这些高级特性来提供有用的数据结构和算法
+
+
+
+- 不同于大多数教科书将C++的子集先进行讲述，而当学生陷于继承自C的细节时（一方面带来挫败感，一方面学到一些旧的坏习惯），随后又需要忘记这部分内-容。本书在一开始就介绍一些C++的高级语言特性，并连接标准库进行学习。
+- 贯穿全书，作者都在强调好的风格，养成好的习惯。并特别强调那些棘手的问题，并对常见的错误想法和陷阱提出警告。
+- 注意解释规则背后的基本原理。知其然，也知其所以然。 explaining the why not just the what!
+
+
+
+## 本书的结构
+
+第一部分和第二部分介绍C++语言和标准库的**基础内容**
+
+第三部分会介绍拷贝控制的问题，一些使**类**也能像内置类型一样容易使用的技术
+
+第四部分是介绍一些在**组织大型复杂系统**时非常有用的语言特性
+
+
+
+## 本书的一些图标
+
+
+
+|                             图标                             |                             意义                             |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20220523153600549](CPP_Primer_5th.assets/image-20220523153600549.png) |            基础知识，构成语言的核心人人都应该掌握            |
+| ![image-20220523153717260](CPP_Primer_5th.assets/image-20220523153717260.png) | 涉及高级主题或图书目的，初次看可以跳过，在实际用到之前没必要关注这部分 |
+| ![image-20220523153728364](CPP_Primer_5th.assets/image-20220523153728364.png) |         特别复杂的概念，但是值得花些时间对其进行研究         |
+
+
+
 # Start
 
 ## Chapter 1 Getting Started
@@ -32,7 +80,11 @@
 
 ### 1.6 The Bookstore Program
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 # Part I The Basics
 
@@ -91,7 +143,11 @@
 
 #### 2.6.3 Writing Our Own Header Files
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 
 ## Chapter 3 Strings, Vectors, and Arrays
@@ -133,7 +189,11 @@
 
 ### 3.6 Multidimensional Arrays
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 ## Chapter 4 Expressions
 ### 4.1 Fundamentals
@@ -172,7 +232,11 @@
 
 ### 4.12 Operator Precedence Table
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 ## Chapter 5 Statements
 ### 5.1 Simple Statements
@@ -211,9 +275,14 @@
 
 #### 5.6.3 Standard Exceptions
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 6 Functions
+
 ### 6.1 Function Basics
 
 #### 6.1.1 Local Objects
@@ -262,9 +331,14 @@
 
 ### 6.7 Pointers to Functions
 
+### Chapter Summary 
+
 ### Defined Terms
 
+
+
 ## Chapter 7 Classes
+
 ### 7.1 Defining Abstract Data Types
 
 #### 7.1.1 Designing the Sales_data Class
@@ -311,7 +385,11 @@
 
 ### 7.6 static Class Members
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 # Part II The C++ Library
 
@@ -336,9 +414,14 @@
 
 #### 8.3.2 Using ostringstreams
 
+### Chapter Summary 
+
 ### Defined Terms
 
+
+
 ## Chapter 9 Sequential Containers
+
 ### 9.1 Overview of the Sequential Containers
 
 ### 9.2 Container Library Overview
@@ -387,9 +470,14 @@
 
 ### 9.6 Container Adaptors
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 10 Generic Algorithms
+
 ### 10.1 Overview
 
 ### 10.2 A First Look at the Algorithms
@@ -428,9 +516,14 @@
 
 ### 10.6 Container-Specific Algorithms
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 11 Associative Containers
+
 ### 11.1 Using an Associative Container
 
 ### 11.2 Overview of the Associative Containers
@@ -456,6 +549,8 @@
 #### 11.3.6 A Word Transformation Map
 
 ### 11.4 The Unordered Containers
+
+### Chapter Summary  
 
 ### Defined Terms
 
@@ -488,7 +583,11 @@
 
 #### 12.3.2 Defining the Query Program Classes
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 # Part III Tools for Class Authors
 
@@ -527,9 +626,14 @@
 
 #### 13.6.3 Rvalue References and Member Functions
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 14 Overloaded Operations and Conversions
+
 ### 14.1 Basic Concepts
 
 ### 14.2 Input and Output Operators
@@ -568,7 +672,11 @@
 
 #### 14.9.3 Function Matching and Overloaded Operators
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 ## Chapter 15 Object-Oriented Programming
 ### 15.1 OOP: An Overview
@@ -613,9 +721,14 @@
 
 #### 15.9.4 The eval Functions
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 16 Templates and Generic Programming
+
 ### 16.1 Defining a Template
 
 #### 16.1.1 Function Templates
@@ -658,7 +771,11 @@
 
 ### 16.5 Template Specializations
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
 
 # Part IV Advanced Topics
 
@@ -699,9 +816,14 @@
 
 #### 17.5.3 Random Access to a Stream
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 18 Tools for Large Programs
+
 ### 18.1 Exception Handling
 
 #### 18.1.1 Throwing an Exception
@@ -736,9 +858,14 @@
 
 #### 18.3.5 Constructors and Virtual Inheritance
 
+### Chapter Summary  
+
 ### Defined Terms
 
+
+
 ## Chapter 19 Specialized Tools and Techniques
+
 ### 19.1 Controlling Memory Allocation
 
 #### 19.1.1 Overloading new and delete
@@ -779,4 +906,19 @@
 
 #### 19.8.3 Linkage Directives: extern "C"
 
+### Chapter Summary  
+
 ### Defined Terms
+
+
+
+# Appendix A. The Library
+
+## Section A.1 Library Names and Headers
+
+## Section A.2 A Brief Tour of the Algorithms
+
+## Section A.3 Random Numbers
+
+
+
