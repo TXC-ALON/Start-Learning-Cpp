@@ -12,7 +12,7 @@
 
    85/100 好书，还是挺适合入门的
 
-- 20220525[C++ primer 5th](./01-Notes/02-Cpp_Primer_5th/CPP_Primer_5th.md)
+- 20220525[C++ primer 5th](./01-Notes/02-CPP_Primer_5th/CPP_Primer_5th.md)
 
 
 
