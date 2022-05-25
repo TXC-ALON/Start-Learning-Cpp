@@ -137,9 +137,35 @@ clog	输出程序运行时的一般消息
 (std::cin >> v1) >> v2;
 ```
 
-想象一下std::cin 是个农夫山泉灌水器，从左向右将瓶子吸在口子上，注入水。【这个比喻我觉得很绝诶，水是一样过来，水瓶可大可小】
+想象一下std::cin 是个矿泉水灌水器，从左向右将瓶子吸在口子上，注入水。【这个比喻我觉得很绝诶，水是一样过来，水瓶可大可小，类比不同的类型】
 
 ### 1.3 A Word about Comments
+
+两种注释：单行和定界符对注释
+
+一般最好将定界符内每一行都加上*
+
+```c++
+#include <iostream>
+/*
+* Simple main function:
+* Read two numbers and write their sum
+*/
+int main()
+{
+    int sum = 0, val = 1;
+    // keep executing the while as long as val is less than or equal to 10
+    while (val <= 10)
+    {
+        sum += val;  // assigns sum + val to sum
+        ++val;       // add 1 to val
+    }
+    std::cout << "Sum of 1 to 10 inclusive is "<< sum << std::endl;
+    return 0;
+}
+```
+
+
 
 ### 1.4 Flow of Control
 
