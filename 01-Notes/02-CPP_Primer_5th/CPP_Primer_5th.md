@@ -165,17 +165,85 @@ int main()
 }
 ```
 
+界定符对不能嵌套使用
 
+```c++
+#include<iostream>
+using namespace std;
+
+/*
+/* 界定符对不能嵌套使用*/
+*/
+int main()
+{
+    cout << "Hello World!" << endl;
+    return 0;
+}
+/*
+PS E:\00Learning\C++\Start learing C++\02-Testcode> g++ .\1-3testcommentserror.cpp
+.\1-3testcommentserror.cpp:6:2: error: expected unqualified-id before '/' token
+.\1-3testcommentserror.cpp:6:2: error: expected constructor, destructor, or type conversion before '/' token
+*/
+```
+
+
+
+我们在实际debug时，注释了一些包含界定符对形式的代码，导致嵌套错误。所以最好的注释方式是用单行注释注释掉代码段的每一行。
+
+```c++
+// /*
+// * 单行注释中任何内容都会被忽略
+// * 包括嵌套的注释对也一样会被忽略
+// */
+```
 
 ### 1.4 Flow of Control
 
 #### 1.4.1 The while Statement
 
+交替判断condition和执行关联代码，直到condition判断为假。
+
 #### 1.4.2 The for Statement
+
+for 循环包含两部分，循环头和循环体。循环头控制循环体的执行次数。
+
+循环头由初始化语句init-statement,循环条件 condition，表达式expression组成。
 
 #### 1.4.3 Reading an Unknown Number of Inputs
 
+当我们使用一个istream对象作为对象时，其效果是检测流的状态，当遇到文件结束符end-of-file，或遇到一个无效输入时，istream对象的状态会变为无效。使条件为假。
+
+>  在window系统中，输入文件结束符的方法是Ctrl+Z，然后按Enter或return键
+>
+> 在Unix系统中，则是Ctrl+D
+
+### 编译器的报错
+
+编译器的工作是检查程序文本中的错误，即form错误。
+
+一些常见的编译错误如下：
+
+#### Syntax error 语法错误
+
+C++文法方面的错误
+
+#### Type error 类型错误
+
+比如讲int类型传给string
+
+#### Declaration error 声明错误
+
+C++ 中每个每个名字都必须先声明再使用，常见的错误比如用标准库里的名字却没加std::，或者标识符名字拼写错误。
+
+单个错误往往具有传递效应，导致编译器报告的错误比实际数量多得多。
+
+也就是edit - compile - debug 周期。
+
 #### 1.4.4 The if Statement
+
+判断语言的真假
+
+**常见错误，将 == 和 = 搞混**
 
 ### 1.5 Introducing Classes
 
