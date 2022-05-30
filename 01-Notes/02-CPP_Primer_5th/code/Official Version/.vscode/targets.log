@@ -1,0 +1,423 @@
+make.exe all --print-data-base --no-builtin-variables --no-builtin-rules --question
+# GNU Make 3.81
+# Copyright (C) 2006  Free Software Foundation, Inc.
+# This is free software; see the source for copying conditions.
+# There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# This program built for i386-pc-mingw32
+ 
+
+# Make data base, printed on Mon May 30 10:55:18 2022
+
+# ����
+
+# ����
+POWERSHELL_DISTRIBUTION_CHANNEL = MSI:Windows 10 Pro
+# �Զ�
+?F = $(notdir $?)
+# makefile (from `makefile', line 1)
+DIRS = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+# �Զ�
+<D = $(patsubst %/,%,$(dir $<))
+# ����
+GATEWAY_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\gateway.vmoptions
+# makefile
+MAKEFLAGS = Rrqp
+# ����
+VSCODE_LOG_NATIVE = false
+# �Զ�
+?D = $(patsubst %/,%,$(dir $?))
+# ����
+WEBSTORM_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\webstorm.vmoptions
+# �Զ�
+@D = $(patsubst %/,%,$(dir $@))
+# ����
+HOMEDRIVE = C:
+# �Զ�
+@F = $(notdir $@)
+# �Զ�
+^D = $(patsubst %/,%,$(dir $^))
+# makefile
+CURDIR := e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code/Official Version
+# Ĭ��
+SHELL := C:/Program Files/Git/bin/sh.exe
+# ����
+CLION = D:\Program Files\JetBrains\CLion 2021.3.4\bin;
+# ����
+APPCODE_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\appcode.vmoptions
+# ����
+WINDIR = C:\WINDOWS
+# ����
+VSCODE_NLS_CONFIG = {"locale":"zh-cn","availableLanguages":{"*":"zh-cn"},"_languagePackId":"42e84e0914b17800d483f69e299e1b00.zh-cn","_translationsConfigFile":"C:\\Users\\Administrator\\AppData\\Roaming\\Code\\clp\\42e84e0914b17800d483f69e299e1b00.zh-cn\\tcf.json","_cacheRoot":"C:\\Users\\Administrator\\AppData\\Roaming\\Code\\clp\\42e84e0914b17800d483f69e299e1b00.zh-cn","_resolvedLanguagePackCoreLocation":"C:\\Users\\Administrator\\AppData\\Roaming\\Code\\clp\\42e84e0914b17800d483f69e299e1b00.zh-cn\\c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5","_corruptedFile":"C:\\Users\\Administrator\\AppData\\Roaming\\Code\\clp\\42e84e0914b17800d483f69e299e1b00.zh-cn\\corrupted.info","_languagePackSupport":true}
+# ����
+VBOX_MSI_INSTALL_PATH = C:\Program Files\Oracle\VirtualBox\
+# ����
+PYCHARM COMMUNITY EDITION = D:\Program Files\JetBrains\PyCharm Community Edition 2021.3.2\bin;
+# ����
+ONEDRIVE = C:\Users\Administrator\OneDrive
+# ����
+PATHEXT = .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+# makefile (from `makefile', line 1)
+MAKEFILE_LIST :=  makefile
+# ����
+FPS_BROWSER_USER_PROFILE_STRING = Default
+# ����
+TMP = C:\Users\ADMINI~1\AppData\Local\Temp
+# ����
+VSCODE_VERBOSE_LOGGING = true
+# ����
+PROGRAMW6432 = C:\Program Files
+# ����
+PROGRAMDATA = C:\ProgramData
+# ����
+WEBIDE_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\webide.vmoptions
+# ����
+VSCODE_IPC_HOOK_EXTHOST = \\.\pipe\vscode-ipc-bb634cce-5cf2-4844-925f-7c2239902a44-sock
+# ����
+VSCODE_CWD = C:\Users\Administrator\AppData\Local\Programs\Microsoft VS Code
+# ����
+PADD_DEV = Z:\dev
+# ����
+PATH = C:\Users\Administrator\AppData\Local\ActiveState\StateTool\release\bin;C:\Program Files (x86)\ActiveState Komodo IDE 12\;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\ActiveState Komodo IDE 11\;D:\Program Files (x86)\VMware\VMware Workstation\bin\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\TortoiseSVN\bin;C:\Windows\SysWOW64\5097;C:\Windows\SysWOW64;C:\Program Files\PowerShell\7\;C:\Program Files\CMake\bin;C:\strawberry\c\bin;C:\strawberry\perl\site\bin;C:\strawberry\perl\bin;C:\Program Files\Pandoc\;C:\Program Files (x86)\Calibre2\;C:\Users\Administrator\AppData\Local\Programs\Python\Python310\Scripts\;C:\Users\Administrator\AppData\Local\Programs\Python\Python310\;D:\opencv\build\x64\vc15\bin;C:\ffmpeg-5.0-full_build\ffmpeg-5.0-full_build\bin;C:\FFmpeg\ffmpeg-2022-03-07-git-e645a1ddb9-full_build\bin;C:\FFmpeg\bin;C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps;D:\Program Files\JetBrains\PyCharm Community Edition 2021.3.2\bin;D:\Users\Administrator\AppData\Local\Programs\MiKTeX\miktex\bin\x64\;C:\Program Files\Git\bin;C:\Program Files\Git\mingw64\libexec\git-core;C:\Program Files\TortoiseSVN\bin;C:\Users\Administrator\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\Git\usr\bin;D:\Program Files\JetBrains\CLion 2021.3.4\bin;C:\Program Files (x86)\GnuWin32\bin;C:\mingw64\bin;C:\Library\opencv\build\x64\mingw\bin;C:\Users\Administrator\AppData\Local\gitkraken\bin
+# ����
+PHPSTORM_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\phpstorm.vmoptions
+# ����
+COMMONPROGRAMW6432 = C:\Program Files\Common Files
+# ����
+PROCESSOR_ARCHITECTURE = x86
+# ����
+USERPROFILE = C:\Users\Administrator
+# ����
+ALLUSERSPROFILE = C:\ProgramData
+# ����
+GOLAND_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\goland.vmoptions
+# ����
+VSCODE_LOG_STACK = false
+# ����
+NUMBER_OF_PROCESSORS = 12
+# ����
+ELECTRON_RUN_AS_NODE = 1
+# ����
+JETBRAINSCLIENT_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\jetbrainsclient.vmoptions
+# Ĭ��
+.FEATURES := target-specific order-only second-expansion else-if archives
+# ����
+IDEA_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\idea.vmoptions
+# ����
+DATASPELL_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\dataspell.vmoptions
+# �Զ�
+%F = $(notdir $%)
+# ����
+CHROME_CRASHPAD_PIPE_NAME = \\.\pipe\crashpad_11816_VHGDWSBZPRMRKFDL
+# ����
+VSCODE_PIPE_LOGGING = true
+# ����
+COMPUTERNAME = WIN-L13KQBO2U6J
+# ����
+PROGRAMFILES = C:\Program Files (x86)
+# ����
+DRIVERDATA = C:\Windows\System32\Drivers\DriverData
+# ����
+JETBRAINS_CLIENT_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\jetbrains_client.vmoptions
+# ����
+ORIGINAL_XDG_CURRENT_DESKTOP = undefined
+# ����
+USERNAME = Administrator
+# ����
+PUBLIC = C:\Users\Public
+# ����
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# ����
+RIDER_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\rider.vmoptions
+# ����
+VSCODE_CODE_CACHE_PATH = C:\Users\Administrator\AppData\Roaming\Code\CachedData\c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5
+# ����
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+# ����
+COMMONPROGRAMFILES = C:\Program Files (x86)\Common Files
+# ����
+LOGONSERVER = \\WIN-L13KQBO2U6J
+# ����
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# ����
+USERDOMAIN = WIN-L13KQBO2U6J
+# Ĭ��
+MAKE = $(MAKE_COMMAND)
+# Ĭ��
+MAKECMDGOALS := all
+# ����
+BOOST_ROOT = D:\dev\boost_1_79_0
+# Ĭ��
+MAKE_VERSION := 3.81
+# makefile
+.DEFAULT_GOAL := all
+# ����
+PROGRAMFILES(X86) = C:\Program Files (x86)
+# �Զ�
+%D = $(patsubst %/,%,$(dir $%))
+# ����
+LOCALAPPDATA = C:\Users\Administrator\AppData\Local
+# ����
+PSMODULEPATH = C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+# Ĭ��
+MAKE_COMMAND := make.exe
+# ����
+PROCESSOR_ARCHITEW6432 = AMD64
+# Ĭ��
+.VARIABLES := 
+# �Զ�
+*F = $(notdir $*)
+# ����
+PROCESSOR_IDENTIFIER = Intel64 Family 6 Model 165 Stepping 3, GenuineIntel
+# ����
+OS = Windows_NT
+# ����
+VSCODE_IPC_HOOK = \\.\pipe\9e7283c68e6159fd1e9872b65f264be5-1.67.2-main-sock
+# ����
+HOMEPATH = \Users\Administrator
+# ����
+COMMONPROGRAMFILES(X86) = C:\Program Files (x86)\Common Files
+# ����
+PROMPT = $P$G
+# ����
+MFLAGS = -Rrqp
+# �Զ�
+*D = $(patsubst %/,%,$(dir $*))
+# ����
+SYSTEMROOT = C:\WINDOWS
+# ����
+RUBYMINE_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\rubymine.vmoptions
+# �Զ�
++D = $(patsubst %/,%,$(dir $+))
+# ����
+DATAGRIP_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\datagrip.vmoptions
+# �Զ�
++F = $(notdir $+)
+# ����
+APPDATA = C:\Users\Administrator\AppData\Roaming
+# ����
+TEMP = C:\Users\ADMINI~1\AppData\Local\Temp
+# ����
+COMSPEC = C:\WINDOWS\system32\cmd.exe
+# ����
+PYCHARM_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\pycharm.vmoptions
+# Ĭ��
+MAKEFILES := 
+# �Զ�
+<F = $(notdir $<)
+# ����
+LC_ALL = C
+# �Զ�
+^F = $(notdir $^)
+# Ĭ��
+SUFFIXES := 
+# ����
+SYSTEMDRIVE = C:
+# ����
+SESSIONNAME = Console
+# ����
+PROCESSOR_REVISION = a503
+# ����
+MAKELEVEL := 0
+# ����
+CLION_VM_OPTIONS = D:\DONTMOVE\ja-netfilter-all\vmoptions\clion.vmoptions
+# ����
+LANG = C
+# ����
+ 
+PROCESSOR_LEVEL = 6
+# ����
+FPS_BROWSER_APP_PROFILE_STRING = Internet Explorer
+# ����
+VSCODE_PID = 11816
+# ����
+USERDOMAIN_ROAMINGPROFILE = WIN-L13KQBO2U6J
+# variable set hash-table stats:
+# Load=110/1024=11%, Rehash=0, Collisions=11/131=8%
+
+# Pattern-specific Variable Values
+
+# û�� pattern-specific ������ֵ��
+
+# Ŀ¼
+
+# D:\Users\Administrator\AppData\Local\Programs\MiKTeX\miktex\bin\x64\ (�ؼ��� D:/Users/Administrator/AppData/Local/Programs/MiKTeX/miktex/bin/x64/���޸�ʱ�� 1647488502)��760 �ļ��� �� impossibilities.
+# C:\Windows\SysWOW64 (�ؼ��� C:/Windows/SysWOW64���޸�ʱ�� 1653878951)��3000 �ļ��� �� impossibilities.
+# C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps (�ؼ��� C:/Users/Administrator/AppData/Local/Microsoft/WindowsApps���޸�ʱ�� 1653813411)��13 �ļ��� �� impossibilities.
+# C:\ffmpeg-5.0-full_build\ffmpeg-5.0-full_build\bin (�ؼ��� C:/ffmpeg-5.0-full_build/ffmpeg-5.0-full_build/bin���޸�ʱ�� 1642321847)��5 �ļ��� �� impossibilities.
+# C:\Program Files\Pandoc\ (�ؼ��� C:/Program Files/Pandoc/���޸�ʱ�� 1649913812)��6 �ļ��� �� impossibilities.
+# D:\Program Files\JetBrains\PyCharm Community Edition 2021.3.2\bin (�ؼ��� D:/Program Files/JetBrains/PyCharm Community Edition 2021.3.2/bin���޸�ʱ�� 1647485085)��29 �ļ��� �� impossibilities.
+# C:\WINDOWS\System32\WindowsPowerShell\v1.0\ (�ؼ��� C:/WINDOWS/System32/WindowsPowerShell/v1.0/���޸�ʱ�� 1648702274)��32 �ļ��� �� impossibilities.
+# C:\WINDOWS\System32\Wbem (�ؼ��� C:/WINDOWS/System32/Wbem���޸�ʱ�� 1652334163)��172 �ļ��� �� impossib 
+ilities.
+# . (�ؼ��� e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code/Official Version���޸�ʱ�� 1653876792)��29 �ļ��� �� impossibilities.
+# C:\Program Files\TortoiseSVN\bin (�ؼ��� C:/Program Files/TortoiseSVN/bin���޸�ʱ�� 1647500109)��64 �ļ��� �� impossibilities.
+# C:\FFmpeg\bin���޷�������� stat ������
+# C:\Windows\SysWOW64\5097 (�ؼ��� C:/Windows/SysWOW64/5097���޸�ʱ�� 1650330801)��74 �ļ��� �� impossibilities.
+# C:\FFmpeg\ffmpeg-2022-03-07-git-e645a1ddb9-full_build\bin (�ؼ��� C:/FFmpeg/ffmpeg-2022-03-07-git-e645a1ddb9-full_build/bin���޸�ʱ�� 1646652723)��5 �ļ��� �� impossibilities.
+# C:\Program Files\PowerShell\7\ (�ؼ��� C:/Program Files/PowerShell/7/���޸�ʱ�� 1647502054)��478 �ļ��� �� impossibilities.
+# D:\Program Files (x86)\VMware\VMware Workstation\bin\ (�ؼ��� D:/Program Files (x86)/VMware/VMware Workstation/bin/���޸�ʱ�� 1647487708)��4 �ļ��� �� impossibilities.
+# C:\WINDOWS\System32\OpenSSH\���޷�������� stat ������
+# C:\strawberry\c\bin (�ؼ��� C:/strawberry/c/bin���޸�ʱ�� 1648708738)��91 �ļ��� �� impossibilities.
+# C:\Program Files (x86)\Common Files\Oracle\Java\javapath (�ؼ��� C:/Program Files (x86)/Common Files/Oracle/Java/javapath���޸�ʱ�� 1649816133)��5 �ļ��� �� impossibilities.
+# C:\strawberry\perl\bin (�ؼ��� C:/strawberry/perl/bin���޸�ʱ�� 1648714729)��146 �ļ��� �� impossibilities.
+# C:\WINDOWS (�ؼ��� C:/WINDOWS���޸�ʱ�� 1653467239)��116 �ļ��� �� impossibilities.
+# C:\Program Files (x86)\ActiveState Komodo IDE 11\ (�ؼ��� C:/Program Files (x86)/ActiveState Komodo IDE 11/���޸�ʱ�� 1648709268)��6 �ļ��� �� impossibilities.
+# C:\Program Files\Git\bin (�ؼ��� C:/Program Files/Git/bin���޸�ʱ�� 1647491412)��5 �ļ��� �� impossibilities ����Ϊֹ��
+# C:\Program Files (x86)\Calibre2\ (�ؼ��� C:/Program Files (x86)/Calibre2/���޸�ʱ�� 1650354455)��24 �ļ��� �� impossibilities.
+# C:\strawberry\perl\site\bin (�ؼ��� C:/strawberry/perl/site/bin���޸�ʱ�� 1650266402)��10 �ļ��� �� impossibilities.
+# C:\Users\Administrator\AppData\Local\Programs\Python\Python310\ (�ؼ��� C:/Users/Administrator/AppData/Local/Programs/Python/Python310/���޸�ʱ�� 1651828147)��21 �ļ��� �� impossibilities.
+# C:\Users\Administrator\AppData\Local\Programs\Python\Python310\Scripts\ (�ؼ��� C:/Users/Administrator/AppData/Local/Programs/Python/Python310/Scripts/���޸�ʱ�� 1652335975)��47 �ļ��� �� impossibilities.
+# C:\Users\Administrator\AppData\Local\ActiveState\StateTool\release\bin (�ؼ��� C:/Users/Administrator/AppData/Local/ActiveState/StateTool/release/bin���޸�ʱ�� 1650001738)��6 �ļ��� �� impossibilities.
+# C:\WINDOWS\system32 (�ؼ��� C:/WINDOWS/system32���޸�ʱ�� 1653538585)��3000 �ļ��� �� impossibilities.
+# D:\opencv\build\x64\vc15\bin���޷�������� stat ������
+# C:\Program Files\CMake\bin (�ؼ��� C:/Program Files/CMake/bin���޸�ʱ�� 1648090086)��7 �ļ��� �� impossibilities.
+# C:\Program Files (x86)\ActiveState Komodo IDE 12\ (�ؼ��� C:/Program Files (x86)/ActiveState Komodo IDE 12/���޸�ʱ�� 1649924863)��6 �ļ��� �� impossibilities.
+
+# 8161 �ļ��� �� impossibilities in 31 directori 
+es.
+
+# Implicit Rules
+
+# û����������
+
+# �ļ�
+
+all:
+#  ������Ŀ�ꡣ
+#  �����������������δ��ɡ�
+#  ����/��̬ģʽ���ɣ�����
+#  �ļ������ڡ�
+#  �ļ��Ѿ������¡�
+#  ��Ҫ���� (�� -q �趨)��
+# �Զ�
+# @ := all
+# �Զ�
+# % := 
+# �Զ�
+# * := 
+# �Զ�
+# + := 
+# �Զ�
+# | := 
+# �Զ�
+# < := 
+# �Զ�
+# ^ := 
+# �Զ�
+# ? := 
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/10=10%
+#  Ҫִ�е����� (�ӡ�makefile������ 4)��
+	cd 1; make 
+	cd 2; make 
+	cd 3; make 
+	cd 4; make 
+	cd 5; make 
+	cd 6; make
+	cd 7; make 
+	cd 8; make 
+	cd 9; make
+	cd 10; make
+	cd 11; make
+	cd 12; make
+	cd 13; make 
+	cd 14; make 
+	cd 15; make 
+	cd 16; make 
+	cd 17; make 
+	cd 18; make 
+	cd 19; make
+	
+
+# ����һ��Ŀ�꣺
+.DEFAULT:
+#  �����������������δ��ɡ�
+#  �Ӳ�����޸�ʱ�䡣
+#  �ļ���δ�����¡�
+
+# ����һ��Ŀ�꣺
+makefile:
+#  �������������������ɡ�
+#  ������� 2012-08-09 16:27:20
+#  �ļ��Ѿ������¡�
+#  ���³ɹ���
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+clobber:
+#  �����������������δ��ɡ�
+#  �Ӳ�����޸�ʱ�䡣
+#  �ļ���δ�����¡�
+#  Ҫִ�е����� (�ӡ�makefile������ 46)��
+	cd 1; make clobber 
+	cd 2; make clobber 
+	cd 3; make clobber 
+	cd 4; make clobber 
+	cd 5; make clobber 
+	cd 6; make clobber 
+	cd 7; make clobber 
+	cd 8; make clobber 
+	cd 9; make clobber
+	cd 10; make clobber
+	cd 11; make clobber
+	cd 12; make clobber
+	cd 13; make clobber 
+	cd 14; make clobber 
+	cd 15; make clobber 
+	cd 16; make clobber 
+	cd 17; make clobber 
+	cd 18; make clobber 
+	cd 19; make clobber
+	
+
+# ����һ��Ŀ�꣺
+.SUFFIXES:
+#  �����������������δ��ɡ�
+#  �Ӳ�����޸�ʱ�䡣
+#  �ļ���δ�����¡�
+
+clean:
+#  �����������������δ��ɡ�
+#  �Ӳ�����޸�ʱ�䡣
+#  �ļ���δ�����¡�
+#  Ҫִ�е����� (�ӡ�makefile������ 25)��
+	cd 1; make clean 
+	cd 2; make clean 
+	cd 3; make clean 
+	cd 4; make clean 
+	cd 5; make clean 
+	cd 6; make clean 
+	cd 7; make clean 
+	cd 8; make clean 
+	cd 9; make clean
+	cd 10; make clean
+	cd 11; make clean
+	cd 12; make clean
+	cd 13; make clean 
+	cd 14; make clean 
+	cd 15; make clean 
+	cd 16; make clean 
+	c 
+d 17; make clean 
+	cd 18; make clean 
+	cd 19; make clean
+	
+
+# files hash-table stats:
+# Load=6/1024=1%, Rehash=0, Collisions=0/19=0%
+# VPATH ����·��
+
+# û�С�vpath������·����
+
+# û��ͨ������·��(��VPATH������)��
+
+# # of strings in strcache: 1
+# # of strcache buffers: 1
+# strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
+# strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
+
+# Finished Make data base on Mon May 30 10:55:18 2022
+
+ 

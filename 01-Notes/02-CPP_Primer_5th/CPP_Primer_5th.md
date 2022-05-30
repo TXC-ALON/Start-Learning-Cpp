@@ -247,17 +247,79 @@ C++ 中每个每个名字都必须先声明再使用，常见的错误比如用�
 
 ### 1.5 Introducing Classes
 
+C++中用类来定义自己的数据结构，以便于程序员可以像使用内置类型一样使用类
+
+#### 类的三个要点
+
+- 类名是什么
+- 它是在哪里被定义的
+- 它支持什么操作
+
 #### 1.5.1 The Sales_item Class
 
+#### 文件重定向
+
+大多数的操作系统都支持文件重定向，以避免反复手动输入输出数据
+
+大多数Unix系统的文件重定向方法如下：
+
+```c++
+program.exe <infile >outfile
+//头一个是已经编译好的exe，infile即为输入数据的文件和outfile可以指定名称名称，< > 前面需要有空格，并不是将infile包裹起来，而是表示某种输入输出方向。
+```
+
+VS Code终端实际上是使用Windows PowerShell。PowerShell支持“>”，不支持“<”。故需要通过“Get-Content”获取输入文件的内容。
+
+```c++
+.\add_item2.exe <add_item >output_add
+               ~
+The '<' operator is reserved for future use.
+    
+//直接使用他会和你说 < 运算符另有他用
+```
+```c++
+//应该这样用
+//PowerShell重定向命令
+//Get-Content infile | ./***.exe >outfile
+
+Get-Content .\data\add_item | ./add_item2.exe >.\data\outfile
+```
+
 #### 1.5.2 A First Look at Member Functions
+
+成员函数是定义为类的一部分的函数，也被称为method方法。
+
+```c++
+item1.isbn()
+```
+
+使用.运算符来表达我们需要一个名为item1的对象的一个isbn成员。点运算符只能用于类型为类的对象。其左侧运算对象必须是一个类类型的对象，右侧运算对象必须是该类型的一个成员名，运算结果为右侧运算对象指定的成员。
+
+当.运算符访问一个成员函数时，通常我们是想调用该函数，我们使用调用运算符()来调用一个函数，括号内放置实参列表（可能为空）
+
+#### 附赠：利用vscode 里的code-runner来跑程序。
+
+需要调整一些东西
+
+- [vscode折腾记1——把vscode打造成趁手的刷题工具](https://zhuanlan.zhihu.com/p/261982416)
+- [将环境设置为C++11](https://zhuanlan.zhihu.com/p/269244754)
 
 ### 1.6 The Bookstore Program
 
 ### Chapter Summary  
 
+本章介绍了基本的C++知识，可以编译简单的C++程序
+
+个人觉得有些C基础的大多都了解，类、成员函数、重载运算符这些还需要多多了解。
+
+文件重定向也挺有用的
+
 ### Defined Terms
 
-
+- argument 实参
+- parameter 形参
+- manipulator 操纵符
+- edit - compile - debug
 
 # Part I The Basics
 

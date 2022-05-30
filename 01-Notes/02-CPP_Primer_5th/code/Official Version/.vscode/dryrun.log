@@ -1,0 +1,26 @@
+make.exe --dry-run --always-make --keep-going --print-directory
+make.exe: Entering directory `e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code/Official Version'
+cd 1; make 
+cd 2; make 
+cd 3; make 
+cd 4; make 
+cd 5; make 
+cd 6; make
+cd 7; make 
+cd 8; make 
+cd 9; make
+ 
+cd 10; make
+cd 11; make
+cd 12; make
+cd 13; make 
+cd 14; make 
+cd 15; make 
+ 
+cd 16; make 
+cd 17; make 
+cd 18; make 
+cd 19; make
+ 
+make.exe: Leaving directory `e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code/Official Version'
+ 

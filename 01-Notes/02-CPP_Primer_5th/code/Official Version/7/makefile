@@ -11,7 +11,7 @@ LOCFLAGS = -I../1
 useScreen.exe: Screen.h
 
 Account.o useAccount.o: Account.h
-Debug.o useDebug.o: Debug.h
+Debug.o useDebug.o: Debug.hls
 
 useAccount.exe: Account.o useAccount.o
 	$(CC) $(CCFLAGS) $(LOCFLAGS) Account.o useAccount.o \
