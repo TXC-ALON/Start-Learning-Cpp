@@ -299,7 +299,7 @@ item1.isbn()
 
 #### 附赠：利用vscode 里的code-runner来跑程序。
 
-需要调整一些东西
+需要调整一些东西，主要是让它支持C++11
 
 - [vscode折腾记1——把vscode打造成趁手的刷题工具](https://zhuanlan.zhihu.com/p/261982416)
 - [将环境设置为C++11](https://zhuanlan.zhihu.com/p/269244754)
@@ -310,7 +310,9 @@ item1.isbn()
 
 本章介绍了基本的C++知识，可以编译简单的C++程序
 
-个人觉得有些C基础的大多都了解，类、成员函数、重载运算符这些还需要多多了解。
+个人觉得有些C基础的大多都了解类型、变量、控制流这些
+
+而类、成员函数、重载运算符这些还需要多多了解。
 
 文件重定向也挺有用的
 
@@ -323,14 +325,162 @@ item1.isbn()
 
 # Part I The Basics
 
+- 第二章  详述内置类型，并逐步介绍自定义数据类型的方法
+- 第三章 介绍了string和vector，以及array
+- 第四到六章 一次介绍了表达式、语句和函数
+- 第七章 描述了怎么构建我们自己的类
 
 ## Chapter 2 Variables and Basic Types
 
+数据类型是程序的基础，它告诉我们数据的意义以及能在数据上执行的操作。
+
 ### 2.1 Primitive Built-in Types
 
-#### 2.1.1 Arithmetic Types
+#### 2.1.1 Arithmetic Types 算术类型
+
+算术类型分为两类：整型 integral types（包括字符型和布尔型）和浮点型 floating-point types
+
+##### 算术类型的大小
+
+![](CPP_Primer_5th.assets/2-1.png)
+
+这里需要注意一些，这里是最小大小，现在基本上int 都是4个字节，也就是32位的数据了
+
+c++ 里规定，一个int至少和一个short一样大，一个long至少和一个int一样大，一个long long至少和一个long一样大
+
+```c++
+#include<iostream>
+using namespace std;
+int main() {
+	cout << "bool's size is " << sizeof(bool) << endl;
+	cout << "char's size is " << sizeof(char) << endl;
+	cout << "wchar_t's size is " << sizeof(wchar_t) << endl;
+	cout << "char16_t's size is " << sizeof(char16_t) << endl;
+	cout << "char32_t's size is " << sizeof(char32_t) << endl;
+	cout << "short's size is " << sizeof(short) << endl;
+	cout << "int's size is " << sizeof(int) << endl;
+	cout << "long's size is " << sizeof(long) << endl;
+	cout << "long long's size is " << sizeof(long long) << endl;
+	cout << "float's size is " << sizeof(float) << endl;
+	cout << "double's size is " << sizeof(double) << endl;
+	cout << "long double's size is " << sizeof(long double) << endl;
+}
+
+/*
+//在win10 vs2019下
+bool's size is 1
+char's size is 1
+wchar_t's size is 2
+char16_t's size is 2
+char32_t's size is 4
+short's size is 2
+int's size is 4
+long's size is 4
+long long's size is 8
+float's size is 4
+double's size is 8
+long double's size is 8
+*/
+```
+
+在[ubuntu](https://so.csdn.net/so/search?q=ubuntu&spm=1001.2101.3001.7020) 18.04，64位 环境下测试，long占据8个字节。
+
+![image-20220531102256714](CPP_Primer_5th.assets/image-20220531102256714.png)
+
+注意，这里的wchar_t, long, long double 有一定区别
+
+网上搜索发现，long占据的字节数还和编译器的数据模型相关，具体如下：
+
+| Datetype  | LP64 | ILP64 | LLP64 | ILP32 | LP32 |
+| :-------- | :--- | :---- | :---- | :---- | :--- |
+| char      | 8    | 8     | 8     | 8     | 8    |
+| short     | 16   | 16    | 16    | 16    | 16   |
+| int       | 32   | 64    | 32    | 32    | 16   |
+| long      | 64   | 64    | 32    | 32    | 32   |
+| long long | 64   |       |       |       |      |
+| pointer   | 64   | 64    | 64    | 32    | 32   |
+
+另外一般情况下windows64位一般使用LLP64模型，64位Unix，Linux使用的是LP64模型
+
+> https://blog.csdn.net/weixin_40997360/article/details/79948968
+
+细节的部分在于内置类的的机械实现
+
+在内存中，数据以0-1存储，那么取多大尺寸的数据，就首先要知道数据的类型。类型决定了数据所占的比特数以及该如何解释这些比特的内容。
+
+##### 带符号类型和无符号类型
+
+无符号类型仅能表示大于0的值，同时会比同类型的带符号的类型多一位存储数据，显得多些。
+
+比如unsigned char [0-255]。char [-128(10000000) -- 127(01111111)]
+
+##### 选择类型的一些原则
+
+1. 当你明确知道类型不可能为负时，使用unsigned类型
+2. 整数运算，使用int，int不够大，直接上long long
+3. 算术表达式中，不要用char或bool值。因为类型char是否有符号在不同的机器上可能不一样。非要用它来表达一个不大的整数的话，那么要标明是否带符号。
+4. 执行浮点数运算用double。float常不够用，且有时候double比float更快，而long double就没啥必要，损耗也不容忽视。
 
 #### 2.1.2 Type Conversions
+
+对象的类型定义了对象能包含的数据和能参与的运算（加减乘除也是需要定义的），其中一种运算被大多数类型支持，也就是将对象从一种给定的类型转换（convert) 为另一种类型。
+
+##### 类型转换的一些规则
+
+|                转换类型                |                           转换方法                           |
+| :------------------------------------: | :----------------------------------------------------------: |
+|          非布尔值 -> 布尔类型          |                   0 -> false ; 非0 -> true                   |
+|         布尔类型 -> 非布尔类型         |                   false -> 0  ; true -> 1                    |
+|           浮点数 -> 整数类型           |                      仅保留小数点前部分                      |
+|           整数值 -> 浮点类型           | 小数部分记为0，如果该整数空间超过浮点类型的容量，精度会有所损失 |
+| 给一个无符号类型一个超出它表示范围的值 |               结果为对其进行取余(%容量)的余数                |
+| 给一个带符号类型一个超出它表示范围的值 |        结果是未定义的，此时程序可能崩溃，可能继续工作        |
+
+直接cout输出，由于无法正确识别类型，所以在终端输出结果也就不如预期，
+
+![image-20220531105908646](CPP_Primer_5th.assets/image-20220531105908646.png)
+
+debug可以看出值是按照书中类型变化了
+
+![image-20220531105813758](CPP_Primer_5th.assets/image-20220531105813758.png)
+
+其实加上int强制类型转换就好了
+
+![image-20220531110140366](CPP_Primer_5th.assets/image-20220531110140366.png)
+
+注意：切勿混用带符号类型和无符号类型，因为无符号类型很容易被搞成负值，带符号的负数被当成无符号数，那么也会产生意料之外的结果。
+
+##### 2.1.2小练习
+
+```c++
+#include<iostream>
+using namespace std;
+int main() {
+	unsigned u = 10, u2 = 42;
+	cout << u2 - u << endl;//32
+	cout << UINT32_MAX << endl;
+	cout << u - u2 << endl;//-32 转化为 INT32MAX -31  4294967264 11111111 11111111 11111111 11100000
+	int i = 10, i2 = 42;
+	cout << i2 - i << endl;//32
+	cout << i - i2 << endl;//-32
+	cout << i - u << endl;//0
+	cout << u - i << endl;//0
+}
+```
+
+计算机内的数据是以补码形式存储的，负数的补码为按位取反后加1
+
+那么-32为
+
+10000000000000000000000000100000
+
+取反后
+
+01111111111111111111111111011111
+
+加1
+
+11111111111111111111111111100000
 
 #### 2.1.3 Literals
 
