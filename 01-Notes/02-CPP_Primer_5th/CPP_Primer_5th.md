@@ -364,6 +364,7 @@ int main() {
 	cout << "float's size is " << sizeof(float) << endl;
 	cout << "double's size is " << sizeof(double) << endl;
 	cout << "long double's size is " << sizeof(long double) << endl;
+    return 0;
 }
 
 /*
@@ -465,26 +466,201 @@ int main() {
 	cout << i - i2 << endl;//-32
 	cout << i - u << endl;//0
 	cout << u - i << endl;//0
+    return 0;
 }
 ```
 
-计算机内的数据是以补码形式存储的，负数的补码为按位取反后加1
+题解：
 
-那么-32为
+> 计算机内的数据是以补码形式存储的，负数的补码为按位取反后加1
+>
+> 那么-32为
+>
+> 10000000000000000000000000100000
+>
+> 取反后
+>
+> 01111111111111111111111111011111
+>
+> 加1
+>
+> 11111111111111111111111111100000
 
-10000000000000000000000000100000
 
-取反后
-
-01111111111111111111111111011111
-
-加1
-
-11111111111111111111111111100000
 
 #### 2.1.3 Literals
 
-### 2.2 Variables
+字面值常量，即那种值一望而知的数据，每个字面值常量都对应一种数据类型。字面值常量的形式和值决定了他的数据类型。
+
+##### 整型字面值
+
+这里需要考虑一点，就是进制
+
+decimal	十进制			20
+
+octal	八进制				024
+
+hexadecimal	十六进制		0x24
+
+```c++
+#include <iostream>
+#include<string>
+#include<fstream>
+using namespace std;
+int main()
+{
+	int a = 20;
+	int b = 020;
+	int c = 0x20;
+	cout << a << endl;
+	cout << b << endl;
+	cout << c << endl;
+    return 0;
+}
+```
+
+
+
+这里要注意一点，整型字面值具体的数据类型是由它的值和符号决定。默认情况下，十进制字面值是带符号数，八进制和十六进制可能带也可能不带。
+
+十进制字面值的类型是int，long，long long中尺寸最小的那个。
+
+八进制和十六进制字面值的类型是能容纳其数值的int，unsigned int，long，unsignedlong，long long，unsigned long long中尺寸最小者。
+
+类型short没有与之对应的字面值。
+
+注意：严格来说，十进制字面值不会是负数，-42，那个符号并不在字面值之内。
+
+##### 浮点型字面值
+
+默认浮点型字面值是一个double
+
+##### 字符和字符串字面值
+
+单括号括起来的一个字符，被称为char型字面值，
+
+双括号括起来的0-多个字符构成字符串型字面值。
+
+**字符串字面值实际上是由常量字符构成的一个数组，编译器在每个字符串结尾加上\0**
+
+'A' = 'A'
+
+"A" = 'A' + '\0'
+
+**两个字符串字面值位置紧邻且仅由空格、缩进、和换行符分隔，那么他们实际上是一个字符串**
+
+```c++
+#include <iostream>
+#include<string>
+#include<fstream>
+using namespace std;
+int main()
+{
+	cout << "hello world " "this is a space "	"this is a tab "
+		"this is a enter" << endl;
+	return 0;
+
+}
+```
+
+##### 转义序列 Escape Sequences
+
+有一些字符是不可打印的，有一些字符是在C++中有特殊含义的字符，这些都需要使用到转义序列。
+
+C++中规定的转义序列：
+
+|          含义          | 转义字符 |
+| :--------------------: | :------: |
+|        newline         |   `\n`   |
+| 横向制表horizontal tab |   `\t`   |
+|      alert (bell)      |   `\a`   |
+|  纵向制表vertical tab  |   `\v`   |
+|       backspace        |   `\b`   |
+|   双引号double quote   |   `\"`   |
+|    反斜线backslash     |   `\\`   |
+|     question mark      |   `\?`   |
+|      single quote      |   `\'`   |
+| 回车符carriage return  |   `\r`   |
+|     进纸符formfeed     |   `\f`   |
+
+```c++
+std::cout << '\n';      // prints a newline
+std::cout << "\tHi!\n"; // prints a tab followd by "Hi!" and a newline
+```
+
+泛化转义序列的形式是
+
+- `\x`后紧跟1个或多个十六进制数字，
+
+- 或者`\`后紧跟1个、2个或3个八进制数字，其中数字部分表示字符对应的数值。
+
+  如果`\`后面跟着的八进制数字超过3个，则只有前3个数字与`\`构成转义序列。相反，`\x`要用到后面跟着的所有数字。
+
+```c++
+std::cout << "Hi \x4dO\115!\n"; // prints Hi MOM! followed by a newline
+std::cout << '\115' << '\n';    // prints M followed by a newline
+```
+
+
+
+>**进一步研究了一些\后面跟着八进制超过3个后的情况**
+>
+>```c++
+>#include <iostream>
+>#include<string>
+>#include<fstream>
+>using namespace std;
+>int main()
+>{
+>	char a = '\1156';
+>	string b = "\1156";
+>	std::cout << '\115' << endl;    // prints M followed by a newline
+>	std::cout << '\1156' << endl;
+>	std::cout << '\000' << endl;
+>	std::cout << '\0000' << endl;
+>	std::cout << '\001' << endl;
+>	std::cout << '\0010' << endl;
+>	std::cout << '\00000' << endl;
+>	std::cout << '\11500' << endl;
+>	std::cout << '\11500' - '\00000' << endl;5046272 = 77 * 256 * 256
+>	std::cout << '\21500' << endl;
+>	std::cout << '\12500' << endl;
+>	std::cout << '\11510' << endl;
+>	std::cout << '\11610' << endl;
+>	std::cout << '\11520' << endl;
+>	std::cout << a << '\n';   
+>	std::cout << b << '\n';   
+>	return 0;
+>}
+>```
+>
+>![image-20220601112806676](CPP_Primer_5th.assets/image-20220601112806676.png)
+>
+>可以看到当你直接输出'\1156'时，会输出19766，而这实际上是77*256+48(‘0’)+6，而77的八进制就是115。
+>
+>而你将这个数赋给char类型时，会进行识别截断，得到可用的字符'6'。
+>
+>当你输入'\11500时' 数据为5058608 = 5046272（77\*256\*256）+ 12336(256*48+48)
+>
+>当你输入'\11566时' 数据为5060150 = 5046272（77\*256\*256）+ 13878(256\*48+48+256*6+6)
+>
+>当你输入'\115777'时 数据为1295464247 = 1291845632（77\*256\*256）+ 3618615(256\*256\*48+256\*48+48+256\*256\*7+256\*7+7)
+>
+>这里就可以看出来，这里的组织形式是\115作为八进制参与数的组合，每一位进256。同时在后面的位数上，先预置了48。
+>
+>![image-20220601111456459](CPP_Primer_5th.assets/image-20220601111456459.png)
+>
+>
+
+##### 指定字面值的类型
+
+添加特定的前缀和后缀，可以改变整型、浮点型和字符型字面值的默认类型。
+
+![](CPP_Primer_5th.assets/2-2.png)
+
+使用一个长整型字面值时，最好使用大写字母`L`进行标记，小写字母`l`和数字`1`容易混淆。
+
+然后nullptr，和true/false 分别为指针和布尔的字面值。
 
 #### 2.2.1 Variable Definitions
 
