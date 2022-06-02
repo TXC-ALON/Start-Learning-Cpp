@@ -334,7 +334,7 @@ item1.isbn()
 
 数据类型是程序的基础，它告诉我们数据的意义以及能在数据上执行的操作。
 
-### 2.1 Primitive Built-in Types
+### 2.1 Primitive Built-in Types 基本内置类型
 
 #### 2.1.1 Arithmetic Types 算术类型
 
@@ -662,13 +662,142 @@ std::cout << '\115' << '\n';    // prints M followed by a newline
 
 然后nullptr，和true/false 分别为指针和布尔的字面值。
 
+### 2.2 Variable
+
+C++ 中的每个变量都有其数据类型，数据类型决定着变量所占内存空间的大小和布局方式、该空间能存储值的范围，以及变量能参与的运算。
+
 #### 2.2.1 Variable Definitions
+
+变量定义是一个类型说明符（type specifier）， 随后紧跟一个或多个变量名组成的列表，变量名以逗号分隔，最后以分号结束。
+
+> **什么是对象？**
+>
+> 对象是一块能存储数据并具有某种类型的内存空间。
+>
+> 本书对对象的定义比较泛化，并不严格区分是类还是内置类型，也不区分是否命名或是否可读。
+
+##### 初始值 initializers
+
+初始化与赋值并不相同。
+
+初始化的含义是创建变量是赋予其一个初始值
+
+赋值的含义是将对象的当前值擦除，而以一个新值来代替
+
+##### 列表初始化
+
+C++ 支持很多种初始化的方式。
+
+```c++
+int num = 0;
+int num = {0};
+int num{0};
+int num(0);
+```
+
+C++ 11 标准下，用花括号来初始化变量得到了全面应用
+
+而用花括号初始化变量称为列表初始化（list initialization）。当用于内置类型的变量时，如果使用了列表初始化并且初始值存在丢失信息的风险，则编译器会报错。
+
+```c++
+long double ld = 3.1415926536;
+int a{ld}, b = {ld};    // error: narrowing conversion required
+int c(ld), d = ld;      // ok: but value will be truncated
+```
+
+这样编译器在赋值时就会进行检查，避免丢失信息的风险。
+
+##### 默认初始化
+
+如果定义变量时未指定初值，则变量被默认初始化（default initialized）。
+
+如果是内置类型的变量未被显式初始化，它的值由定义的位置决定：
+
+- 定义于任何函数体之外的变量被初始化为0；
+- 定义于函数体内部的变量将不被初始化； 一个未被初始化的内置类型变量的值是未定义的，如果试图拷贝或以其他形式访问此类值将引发错误。
+
+每个类各自决定其初始化对象的方式。
+
+**建议初始化每一个内置类型的变量**。
 
 #### 2.2.2 Variable Declarations and Definitions
 
-#### 2.2.3 Identifiers
+C++支持分离式编译(separate compilation)，这就要求需要有在文件间共享代码的方法，特别是文件间变量的互用。
 
-#### 2.2.4 Scope of a Name
+为了支持这一点，C++ 语言将声明和定义分开。声明 declaration 使得名字为程序所知。 定义 definition 负责创建与名字关联的实体(associated entity)。
+
+如果想声明一个变量而不定义它，就在变量名前添加关键字`extern`，并且不要显式地初始化变量。
+
+```c++
+extern int i; // declares but does not define i
+int j;      // declares and defines j
+extern double pi = 3.1416; // definition
+```
+
+**`extern`语句如果包含了初始值就不再是声明了，而变成了定义。**
+
+变量能且只能被定义一次，但是可以被声明多次。
+
+如果要在多个文件中使用同一个变量，就必须将声明和定义分开。此时变量的定义必须出现且只能出现在一个文件中，其他使用该变量的文件必须对其进行声明，但绝对不能重复定义。
+
+#### 静态类型 statically typed
+
+C++ 是一种静态类型语言，其含义是在编译阶段检查变量。
+
+程序越复杂，静态类型检查越有助于发现问题。然而，前提是编译器必须知道每一个实体对象的类型，这就要求我们在使用某个变量之前必须声明其类型。
+
+#### 2.2.3 Identifiers 标识符
+
+C++ 的标识符由字母、数字和下划线组成。必须以字母或下划线开头，长度没有限制，对大小写字母敏感。
+
+##### 命名规范：
+
+- 要能体现现实实际意义
+- 变量名一般使用小写字母，不要用大写开头
+- 用户自定义的类名，一般以大写字母开头， 如 Sales_items
+- 如果标识符由多个单词组成，则单词间应有明显区分。
+- 避免C++ 关键字
+
+![C++ 关键字](CPP_Primer_5th.assets/2-3.png)
+
+#### 2.2.4 Scope of a Name 作用域
+
+作用域 scope 是程序的一部分，在其中名字有其特定的含义。C++语言中大多数作用域都以花括号分隔。
+
+同一个名字在不同的作用域中可能指向不同的实体。名字的有效区域始于名字的声明语句，以声明语句所在的作用域末端为结束。
+
+全局作用域 global scope	一次声明，整个程序范围都可使用
+
+块作用域 block scope	仅仅在那块可以使用
+
+> 一般来说，杂对象第一次被使用的地方附近定义它是一种好的选择。
+
+##### 嵌套的作用域 Nested Scopes
+
+作用域中一旦声明了某个名字，它所嵌套着的所有作用域中都能访问该名字，同时，允许在内层作用域中重新定义外层作用域已有的名字。
+
+不过函数内部不宜定义与全局变量同名的新变量。
+
+```c++
+#include <iostream>
+// Program for illustration purposes only: It is bad style for a function
+// to use a global variable and also define a local variable with the same name
+int reused = 42;    // reused has global scope
+int main()
+{
+    int unique = 0; // unique has block scope
+    // output #1: uses global reused; prints 42 0
+    std::cout << reused << " " << unique << std::endl;
+    int reused = 0; // new, local object named reused hides global reused
+    // output #2: uses local reused; prints 0 0
+    std::cout << reused << " " << unique << std::endl;
+    // output #3: explicitly requests the global reused; prints 42 0
+    std::cout << ::reused << " " << unique << std::endl;
+    return 0;
+}
+```
+
+可以用作用域操作符`::`来覆盖默认的作用域规则。因为全局作用域本身并没有名字，所以当作用域操作符的左侧为空时，会向全局作用域发出请求获取作用域操作符右侧名字对应的变量。
 
 ### 2.3 Compound Types
 
