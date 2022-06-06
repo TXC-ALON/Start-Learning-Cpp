@@ -127,7 +127,7 @@ clog	输出程序运行时的一般消息
 
 #### 命名空间
 
-3.1节详解
+$3.1节详解
 
 #### 从流进行读
 
@@ -390,20 +390,22 @@ long double's size is 8
 
 注意，这里的wchar_t, long, long double 有一定区别
 
-网上搜索发现，long占据的字节数还和编译器的数据模型相关，具体如下：
 
-| Datetype  | LP64 | ILP64 | LLP64 | ILP32 | LP32 |
-| :-------- | :--- | :---- | :---- | :---- | :--- |
-| char      | 8    | 8     | 8     | 8     | 8    |
-| short     | 16   | 16    | 16    | 16    | 16   |
-| int       | 32   | 64    | 32    | 32    | 16   |
-| long      | 64   | 64    | 32    | 32    | 32   |
-| long long | 64   |       |       |       |      |
-| pointer   | 64   | 64    | 64    | 32    | 32   |
 
-另外一般情况下windows64位一般使用LLP64模型，64位Unix，Linux使用的是LP64模型
-
-> https://blog.csdn.net/weixin_40997360/article/details/79948968
+> 网上搜索发现，long占据的字节数还和编译器的数据模型相关，具体如下：
+>
+> | Datetype  | LP64 | ILP64 | LLP64 | ILP32 | LP32 |
+> | :-------- | :--- | :---- | :---- | :---- | :--- |
+> | char      | 8    | 8     | 8     | 8     | 8    |
+> | short     | 16   | 16    | 16    | 16    | 16   |
+> | int       | 32   | 64    | 32    | 32    | 16   |
+> | long      | 64   | 64    | 32    | 32    | 32   |
+> | long long | 64   |       |       |       |      |
+> | pointer   | 64   | 64    | 64    | 32    | 32   |
+>
+> 另外一般情况下windows64位一般使用LLP64模型，64位Unix，Linux使用的是LP64模型
+>
+> > https://blog.csdn.net/weixin_40997360/article/details/79948968
 
 细节的部分在于内置类的的机械实现
 
@@ -411,7 +413,7 @@ long double's size is 8
 
 ##### 带符号类型和无符号类型
 
-无符号类型仅能表示大于0的值，同时会比同类型的带符号的类型多一位存储数据，显得多些。
+无符号类型仅能表示大于0的值，同时会比同类型的带符号的类型多一位存储数据，显得多些,实际一样。
 
 比如unsigned char [0-255]。char [-128(10000000) -- 127(01111111)]
 
@@ -799,17 +801,313 @@ int main()
 
 可以用作用域操作符`::`来覆盖默认的作用域规则。因为全局作用域本身并没有名字，所以当作用域操作符的左侧为空时，会向全局作用域发出请求获取作用域操作符右侧名字对应的变量。
 
-### 2.3 Compound Types
+### 2.3 Compound Types 复合类型
+
+复合类型指基于其他类型定义的定义，这里介绍两种，即引用和指针。
+
+声明语句的通用描述是：**一条声明语句由一个基本数据类型 base type 和紧随其后的一个声明符 declarator列表组成。**
 
 #### 2.3.1 References
 
+> C++ 支持了右值引用，rvalue reference 在$13.6.1 中会讲,这种引用主要用于内置类，一般来说我们使用“引用”这个词，是指左值引用。
+
+简而言之，引用为对象起了另一个名字(alternative name)。
+
+定义引用时，程序把引用和它的初始值绑定（bind）在一起，而不是将初始值拷贝给引用。
+
+一旦初始化完成，将无法再令引用重新绑定到另一个对象，因为无法将引用重新绑定到另一个对象，因此**引用必须初始化。**
+
+引用不是对象，仅仅是别名，所以不能定义引用的引用。
+
 #### 2.3.2 Pointers
+
+类似引用，指针也实现了对其他变量的间接访问。
+
+而不同于引用的是：
+
+* 指针本身就是一个对象，允许对指针赋值和拷贝，在指针的生命周期，他可以被指向几个不同的对象。
+* 指针无须在定义时赋初值。和其他内置类型一样，在块作用域内定义的指针如果没有被初始化，也将拥有一个不确定的值。
+
+
+
+通过将声明符写成`*d`的形式来定义指针类型，其中`d`是变量名称。如果在一条语句中定义了多个指针变量，则每个量前都必须有符号`*`。
+
+```c++
+int *ip1, *ip2;     // both ip1 and ip2 are pointers to int
+double dp, *dp2;    // dp2 is a pointer to double; dp is a double
+```
+
+指针存放某个对象的地址，要想获取对象的地址，需要使用取地址符`&`。
+
+```c++
+int ival = 42;
+int *p = &ival; // p holds the address of ival; p is a pointer to ival
+```
+
+因为引用不是对象，没有实际地址，所以不能定义指向引用的指针。
+
+
+
+大部分情况下，指针的类型要和它指向的对象严格匹配。
+
+有两个例外，一是允许令一个指向常量的指针指向一个非常量对象（2.4.2）；二是存在继承关系的类，可以将基类的指针或引用绑定到派生类对象上（15.2.3）。
+
+
+
+##### 指针的值（即地址）
+
+应属于下列状态之一：
+
+- 指向一个对象。
+- 指向紧邻对象所占空间的下一个位置。
+- 空指针，即指针没有指向任何对象。
+- 无效指针，即上述情况之外的其他值。
+
+试图拷贝或以其他方式访问无效指针的值都会引发错误。
+
+##### 解引用
+
+如果指针指向一个对象，可以使用解引用（dereference）符`*`来访问该对象。
+
+```c++
+int ival = 42;
+int *p = &ival; // p holds the address of ival; p is a pointer to ival
+cout << *p;     // * yields the object to which p points; prints 42
+```
+
+给解引用的结果赋值就是给指针所指向的对象赋值。
+
+解引用操作仅适用于那些确实指向了某个对象的有效指针。
+
+##### 空指针
+
+空指针（null pointer）不指向任何对象，在试图使用一个指针前代码可以先检查它是否为空。得到空指针最直接的办法是用字面值`nullptr`（c++11最新支持）来初始化指针。
+
+旧版本程序通常使用`NULL`（预处理变量，定义于头文件`cstdlib`中，值为0）给指针赋值，但在C++11中，最好使用`nullptr`初始化空指针。
+
+老程序还会用NULL，这是一个在cstdlib头文件里定义的预处理变量(preprocessor variable)。
+
+关于预处理器，2.6.3会稍微介绍一些。简单说它运行于编译之前，不属于命名空间std。
+
+```c++
+int *p1 = nullptr;  // equivalent to int *p1 = 0;
+int *p2 = 0;        // directly initializes p2 from the literal constant 0
+// must #include cstdlib
+int *p3 = NULL;     // equivalent to int *p3 = 0;
+```
+
+建议初始化所有指针。
+
+注意，不能用int变量直接赋给指针，哪怕这个int变量为0；
+
+##### 赋值和指针
+
+指针和引用的最大区别就在于引用只是别名，而指针是真实存在的对象，可以改变指向的对象。
+
+给指针赋值就是令它存放一个新的地址，从而指向一个新的对象。
+
+具体分清楚到底改变的是指针还是指针指向的对象，可以通过看表达式等式左边是什么。
+
+
+
+指针非空，参与条件表达式，则为true，空指针为false。
+
+
+
+##### void*指针
+
+`void*`是一种特殊的指针类型，可以存放任意对象的地址，**但不能直接操作`void*`指针所指的对象**。只能拿它和别的指针进行比较，作为函数的输入输出，或是赋给另一个void指针。
+
+概括说来，从void* 的视角来看，内存空间仅仅是内存空间，没办法访问内存空间中的对象。  19.1.1节会详细描述。4.11.3 会描述获取void*指针的方法。
 
 #### 2.3.3 Understanding Compound Type Declarations
 
+##### 基本数据类型和类型修饰符的关系
+
+变量的定义包括一个基本数据类型和一组声明符。
+
+```c++
+int i = 1024, *p = &i, &r = i;
+```
+
+> 很多程序员会迷惑于基本数据类型和类型修饰符的关系，其实后者不过是声明符的一部分罢了。
+>
+> 特别是因为我们可以写成int*
+>
+> 比如
+>
+> ```c++
+> int* a,b;
+> //其中a是指针，b是int型变量。
+> ```
+>
+> > 当声明符包含未修改的标识符时，正在声明的项将具有基类型。 如果星号 (**`\*`**) 显示在标识符的左侧，则将类型修改为指针类型。 如果标识符后跟方括号 (**`[ ]`**)，则将类型修改为数组类型。 如果标识符后跟圆括号，则将类型修改为函数类型。 若要详细了解如何解释声明中的优先级，请查看[解释更复杂的声明符](https://docs.microsoft.com/zh-cn/cpp/c-language/interpreting-more-complex-declarators?view=msvc-170)。
+> >
+> > ```c++
+> > int i;
+> > int a[];
+> > int print();
+> > ```
+> >
+> > 每个声明符至少声明一个标识符。 声明符必须包含一个类型说明符才能成为完整声明。 类型说明符显示：数组类型的元素的类型、指针类型寻址的对象的类型，或者函数的返回类型。
+>
+> > http://www.morecpp.cn/cpluspluc-declarations/
+
+##### 
+
+##### 指向指针的指针（Pointers to Pointers）：
+
+一般来说，声明符中修饰符的个数没有限制。
+
+```c++
+int ival = 1024;
+int *pi = &ival;    // pi points to an int
+int **ppi = &pi;    // ppi points to a pointer to an int
+```
+
+![2-4](CPP_Primer_5th.assets/2-4.png)
+
+##### 指向指针的引用（References to Pointers）：
+
+```C++
+int i = 42;
+int *p;         // p is a pointer to int
+int *&r = p;    // r is a reference to the pointer p
+r = &i;         // r refers to a pointer; assigning &i to r makes p point to i
+*r = 0;         // dereferencing r yields i, the object to which p points; changes i to 0
+```
+
+面对一条比较复杂的指针或引用的声明语句时，从右向左阅读有助于弄清它的真实含义。
+
+**离变量名最近的符号对变量的类型有最直接的影响。**其余部分用来确定这个类型是什么。
+
 ### 2.4 const Qualifier
 
+有时候我们想要定义一个不会被轻易改变的常量，那么就可以在变量前面添加const。
+
+**const常量必须被初始化。**
+
+任何对const对象进行赋值（擦写）都会引发错误。
+
+对象的类型决定了其能做什么操作，所以只能在const类型的对象上执行不改变其内容的操作。
+
+##### const变量的作用范围
+
+默认情况下，`const`对象被设定成**仅在文件内有效**。当多个文件中出现了同名的`const`变量时，其实等同于在不同文件中分别定义了独立的变量。
+
+如果想在多个文件间共享`const`对象：
+
+- 若`const`对象的值在编译时已经确定，则应该定义在头文件中。其他源文件包含该头文件时，不会产生重复定义错误。
+
+- 若`const`对象的值直到运行时才能确定，则应该在头文件中声明，在源文件中定义。此时`const`变量的声明和定义前都应该添加`extern`关键字。
+
+  ```c++
+  // file_1.cc defines and initializes a const that is accessible to other files
+  extern const int bufSize = fcn();
+  // file_1.h
+  extern const int bufSize;   // same bufSize as defined in file_1.cc
+  ```
+
 #### 2.4.1 References to const
+
+把引用绑定在`const`对象上即为对常量的引用（reference to const）。对常量的引用不能被用作修改它所绑定的对象。
+
+```c++
+const int ci = 1024;
+const int &r1 = ci;     // ok: both reference and underlying object are const
+r1 = 42;        // error: r1 is a reference to const
+int &r2 = ci;   // error: non const reference to a const object
+```
+
+> 常量引用
+>
+> 有些人会将const类型的引用叫做常量引用，这是有些歧义的。
+>
+> 因为引用不是一个对象，我们没法让它本身const。而且C++语言并不允许随意改变引用所绑定的对象，所以这层意义上所有的引用都算是常量。
+
+##### 初始化和对const的引用
+
+大部分情况下，引用的类型要和与之绑定的对象严格匹配。但是有两个例外：
+
+- 初始化常量引用时允许用任意表达式作为初始值，只要该表达式的结果能转换成引用的类型即可。
+
+  ```c++
+  int i = 42;
+  const int &r1 = i;      // we can bind a const int& to a plain int object
+  const int &r2 = 42;     // ok: r1 is a reference to const
+  const int &r3 = r1 * 2;     // ok: r3 is a reference to const
+  int &r4 = r * 2;        // error: r4 is a plain, non const reference
+  ```
+
+- 允许为一个常量引用绑定非常量的对象、字面值或者一般表达式。
+
+  ```c++
+  double dval = 3.14;
+  const int &ri = dval;
+  ```
+
+
+
+> 当一个常量引用被绑定到另外一个类型时，
+> ```c++
+> double dval = 3.14;
+> const int &ri = dval;
+> ```
+>
+> 发生的其实是
+>
+> ```c++
+> double dval = 3.14;
+> const int temp = dval;
+> const int &ri = temp;
+> ```
+>
+> 这种情况下，ri绑定了一个临时量。这玩意是编译器生成的,为了确保ri绑定一个整数。
+>
+> 如果ri不是常量，那么就会让ri绑定上temp，而我们ri引用想绑定的是dval，于是c++就禁止将非常量引用绑定到类型不同的对象上。
+>
+> > ```c++
+>> #include <iostream>
+> > using namespace std;
+> > int main()
+> > {
+> >     double dval = 3.14;
+> >     int &ri = dval;
+> >     cout<<ri<<endl;
+> >    }
+> >    /*
+> > PS C:\Users\Administrator\Desktop> g++ .\Untitled-1.cpp
+> > .\Untitled-1.cpp: In function 'int main()':
+> > .\Untitled-1.cpp:9:16: error: invalid initialization of reference of type 'int&' from expression of type 'double
+
+常量引用仅对引用可参与的操作做了限定，但是对于引用的对象本身是不是一个常量未做限定。由于对象可能是非常量，那么允许通过其他方式修改它的值。
+
+```c++
+#include <iostream>
+using namespace std;
+int main()
+{
+    int i = 42;
+    int &r1 = i;      // we can bind a const int& to a plain int object
+    const int &r2 = i;     // ok: r1 is a reference to const
+    cout << r1 <<endl;
+    cout << r2 <<endl;
+    r1 = 0;
+    cout<<"change"<<endl;
+    cout << r1 <<endl;
+    cout << r2 <<endl;
+}
+/*
+42
+42
+change
+0
+0
+*/
+```
+
+
+
 
 #### 2.4.2 Pointers and const
 
