@@ -1021,6 +1021,8 @@ int &r2 = ci;   // error: non const reference to a const object
 
 > 常量引用
 >
+> const Reference is a reference to Const
+>
 > 有些人会将const类型的引用叫做常量引用，这是有些歧义的。
 >
 > 因为引用不是一个对象，我们没法让它本身const。而且C++语言并不允许随意改变引用所绑定的对象，所以这层意义上所有的引用都算是常量。
@@ -1106,22 +1108,302 @@ change
 */
 ```
 
-
-
-
 #### 2.4.2 Pointers and const
+
+指向常量的指针(pointer to const) 不能用于改变其所指对象的值。
+
+要想存放常量对象的地址，只能使用指向常量的指针。
+
+```c++
+const double pi = 3.14;     // pi is const; its value may not be changed
+double *ptr = &pi;          // error: ptr is a plain pointer
+const double *cptr = &pi;   // ok: cptr may point to a double that is const
+*cptr = 42;         // error: cannot assign to *cptr
+double dval = 3.14; // dval is a double; its value can be changed
+cptr = &dval;       // ok: but can't change dval through cptr
+```
+
+常量指针（const pointer）必须初始化，而放在指针中的那个地址也就不能再改变了。
+
+定义语句中把`*`放在`const`之前用来说明指针本身是一个常量。这也暗示了不变得是指针而不是指向的那个值。
+
+```c++
+int errNumb = 0;
+int *const curErr = &errNumb;   // curErr will always point to errNumb
+const double pi = 3.14159;
+const double *const pip = &pi;  // pip is a const pointer to a const object
+```
+
+指针本身是常量并不代表不能通过指针修改其所指向的对象的值，能否这样做完全依赖于其指向对象的类型。
+
+> 举个例子，就好像你把钱存银行定期，从你这边你规定了自己的行为，这笔钱是const的，你不去动它，而在银行那边，钱是有可能会被动的，甚至说动是应该的（变量）。但银行不应该影响我的取款，可是一些无良的银行甚至会挪用（糟糕的操作），在你要取回定期是发现没钱了，这就不好了。
+>
+> 当然如果你存的东西也是个const，比如一些很难动的东西，比如古董啊，雕像啊什么的，那么两边都不会动了。
+
+```c++
+#include <iostream>
+using namespace std;
+int main()
+{
+    int i2 = 5;
+    int *const p2 = &i2;
+    cout<<*p2<<endl;
+    *p2 = 6;
+    cout<<*p2<<endl;
+    cout<<i2<<endl;
+    const int * const p3 = &i2;
+    //*p3 = 7;
+    cout<<*p3<<endl;
+    return 0;
+}
+/*
+PS C:\Users\Administrator\Desktop> g++ .\Untitled-1.cpp
+PS C:\Users\Administrator\Desktop> .\a.exe
+5
+6
+6
+6
+如果把注释去掉，可以看到
+.\Untitled-1.cpp: In function 'int main()':
+.\Untitled-1.cpp:12:11: error: assignment of read-only location '*(const int*)p3'
+*/
+```
+
+所以说 p2是一个指向变量的常量指针，可以改变i2，而p3 是一个指向常量的常量指针。
+
+
+
+> ![2-4-2-PointersWithConstants-1024x535](CPP_Primer_5th.assets/2-4-2-PointersWithConstants-1024x535.png)
+>
+> https://www.geeksforgeeks.org/difference-between-const-int-const-int-const-and-int-const/
+>
+> | 语句                  | 含义                                                         | 介绍                                                         | 备注                                               |
+> | --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------- |
+> | const int \*ptr       | const int \* is pointer to constant integer                  |                                                              |                                                    |
+> | int const\* ptr       | **int const\*** is pointer to constant integer               | This means that the variable being declared is a pointer, pointing to a constant integer. Effectively, this implies that the pointer is pointing to a value that shouldn’t be changed. Const qualifier doesn’t affect the pointer in this scenario so the pointer is allowed to point to some other address.<br/>The first const keyword can go either side of data type, hence **int const\*** is equivalent to **const int\***. | 更推荐这种，可以很容易读出 ptr is a * to const int |
+> | const int * const ptr | **const int\* const** is a constant pointer to constant integer | This means that the variable being declared is a constant pointer pointing to a constant integer. Effectively, this implies that a constant pointer is pointing to a constant value. Hence, neither the pointer should point to a new address nor the value being pointed to should be changed.<br/>The first const keyword can go either side of data type, hence **const int\* const** is equivalent to **int const\* const**. | ptr is a const * to const int                      |
+> | int* const ptr        | **int \*const** is **const** **pointer** to **int**          | This means that the variable being declared is a constant pointer pointing to an integer. Effectively, this implies that the pointer shouldn’t point to some other address. Const qualifier doesn’t affect the value of integer in this scenario so the value being stored in the address is allowed to change. | ptr is a const * to int                            |
+>
+> 这种从右向左读的方法很有用
+>
+> Using this rule, even complex declarations can be decoded like,
+>
+> - **int \** const** is a **const** **pointer** to **pointer** to an **int**.
+> - **int \* const \*** is a **pointer** to **const** **pointer** to an **int**.
+> - **int const \**** is a **pointer** to a **pointer** to a **const** **int**.
+> - **int \* const \* const** is a **const** **pointer** to a **const** **pointer** to an **int**.
 
 #### 2.4.3 Top-Level const
 
+由于指针是个对象，那么它本事是不是常量，和它指的对象是不是常量，这是两个问题。
+
+所以用名词顶层来表示指针是const。而用名词底层表示指针所指的对象是const。
+
+类似的，顶层可以表示任意对象是常量。
+
+底层则与一些复合类型的基本类型有关。
+
+```c++
+int i = 0;
+int *const p1 = &i;     // we can't change the value of p1; const is top-level
+const int ci = 42;      // we cannot change ci; const is top-level
+const int *p2 = &ci;    // we can change p2; const is low-level
+const int *const p3 = p2; // right-most const is top-level, left-most is not
+const int &r = ci;      // const in reference types is always low-level
+```
+
+当执行拷贝操作时，常量是顶层`const`还是底层`const`区别明显：
+
+- 顶层`const`没有影响。拷贝操作不会改变被拷贝对象的值，因此拷入和拷出的对象是否是常量无关紧要。
+
+  ```c++
+  i = ci;     // ok: copying the value of ci; top-level const in ci is ignored
+  p2 = p3;    // ok: pointed-to type matches; top-level const in p3 is ignored
+  ```
+
+- 拷入和拷出的对象必须具有相同的底层`const`资格。或者两个对象的数据类型可以相互转换。一般来说，非常量可以转换成常量，反之则不行。
+
+  ```c++
+  int *p = p3;    // error: p3 has a low-level const but p doesn't
+  p2 = p3;        // ok: p2 has the same low-level const qualification as p3
+  p2 = &i;        // ok: we can convert int* to const int*
+  int &r = ci;    // error: can't bind an ordinary int& to a const int object
+  const int &r2 = i;  // ok: can bind const int& to plain int
+  ```
+
+> 这个讲的很好。https://blog.csdn.net/TeFuirnever/article/details/103011514
+
 #### 2.4.4 constexpr and Constant Expressions
+
+### constexpr和常量表达式（constexpr and Constant Expressions）
+
+常量表达式（constant expressions）指值不会改变并且在**编译过程**就能得到计算结果的表达式。
+
+字面值显然是常量表达式。
+
+一个对象是否为常量表达式由它的数据类型和初始值共同决定。
+
+```c++
+const int max_files = 20;           // max_files is a constant expression
+const int limit = max_files + 1;    // limit is a constant expression
+int staff_size = 27;        // staff_size is not a constant expression
+const int sz = get_size();  // sz is not a constant expression 它的值要到运行时才能得到。
+```
+
+##### constexpr变量
+
+C++11允许将变量声明为`constexpr`类型以便由编译器来验证变量的值是否是一个常量表达式。
+
+```c++
+constexpr int mf = 20;          // 20 is a constant expression
+constexpr int limit = mf + 1;   // mf + 1 is a constant expression
+constexpr int sz = size();      // ok only if size is a constexpr function
+```
+
+声明为constexpr类型一定是一个常量，且必须用常量表达式初始化。6.5.2节会介绍constexpr函数。
+
+##### 字面值类型
+
+目前接触的类型中，算术类型、引用和指针都属于字面值类型。
+
+自定义类，IO库，string类型则不属于字面值类型。
+
+7.5.6 19.3 会进一步介绍其他字面值类型
+
+##### 指针与constexpr
+
+指针和引用都能定义成`constexpr`，但是初始值受到严格限制。`constexpr`指针的初始值必须是0、`nullptr`或者是存储在某个固定地址中的对象。
+
+函数体内定义的普通变量一般并非存放在固定地址中，因此`constexpr`指针不能指向这样的变量。相反，函数体外定义的变量地址固定不变，可以用来初始化`constexpr`指针。
+
+在`constexpr`声明中如果定义了一个指针，限定符`constexpr`仅对指针本身有效，与指针所指的对象无关。`constexpr`把它所定义的对象置为了顶层`const`。
+
+```c++
+constexpr int *p = nullptr;     // p是指向int的const指针
+constexpr int i = 0;
+constexpr const int *cp = &i;   // cp是指向const int的const指针
+```
+
+`const`和`constexpr`限定的值都是常量。但`constexpr`对象的值必须在编译期间确定，而`const`对象的值可以延迟到运行期间确定。
+
+建议使用`constexpr`修饰表示数组大小的对象，因为数组的大小必须在编译期间确定且不能改变。
 
 ### 2.5 Dealing with Types
 
-#### 2.5.1 Type Aliases
+#### 2.5.1 Type Aliases 类型别名
+
+类型别名是某种类型的同义词，传统方法是使用关键字`typedef`定义类型别名。
+
+```c++
+typedef double wages;   // wages is a synonym for double
+typedef wages base, *p; // base is a synonym for double, p for double*
+```
+
+C++11新规定可以使用关键字`using`进行别名声明（alias declaration），作用是把等号左侧的名字规定成等号右侧类型的别名。
+
+##### ！易错点
+
+```c++
+typedef char *pstring;	//pstring 实际上是指向char的指针
+const pstring cstr = 0; // 指向char类型的常量指针
+const char *cstr = 0;	//指向const char 的指针。数据类型不是char* ，*成为声明符的一部分，而是char
+//所以不能直接将类型别名替换成原来的样子来理解他。
+```
 
 #### 2.5.2 The auto Type Specifier
 
+C++11新增`auto`类型说明符，能让编译器自动分析表达式所属的类型。
+
+`auto`定义的变量必须有初始值。
+
+```c++
+// the type of item is deduced from the type of the result of adding val1 and val2
+auto item = val1 + val2;    // item initialized to the result of val1 + val2
+```
+
+使用auto也能在一条语句中声明多个变量，但因为一个声明语句只能有一个基本类型，所以该语句中所有变量的初始基本数据类型必须一样。
+
+##### 复合类型、常量和auto
+
+编译器推断出来的`auto`类型有时和初始值的类型并不完全一样。
+
+- 当引用被用作初始值时，编译器以引用对象的类型作为`auto`的类型。
+
+  ```c++
+  int i = 0, &r = i;
+  auto a = r;     // a is an int (r is an alias for i, which has type int)
+  ```
+
+- `auto`一般会忽略顶层`const`。
+
+  ```c++
+  const int ci = i, &cr = ci;
+  auto b = ci;    // b is an int (top-level const in ci is dropped)
+  auto c = cr;    // c is an int (cr is an alias for ci whose const is top-level)
+  auto d = &i;    // d is an int*(& of an int object is int*)
+  auto e = &ci;   // e is const int*(& of a const object is low-level const)
+  ```
+
+  如果希望推断出的`auto`类型是一个顶层`const`，需要显式指定`const auto`。
+
+  ```C++
+  const auto f = ci;  // deduced type of ci is int; f has type const int
+  ```
+
+
+设置类型为`auto`的引用时，原来的初始化规则仍然适用，初始值中的顶层常量属性仍然保留。
+
+```c++
+auto &g = ci;   // g is a const int& that is bound to ci
+auto &h = 42;   // error: we can't bind a plain reference to a literal
+const auto &j = 42;     // ok: we can bind a const reference to a literal
+```
+
+还需要注意，在一个语句定义多个变量时，& * 都只从属于某个声明符，而不是基本数据类型的一部分。因此初始值必须是同一类型。
+
+```c++
+int  i = 0;
+const int ci = i; 
+
+auto k = ci,&l = i;		// k是整数，l是整型引用
+auto &m = ci,*p = &ci;//m 是整型常量的引用， p是指向整型常量的指针
+auto &n = i, *p2 = &ci;//错误  i的类型是int，&ci的类型是const int
+```
+
+
+
 #### 2.5.3 The decltype Type Specifier
+
+C++11新增`decltype`类型指示符，作用是选择并返回操作数的数据类型，此过程中编译器不实际计算表达式的值。
+
+```c++
+decltype(f()) sum = x;  // sum has whatever type f returns
+```
+
+`decltype`处理顶层`const`和引用的方式与`auto`有些不同，如果`decltype`使用的表达式是一个变量，则`decltype`返回该变量的类型（包括顶层`const`和引用）。
+
+```c++
+const int ci = 0, &cj = ci;
+decltype(ci) x = 0;     // x has type const int
+decltype(cj) y = x;     // y has type const int& and is bound to x
+decltype(cj) z;     // error: z is a reference and must be initialized
+```
+
+因为cj是一个引用，所以z也是引用，那么z必须被初始化。
+
+引用从来都是作为其所指对象的同义词出现，只有用在decltype处是一个例外。
+
+
+
+如果`decltype`使用的表达式不是一个变量，则`decltype`返回表达式结果对应的类型。
+
+如果表达式的内容是解引用操作，则`decltype`将得到引用类型。
+
+如果`decltype`使用的是一个不加括号的变量，则得到的结果就是该变量的类型；
+
+如果给变量加上了一层或多层括号，则`decltype`会得到引用类型，因为**变量是一种可以作为赋值语句左值的特殊表达式。**
+
+**`decltype((var))`的结果永远是引用，而`decltype(var)`的结果只有当`var`本身是一个引用时才会是引用。**
 
 ### 2.6 Defining Our Own Data Structures
 
