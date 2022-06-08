@@ -1235,8 +1235,6 @@ const int &r = ci;      // const in reference types is always low-level
 
 #### 2.4.4 constexpr and Constant Expressions
 
-### constexpr和常量表达式（constexpr and Constant Expressions）
-
 常量表达式（constant expressions）指值不会改变并且在**编译过程**就能得到计算结果的表达式。
 
 字面值显然是常量表达式。
@@ -1407,15 +1405,95 @@ decltype(cj) z;     // error: z is a reference and must be initialized
 
 ### 2.6 Defining Our Own Data Structures
 
+在C++中，我们以类的形式定义数据结构。C++对类的支持甚多，本书三四部分都将大幅介绍类的知识。Sales_item看似简单，但是要实现它得在14章介绍自定义运算符之后。
+
 #### 2.6.1 Defining the Sales_data Type
+
+C++11规定可以为类的数据成员（data member）提供一个类内初始值（in-class initializer）。创建对象时，类内初始值将用于初始化数据成员，没有初始值的成员将被默认初始化。
+
+**类内初始值不建议使用圆括号。**(不过目前我还是这样用) 参考2.2.1
+
+> https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2628.html
+>
+> 因为我们无法避免这样的情况
+>
+> ```cpp
+> class Widget 
+> {
+> private: 
+>   typedef int x;
+>   int z(x);
+> };
+> ```
+>
+> 这样的话，就会变为函数声明。
+
+类定义的最后应该加上分号。（很多人会犯错）
+
+> 另外个人经验，构造函数，参数表最后一个,不要有
 
 #### 2.6.2 Using the Sales_data Class
 
 #### 2.6.3 Writing Our Own Header Files
 
+19.7 将会讲在函数体内定义类，但是这种类毕竟受了一些限制，所以类一般都不定义在函数体内。
+
+头文件（header file）通常包含那些只能被定义一次的实体，如类、`const`和`constexpr`变量。
+
+头文件一旦改变，相关的源文件必须重新编译以获取更新之后的声明。
+
+##### 预处理器概述
+
+头文件保护符（header guard）依赖于预处理变量（preprocessor variable）(2.3.2)。
+
+预处理变量有两种状态：已定义和未定义。
+
+`#define`指令把一个名字设定为预处理变量。
+
+`#ifdef`指令当且仅当变量已定义时为真，
+
+`#ifndef`指令当且仅当变量未定义时为真，一旦检查结果为真，则执行后续操作直至遇到`#endif`指令为止。
+
+```c++
+#ifndef SALES_DATA_H
+#define SALES_DATA_H
+#include <string>
+struct Sales_data
+{
+    std::string bookNo;
+    unsigned units_sold = 0;
+    double revenue = 0.0;
+};
+#endif
+```
+
+在高级版本的IDE环境中，可以直接使用`#pragma once`命令来防止头文件的重复包含。
+
+预处理变量无视C++语言中关于作用域的规则。
+
+整个程序中的预处理变量，包括头文件保护符必须唯一。预处理变量的名字一般均为大写。
+
+头文件即使目前还没有被包含在任何其他头文件中，也应该设置保护符。
+
 ### Chapter Summary  
 
+​	类型是C++编程的基础。
+
+​	类型规定了其对象的存储要求和所能执行的操作。C++语言提供了一套基础内置类型，这些类型与机器硬件密切相关。类型还分为非常量和常量，一个常量对象必须初始化，而且一旦初始化就不能再改变。此外还可以定义复合类型，比如指针和引用等。复合类型的定义以其他类型为基础。
+
+​	C++语言允许用户以类的形式自定义类型。C++库通过类提供了一套高级抽象类型。如输入输出和string等。
+
 ### Defined Terms
+
+| 中文                 | 英文             | 含义                                                |
+| -------------------- | ---------------- | --------------------------------------------------- |
+| 常量表达式           | const expression | 能在编译时计算并获得结果的表达式                    |
+|                      | constexpr        | 一种函数，用于代表一条常量表达式  6.5.2节会详细介绍 |
+| preprocessor         | 预处理器         | 在C++编译过程中执行的一段程序                       |
+| separate compilation | 分离式编译       | 把程序分割为多个单独文件的能力                      |
+|                      |                  |                                                     |
+|                      |                  |                                                     |
+|                      |                  |                                                     |
 
 
 
