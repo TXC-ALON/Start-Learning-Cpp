@@ -1497,17 +1497,161 @@ struct Sales_data
 
 
 
-
 ## Chapter 3 Strings, Vectors, and Arrays
+
+除了内置类型，标准库提供了一些具有更高级性质的类型。
+
+string 表示可变长的字符序列。
+
+vector 存放的是某种给定类型对象的可变长序列。
+
+array（内置数组类） 数组的实现与硬件密切相关
+
 ### 3.1 Namespace using Declarations
+
+命名空间
+
+最安全的方法就是使用using 声明，18.2.2 会介绍另一种方法。
+
+使用`using`声明后就无须再通过专门的前缀去获取所需的名字了。
+
+```c++
+using std::cout;
+```
+
+程序中使用的每个名字都需要用独立的`using`声明引入。
+
+头文件中通常不应该包含`using`声明。因为头文件里有了这个声明，所有含有这个头文件的文件都会有，可能会造成命名冲突。
 
 ### 3.2 Library string Type
 
 #### 3.2.1 Defining and Initializing strings
 
+初始化`string`最常见的的方式：
+
+![](CPP_Primer_5th.assets/3-1.png)
+
+##### 直接初始化和拷贝初始化
+
+如果使用等号初始化一个变量，实际上执行的是拷贝初始化（copy initialization），编译器把等号右侧的初始值拷贝到新创建的对象中去。
+
+如果不使用等号，则执行的是直接初始化（direct initialization）。
+
+初始值只有一个时，使用两种方法都可以，但是如果初始化的参数有多个，那么一般来说只能用直接初始化的形式。非要用拷贝初始化也得显式地创建一个临时对象用于拷贝。
+
+```c++
+string s7(10,'c');
+string s8 = string (10,'d'); //可读性差，也没什么优势
+```
+
+
+
 #### 3.2.2 Operations on strings
 
+`string`的大多数操作：
+
+![](CPP_Primer_5th.assets/3-2.png)
+
+##### 读写string
+
+在执行读取操作时，`string`对象会自动忽略开头的空白（空格符、换行符、制表符等）并从第一个真正的字符开始读取，直到遇见下一处空白为止。
+
+##### 使用getline读取一整行
+
+使用`getline`函数可以读取一整行字符（包括输入时的空白符）。该函数只要遇到**换行符**就结束读取并返回结果，如果输入的开始就是一个换行符，则得到空`string`。触发`getline`函数返回的那个换行符实际上被丢弃掉了，得到的`string`对象中并不包含该换行符。
+
+##### string的empty和size操作
+
+`empty`会返回一个字符串是否为空的bool值。
+
+`size`函数返回`string`对象的长度，返回值是`string::size_type`类型，这是一种无符号类型。要使用`size_type`，必须先指定它是由哪种类型定义的。
+
+如果一个表达式中已经有了`size`函数就不要再使用`int`了，这样可以避免混用`int`和`unsigned int`可能带来的问题。因为负数会被转化为很大的无符号值。
+
+##### 比较string
+
+逐位比较，且大小写敏感。
+
+- 长度不同，且短的字符每个字符都与长字符对应位置长度相同，那么短的string小于较长string
+- 如果两个string对象在某些对应的位置上不一致，则string对象比较的结果其实是string对象中第一对相异字符比较结果
+
+![image-20220609143926654](CPP_Primer_5th.assets/image-20220609143926654.png)
+
+##### string 的加法
+
+- 两个string相加
+
+- 字面值和string相加
+
+  编译器允许我们使用并非所需类型来实现同样的效果，前提是这种类型可以自动转换为所需的类型。因为标准库允许把字符字面值和字符串字面值转换为string对象。所以可以在用字符串的地方用这些字面值。
+
+当把`string`对象和字符字面值及字符串字面值混合在一条语句中使用时，必须确保每个加法运算符两侧的运算对象中至少有一个是`string`。
+
+```c++
+string s4 = s1 + ", ";          // ok: adding a string and a literal
+string s5 = "hello" + ", ";     // error: no string operand
+string s6 = s1 + ", " + "world";    // ok: each + has a string operand
+```
+
+而字面值和字面值是不能直接相加的。
+
+```c++
+string s7 = ("hello" + ",") + s2; //error
+```
+
+需要注意的是，为了与C兼容，C++语言中的字符串字面值并不是标准库`string`的对象。
+
 #### 3.2.3 Dealing with the Characters in a string
+
+##### string操作头文件
+
+头文件`cctype`中的字符操作函数：
+
+![](CPP_Primer_5th.assets/3-3.png)
+
+建议使用C++版本的C标准库头文件。C语言中名称为`name.h`的头文件，在C++中则被命名为`cname`。
+
+##### string 与 for循环
+
+C++11提供了范围`for`（range for）语句，可以遍历给定序列中的每个元素并执行某种操作。
+
+```c++
+for (declaration : expression)
+    statement
+```
+
+`expression`部分是一个对象，用于表示一个序列。`declaration`部分负责定义一个变量，该变量被用于访问序列中的基础元素。每次迭代，`declaration`部分的变量都会被初始化为`expression`部分的下一个元素值。
+
+一般来说我们会用auto来定义元素类型。
+
+```c++
+string str("some string");
+// print the characters in str one character to a line
+for (auto c : str)      // for every char in str
+    cout << c << endl;  // print the current character followed by a newline
+```
+
+如果想在范围`for`语句中改变`string`对象中字符的值，必须把循环变量定义成引用类型。
+
+```c++
+string str("some string");
+for (auto &c : str)      // for every char in str
+    c = toupper(c);
+cout<<str<<endl;
+
+```
+
+
+
+下标运算符接收的输入参数是`string::size_type`类型的值，表示要访问字符的位置，返回值是该位置上字符的引用。
+
+下标数值从0记起，范围是0至`size - 1`。使用超出范围的下标将引发不可预知的后果。
+
+C++标准并不要求标准库检测下标是否合法。编程时可以把下标的类型定义为相应的`size_type`，这是一种无符号数，可以确保下标不会小于0，此时代码只需要保证下标小于`size`的值就可以了。另一种确保下标合法的有效手段就是使用范围`for`语句。
+
+
+
+
 
 ### 3.3 Library vector Type
 

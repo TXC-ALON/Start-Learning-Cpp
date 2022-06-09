@@ -6,7 +6,7 @@
 
 - 20220420 [翁恺 OOP in C++](./01-Notes/00-ZJU_CPP/Object-Oriented-Programming.md)
 
-  上面一个视频质量不高（不是老师不行），还是更从基础抓起
+  上面一个视频质量不高（不是老师不行），感觉还是更从基础抓起，看下Essential C++
 
 - 20220512 [Essential C++](./01-Notes/01-Essential_C++/Essential_C++.md)
 
@@ -22,16 +22,21 @@
 
 ### 浙大翁恺 OOP in C++
 
-https://www.bilibili.com/video/BV1yQ4y1A7ts
+[翁老师网课](https://www.bilibili.com/video/BV1yQ4y1A7ts)
 
 ### 《Essential C++》
 
-https://www.bilibili.com/video/BV1f3411p7Jv
+[木铎大师兄网课](https://www.bilibili.com/video/BV1f3411p7Jv)
 
 ### C++ primer 5th
 
-https://zhjwpku.com/assets/pdf/books/C++.Primer.5th.Edition_2013.pdf
+[官方代码下载](https://www.informit.com/store/c-plus-plus-primer-9780321714114)
 
-https://github.com/czs108/Cpp-Primer-5th-Notes-CN
+[英文版pdf下载](https://zhjwpku.com/assets/pdf/books/C++.Primer.5th.Edition_2013.pdf)
 
-https://github.com/PengKeCpp/Cpp-Primer
+[czs108笔记](https://github.com/czs108/Cpp-Primer-5th-Notes-CN)
+
+[PengKeCpp笔记](https://github.com/PengKeCpp/Cpp-Primer)
+
+
+
