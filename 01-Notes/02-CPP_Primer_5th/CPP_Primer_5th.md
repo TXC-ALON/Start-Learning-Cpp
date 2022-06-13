@@ -1689,13 +1689,59 @@ C++标准并不要求标准库检测下标是否合法。但是编程时需要�
 
 这种初始化有两个特殊限制，其一，有些类要求必须明确地提供初始值，或vector对象不支持默认初始化，我们就必须设置初始的元素值；其二，如果只提供了元素的数量而没有设定初始值，只能使用直接初始化。
 
+```c++
+vector<int> vi = 10; // error
+```
 
+##### 列表初始化还是元素数量？
+
+有时候初始化的真实含义需要通过圆括号还是花括号来区分
+
+```c++
+vector<int>v1(10,1); // 十个元素
+vector<int>v1{10,1}; // 两个元素
+```
+
+- 如果我们使用的是圆括号，那么我们可以说提供的值是用来构造vector对象的。
+  - 一个元素-容器大小
+  - 两个元素-容量，初始值
+- 如果我们使用的是花括号，那么我们可以说是想要列表初始化，初始化时会尽可能把花括号内的值当成是元素初始值的列表来处理。如果想要列表初始化，那么花括号里的值必须与元素类型相同，确认无法执行列表初始化后，编译器会尝试用默认值初始化对象。
 
 #### 3.3.2 Adding Elements to a vector
 
+push_back()
+
+> vector 对象能高速增长
+>
+> 开始时创建空的vector对象，运行时动态添加元素，9.4节还会对其有更一步的描述。
+
+> C++支持能高效地朝vector对象中添加元素，但是这也要求我们确保写的循环正确无误，特别是在循环可能改变vector对象容量时。
+
 #### 3.3.3 Other vector Operations
 
-### 3.4 Introducing Iterators
+![](CPP_Primer_5th.assets/3-5.png)
+
+`size`函数返回`vector`对象中元素的个数，返回值是由`vector`定义的`size_type`类型。`vector`对象的类型包含其中元素的类型。
+
+```c++
+vector<int>::size_type  // ok
+vector::size_type       // error
+```
+
+##### 不能用下标形式添加元素
+
+`vector`和`string`对象的下标运算符只能用来访问已经存在的元素，而不能用来添加元素。
+
+```c++
+vector<int> ivec;   // empty vector
+for (decltype(ivec.size()) ix = 0; ix != 10; ++ix)
+{
+    ivec[ix] = ix;  // disaster: ivec has no elements
+    ivec.push_back(ix); // ok: adds a new element with value ix
+}
+```
+
+### 3.4 Introducing Iterators 迭代器
 
 #### 3.4.1 Using Iterators
 
