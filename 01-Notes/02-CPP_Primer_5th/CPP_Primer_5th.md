@@ -809,7 +809,7 @@ int main()
 
 #### 2.3.1 References
 
-> C++ 支持了右值引用，rvalue reference 在$13.6.1 中会讲,这种引用主要用于内置类，一般来说我们使用“引用”这个词，是指左值引用。
+> C++ 支持了右值引用，rvalue reference 在【13.6.1】 中会讲,这种引用主要用于内置类，一般来说我们使用“引用”这个词，是指左值引用。
 
 简而言之，引用为对象起了另一个名字(alternative name)。
 
@@ -850,7 +850,7 @@ int *p = &ival; // p holds the address of ival; p is a pointer to ival
 
 大部分情况下，指针的类型要和它指向的对象严格匹配。
 
-有两个例外，一是允许令一个指向常量的指针指向一个非常量对象（2.4.2）；二是存在继承关系的类，可以将基类的指针或引用绑定到派生类对象上（15.2.3）。
+有两个例外，一是允许令一个指向常量的指针指向一个非常量对象【2.4.2】；二是存在继承关系的类，可以将基类的指针或引用绑定到派生类对象上【15.2.3】。
 
 
 
@@ -916,9 +916,9 @@ int *p3 = NULL;     // equivalent to int *p3 = 0;
 
 ##### void*指针
 
-`void*`是一种特殊的指针类型，可以存放任意对象的地址，**但不能直接操作`void*`指针所指的对象**。只能拿它和别的指针进行比较，作为函数的输入输出，或是赋给另一个void指针。
+`void*`是一种特殊的指针类型，可以存放任意对象的地址，**但不能直接操作`void*`指针所指的对象**。只能拿它和别的指针进行比较，作为函数的输入输出，或是赋给另一个void*指针。
 
-概括说来，从void* 的视角来看，内存空间仅仅是内存空间，没办法访问内存空间中的对象。  19.1.1节会详细描述。4.11.3 会描述获取void*指针的方法。
+概括说来，从void* 的视角来看，内存空间仅仅是内存空间，没办法访问内存空间中的对象。  【19.1.1】节会详细描述。【4.11.3】 会描述获取void*指针的方法。
 
 #### 2.3.3 Understanding Compound Type Declarations
 
@@ -1266,7 +1266,7 @@ constexpr int sz = size();      // ok only if size is a constexpr function
 
 自定义类，IO库，string类型则不属于字面值类型。
 
-7.5.6 19.3 会进一步介绍其他字面值类型
+【7.5.6】 【19.3】 会进一步介绍其他字面值类型
 
 ##### 指针与constexpr
 
@@ -1411,7 +1411,7 @@ decltype(cj) z;     // error: z is a reference and must be initialized
 
 C++11规定可以为类的数据成员（data member）提供一个类内初始值（in-class initializer）。创建对象时，类内初始值将用于初始化数据成员，没有初始值的成员将被默认初始化。
 
-**类内初始值不建议使用圆括号。**(不过目前我还是这样用) 参考2.2.1
+**类内初始值不建议使用圆括号。**(不过目前我还是这样用) 参考【2.2.1】
 
 > https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2628.html
 >
@@ -1713,7 +1713,7 @@ push_back()
 
 > vector 对象能高速增长
 >
-> 开始时创建空的vector对象，运行时动态添加元素，9.4节还会对其有更一步的描述。
+> 开始时创建空的vector对象，运行时动态添加元素，【9.4】节还会对其有更一步的描述。
 
 > C++支持能高效地朝vector对象中添加元素，但是这也要求我们确保写的循环正确无误，特别是在循环可能改变vector对象容量时。
 
@@ -1743,27 +1743,440 @@ for (decltype(ivec.size()) ix = 0; ix != 10; ++ix)
 
 ### 3.4 Introducing Iterators 迭代器
 
+迭代器的作用和下标类似，但是更加通用。所有标准库容器都可以使用迭代器，但是其中只有少数几种同时支持下标运算符。
+
+类似指针，迭代器有有效无效的区别。有效的迭代器指向某个元素或指向容器中尾元素的下一位置，其他所有情况都算无效。
+
 #### 3.4.1 Using Iterators
 
-#### 3.4.2 Iterator Arithmetic
+定义了迭代器的类型都拥有`begin`和`end`两个成员函数。`begin`函数返回指向第一个元素的迭代器，`end`函数返回指向容器“尾元素的下一位置（one past the end）”的迭代器，通常被称作尾后迭代器（off-the-end iterator）或者简称为尾迭代器（end iterator）。尾后迭代器仅是个标记，表示程序已经处理完了容器中的所有元素。
+
+迭代器一般为`iterator`类型。具体是什么类型我们一般并不能确定。
+
+```c++
+// b denotes the first element and e denotes one past the last element in ivec
+auto b = ivec.begin(), e = ivec.end();    // b and e have the same type
+```
+
+如果容器为空，则`begin`和`end`返回的是同一个迭代器，都是尾后迭代器。
+
+标准容器迭代器的运算符：
+
+![](CPP_Primer_5th.assets/3-6.png)
+
+- 类似指针，也可以通过解引用来获取它所指示的元素，执行解引用的迭代器必须合法且确实指示着某个元素。试图解引用一个非法迭代器或尾后迭代器都是未被定义的行为。因为`end`返回的迭代器并不实际指向某个元素，所以不能对其进行递增或者解引用的操作。
+
+- 在`for`或者其他循环语句的判断条件中，最好使用`!=`而不是`<`。所有标准库容器的迭代器都定义了`==`和`!=`，但是只有其中少数同时定义了`<`运算符。所以为了泛型编程以及日常使用考虑，养成使用迭代器和`!=`的习惯。
+
+```c++
+for (auto it = s.begin(); it != s.end() && !isspace(*it);++it)
+```
+
+- 迭代器也有iterator和const_iterator的类型区分，如果`vector`或`string`对象是常量，则只能使用`const_iterator`迭代器，该迭代器只能读元素，不能写元素。
+
+- `begin`和`end`返回的迭代器具体类型由对象是否是常量决定，如果对象是常量，则返回`const_iterator`；如果对象不是常量，则返回`iterator`。
+
+  ```c++
+  vector<int> v;
+  const vector<int> cv;
+  auto it1 = v.begin();   // it1 has type vector<int>::iterator
+  auto it2 = cv.begin();  // it2 has type vector<int>::const_iterator
+  ```
+
+  C++11新增了`cbegin`和`cend`函数，不论`vector`或`string`对象是否为常量，都返回`const_iterator`迭代器。
+
+- 箭头运算符->
+
+  箭头运算符将解引用和成员访问两个操作结合在一起。省略了步骤，还不比考虑什么结合优先级的问题。【4.1.2】
+
+  ```c++
+  it->mem; == (*it).men;
+  ```
+
+- 某些vector对象的操作会使迭代器失效
+
+  不能在范围for循环中向vector对象添加元素；任何一种可能改变vector对象容量的操作，也会是vector迭代器失效。【9.3.6】会解释为什么失效
+
+谨记：但凡是使用了迭代器的循环体，都不要向迭代器所属的容器添加元素。
+
+#### 3.4.2 Iterator Arithmetic 迭代器运算
+
+`vector`和`string`迭代器支持的操作：
+
+![](CPP_Primer_5th.assets/3-7.png)
+
+两个有效的迭代器可以相减，所得结果是两个迭代器的距离，类型名为difference_type的带符号整型数。string 和vector都支持这个类型。
 
 ### 3.5 Arrays
 
+与vector类型不同，数字大小固定，不能随意向数组中随意添加元素。
+
 #### 3.5.1 Defining and Initializing Built-in Arrays
+
+数组是一种复合类型，声明形式为`a[d]`，其中`a`是数组名称，`d`是数组维度（dimension）。维度必须是一个大于0的常量表达式。
+
+默认情况下，数组的元素被默认初始化【2.2.1】。
+
+定义数组的时候必须指定数组的类型，不允许用`auto`关键字由初始值列表推断类型。
+
+类似vector，数组的元素必须为对象，因此不存在引用的数组。
+
+##### 显式初始化数组元素
+
+如果定义数组时提供了元素的初始化列表，则允许省略数组维度，编译器会根据初始值的数量计算维度。但如果显式指明了维度，那么初始值的数量不能超过指定的大小。如果维度比初始值的数量大，则用提供的值初始化数组中靠前的元素，剩下的元素被默认初始化。
+
+```c++
+const unsigned sz = 3;
+int ia1[sz] = {0,1,2};  // array of three ints with values 0, 1, 2
+int a2[] = {0, 1, 2};   // an array of dimension 3
+int a3[5] = {0, 1, 2};  // equivalent to a3[] = {0, 1, 2, 0, 0}
+string a4[3] = {"hi", "bye"};   // same as a4[] = {"hi", "bye", ""}
+int a5[2] = {0,1,2};    // error: too many initializers
+```
+
+##### 字符数组的特殊性
+
+可以用字符串字面值初始化字符数组，但字符串字面值结尾处的空字符也会一起被拷贝到字符数组中。
+
+```c++
+char a1[] = {'C', '+', '+'};        // list initialization, no null
+char a2[] = {'C', '+', '+', '\0'};  // list initialization, explicit null
+char a3[] = "C++";      // null terminator added automatically
+const char a4[6] = "Daniel";    // error: no space for the null!
+```
+
+字符串会自动添加表示字符串结束的空字符，所以要注意留足空间。
+
+##### 数组不允许拷贝和赋值
+
+不能用一个数组初始化或直接赋值给另一个数组。
+
+有的编译器支持，这就是所谓的编译器拓展（compiler extension），但是一般来说最好避免使用非标准特性。
+
+##### 理解复杂的数组声明
+
+从数组的名字开始由内向外阅读有助于理解复杂数组声明的含义。
+
+```c++
+int *ptrs[10];              // ptrs is an array of ten pointers to int
+int &refs[10] = /* ? */;    // error: no arrays of references
+int (*Parray)[10] = &arr;   // Parray points to an array of ten ints
+int (&arrRef)[10] = arr;    // arrRef refers to an array of ten ints
+```
 
 #### 3.5.2 Accessing the Elements of an Array
 
+数组下标通常被定义成`size_t`类型，这是一种机器相关的无符号类型，可以表示内存中任意对象的大小。`size_t`定义在头文件`cstddef`中。这个文件是`stddef.h`的c++版本
+
+大多数常见的安全问题都源于缓冲区溢出错误。当数组或其他类似数据结构的下标越界并试图访问非法内存区域时，就会产生此类错误。这种错误除了小心检查，加强测试之外，没有什么好的方法。即使通过编译执行也不能证明不会发生这类错误。
+
 #### 3.5.3 Pointers and Arrays
+
+使用数组时，编译器一般会把它转化为指针。
+
+而数组有个特性，在大多数表达式中，使用数组类型的对象其实是在使用一个指向该数组首元素的指针。
+
+当使用数组作为一个`auto`变量的初始值时，推断得到的类型是指针而非数组。但`decltype`关键字【2.5.3】不会发生这种转换，直接返回数组类型。
+
+```c++
+int ia[] = {0,1,2,3,4,5,6,7,8,9};   // ia is an array of ten ints
+auto ia2(ia);   // ia2 is an int* that points to the first element in ia
+ia2 = 42;       // error: ia2 is a pointer, and we can't assign an int to a pointer
+auto ia2(&ia[0]);   // now it's clear that ia2 has type int*
+// ia3 is an array of ten ints
+decltype(ia) ia3 = {0,1,2,3,4,5,6,7,8,9};
+ia3 = p;    // error: can't assign an int* to an array
+ia3[4] = i;     // ok: assigns the value of i to an element in ia3
+```
+
+##### 指针也可以用作迭代器
+
+为了实现迭代器的效果，我们需要数组的首地址以及尾元素后一位的地址。
+
+```c++
+int a[10] = {...};
+int *start = a;
+int *end = a[10];
+for(int *p = start;p!=end;++p){
+    cout<<*p<<endl;
+}
+```
+
+> 建议使用++i而不是i++，少一步拷贝。
+
+##### 标准库函数begin和end.
+
+上面的使用很容易出错。为此C++11在头文件`iterator`中定义了两个名为`begin`和`end`的函数，功能与容器中的两个同名成员函数类似，参数是一个数组。
+
+```c++
+int ia[] = {0,1,2,3,4,5,6,7,8,9};   // ia is an array of ten ints
+int *beg = begin(ia);   // pointer to the first element in ia
+int *last = end(ia);    // pointer one past the last element in ia
+```
+
+- 一个指针如果指向了某种内置类型数组的尾元素的“下一位置”，则其具备end()类似的功能，特别注意，尾后指针不能用于解引用和递增操作。
+
+##### 指针运算
+
+迭代器操作指针都能做。
+
+两个指针相减的结果类型是`ptrdiff_t`，这是一种定义在头文件`cstddef`中的带符号类型。
+
+##### 下标与指针
+
+只要指针指向的是数组中的元素(或尾指针下一个位置)，都可以进行下标操作。
+
+```c++
+int *p = &ia[2];
+int j = p[1];	== ia[3]
+int k = p[-2];  == ia[0]
+```
+
+标准库类型限定使用的下标必须是无符号类型，而内置的下标运算无此要求。
+
+内置的下标运算可以处理负值，当然指的元素必须有效。
 
 #### 3.5.4 C-Style Character Strings
 
+C++标准支持C风格字符串，但是最好不要在C++程序中使用它们。对大多数程序来说，使用标准库`string`要比使用C风格字符串更加安全和高效。
+
+字符串字面值是一种通用结构的实例，这种结构是C++由C继承而来的C风格字符串--将字符串存放在字符数组中，并以空字符结束（null terminated）。这不是一种类型，而是一种为了表达和使用字符串而形成的书写方法。
+
+##### C标准库String函数
+
+C风格字符串的函数，被定义在cstring头文件中，cstring是string.h的c++版本
+
+![](CPP_Primer_5th.assets/3-9.png)
+
+C风格字符串函数不负责验证其参数的正确性，传入此类函数的指针必须指向以空字符作为结尾的数组。
+
+##### 比较字符串
+
+标准string 对象可以直接进行比较，但是如果用在c风格字符串上，实际比较的将会是指针而不是字符串，如果想比较需要用strcmp；
+
+##### 目标字符串的大小由调用者指定
+
+不同于c++ 标准string类可以直接将两个字符串相加，c风格的字符串相加需要使用strcmp和strcat，将两个字符串赋给另一个有足够空间的C风格字符串。而这个空间并不容易估计准确，充满了风险。
+
 #### 3.5.5 Interfacing to Older Code
+
+##### 混用string对象和C风格字符串
+
+任何出现字符串字面值的地方都可以用以空字符结束的字符数组来代替：
+
+- 允许使用以空字符结束的字符数组来初始化`string`对象或为`string`对象赋值。
+
+- 在`string`对象的加法运算中，允许使用以空字符结束的字符数组作为其中一个运算对象（不能两个运算对象都是）。
+
+- 在`string`对象的复合赋值运算中，允许使用以空字符结束的字符数组作为右侧运算对象。
+
+不能用`string`对象直接初始化指向字符的指针。为了实现该功能，`string`提供了一个名为`c_str`的成员函数，返回`const char*`类型的指针，指向一个以空字符结束的字符数组，数组的数据和`string`对象一样。
+
+```c++
+string s("Hello World");    // s holds Hello World
+char *str = s;  // error: can't initialize a char* from a string
+const char *str = s.c_str();    // ok
+```
+
+针对`string`对象的后续操作有可能会让`c_str`函数之前返回的数组失去作用，如果程序想一直都能使用其返回的数组，**最好将该数组重新拷贝一份**。
+
+##### 使用数组初始化vector对象
+
+可以使用数组来初始化`vector`对象，但是需要指明要拷贝区域的首元素地址和尾后地址。
+
+```c++
+int int_arr[] = {0, 1, 2, 3, 4, 5};
+// ivec has six elements; each is a copy of the corresponding element in int_arr
+vector<int> ivec(begin(int_arr), end(int_arr));
+```
+
+在新版本的C++程序中应该尽量使用`vector`、`string`和迭代器，避免使用内置数组、C风格字符串和指针。
 
 ### 3.6 Multidimensional Arrays
 
+C++中的多维数组其实就是数组的数组。当一个数组的元素仍然是数组时，通常需要用两个维度定义它：一个维度表示数组本身的大小，另一个维度表示其元素（也是数组）的大小。通常把二维数组的第一个维度称作行，第二个维度称作列。
+
+##### 多维数组的初始化
+
+多维数组初始化的几种方式：
+
+初始化时的内嵌的花括号并不是必须的。
+
+```c++
+int ia[3][4] =
+{   // three elements; each element is an array of size 4
+    {0, 1, 2, 3},   // initializers for the row indexed by 0
+    {4, 5, 6, 7},   // initializers for the row indexed by 1
+    {8, 9, 10, 11}  // initializers for the row indexed by 2
+};
+// equivalent initialization without the optional nested braces for each row
+int ib[3][4] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+// explicitly initialize only element 0 in each row
+int ic[3][4] = {{ 0 }, { 4 }, { 8 }};//初始化每行首元素
+// explicitly initialize row 0; the remaining elements are value initialized
+int id[3][4] = {0, 3, 6, 9};//初始化第一行
+```
+
+##### 多维数组的下标引用
+
+可以使用下标访问多维数组的元素，数组的每个维度对应一个下标运算符。
+
+- 如果表达式中下标运算符的数量和数组维度一样多，则表达式的结果是给定类型的元素。
+- 如果下标运算符数量比数组维度小，则表达式的结果是给定索引处的一个内层数组。
+
+```c++
+// assigns the first element of arr to the last element in the last row of ia
+ia[2][3] = arr[0][0][0];
+int (&row)[4] = ia[1];  // binds row to the second four-element array in ia
+```
+
+##### 使用范围for语句处理多维数组
+
+使用范围`for`语句处理多维数组时，为了避免数组被自动转换成指针【3.5.3】，语句中的外层循环控制变量必须声明成引用类型。
+
+```c++
+for (const auto &row : ia)  // for every element in the outer array
+    for (auto col : row)    // for every element in the inner array
+        cout << col << endl;
+```
+
+如果`row`不是引用类型，编译器初始化`row`时会自动将数组形式的元素转换成指向该数组内首元素的指针，这样得到的`row`就是`int*`类型，而之后的内层循环则试图在一个`int*`内遍历，程序将无法通过编译。
+
+```c++
+for (auto row : ia)
+    for (auto col : row)
+```
+
+**使用范围`for`语句处理多维数组时，除了最内层的循环，其他所有外层循环的控制变量都应该定义成引用类型。如果要对元素进行改写，最内层也得用引用**
+
+##### 指针和多维数组
+
+因为多维数组实际上是数组的数组，所以由多维数组名称转换得到的指针指向第一个内层数组的指针。
+
+```c++
+int ia[3][4];       // array of size 3; each element is an array of ints of size 4
+int (*p)[4] = ia;   // p points to an array of four ints
+p = &ia[2];         // p now points to the last element in ia
+```
+
+声明指向数组类型的指针时，必须带有圆括号。
+
+```c++
+int *ip[4];     // array of pointers to int
+int (*ip)[4];   // pointer to an array of four ints
+```
+
+使用`auto`和`decltype`能省略复杂的指针定义。
+
+```c++
+// print the value of each element in ia, with each inner array on its own line
+// p points to an array of four ints
+for (auto p = ia; p != ia + 3; ++p)
+{
+    // q points to the first element of an array of four ints; that is, q points to an int
+    for (auto q = *p; q != *p + 4; ++q)
+        cout << *q << ' ';
+    cout << endl;
+}
+```
+
+使用`begin`和`end`也能实现相同的功能，看起来还更简单鲁棒。
+
+```c
+for (auto p = begin(ia);p != end(ia);++p){
+    for(auto q = begin(*p);q != end(*p);++q){
+        cout<<*q<<" ";
+    }
+	cout<<endl;
+}
+```
+
+##### 类型别名简化多维数组的指针
+
+```c++
+using int_array = int[4];
+typedef int int_array[4];
+```
+
+两者相同。
+
+> 解释typedef int int_array[4];
+> 关键字typedef用来自定义数据类型，这是所有教材都这样讲的，但不要理解为新创建了一个数据类型，而是将已有的一个类型赋予个新名称而已，即起一个别名。
+> 具体对这个语句来说，别名就是：int_array。而[4]不属于名字，而表示一种已有的数据类型，即：给一个大小为4的int数组取一个别名为int_array。
+> 那如何知道是这样定义的呢？很简单。
+> 首先，int a[4];这可是常见的定义格式。再在其前面添加关键字typedef，变成 typedef int a[4];最后将数组名a改为自己想要的一个别名int_array即可。注意：原本的a本意是数组名，属于变量范畴，而int_array则是新数据类型名（即别名），本质不一样了哦。祥见谭浩强的那本经典教材。
+
+> **typedef常见用法**
+>
+> https://www.shuzhiduo.com/A/D85476oWJE/
+>
+> 1.常规变量类型定义
+>
+> 例如：typedef unsigned char uchar
+> 描述：uchar等价于unsigned char类型定义 uchar c声明等于unsigned char c声明
+>
+> 2.数组类型定义
+> 例如： typedef int array[2];
+> 描述： array等价于 int [2]定义; array a声明等价于int a[2]声明
+>
+> 扩展： typedef int array[M][N];
+> 描述： array等价于 int [M][N]定义; array a声明等价于int a[M][N]声明
+>
+> 3.指针类型定义
+> 例如： typedef int *pointer;
+> 描述： pointer等价于 int *定义;pointer p声明等价于int *p声明
+>
+> 例如： typedef int *pointer[M];
+> 描述： pointer等价于 int *[M]定义 pointer p声明等价于int *p[M]声明明
+>
+> 4.函数地址说明
+> 描述：C把函数名字当做函数的首地址来对待，我们可以使用最简单的方法得到函数地址
+> 例如： 函数:int func(void); unsigned long funcAddr=(unsigned long)func， funcAddr的值是func函数的首地址
+>
+> 5.函数声明
+> 例如： typedef int func(void); func等价于 int (void)类型函数
+> 描述1： func f声明等价于 int f(void)声明，用于文件的函数声明
+> 描述2： func *pf声明等价于 int (*pf)(void)声明，用于函数指针的生命，见下一条
+>
+> 6.函数指针
+> 例如： typedef int (*func)(void)
+> 描述： func等价于int (*)(void)类型
+> func pf等价于int (*pf)(void)声明，pf是一个函数指针变量
+>
+> 7.识别typedef的方法：
+> a).第一步。使用已知的类型定义替代typdef后面的名称,直到只剩下一个名字不识别为正确
+> 如typedef u32 (*func)(u8);
+> 从上面的定义中找到 typedef __u32 u32;typedef __u8 u8
+> 继续找到 typedef unsigned int __u32;typedef unsigned char __u8;
+> 替代位置名称 typedef unsigned int (*func)(void);
+> 现在只有func属于未知。
+> b).第二步.未知名字为定义类型，类型为取出名称和typedef的所有部分，如上为
+> func等价于unsigned unsigned int (*)(unsigned char);
+> c).第三部.定义一个变量时，变量类型等价于把变量替代未知名字的位置所得到的类型
+> func f等价于unsigned unsigned int (*f)(unsigned char)
+
+
+
 ### Chapter Summary  
 
+- `string`和 `vector`是最重要的两种标准库类型，string对象是一个可变长的字符序列，vector对象是一组同类型对象的容器。
+- 迭代器允许对容器中的对象进行间接访问，对于string对象和vector对象来说，可以通过迭代器访问元素或者在元素间移动。
+- 数组和指向数组元素的指针在一个较低层次上实现了与标准库string和vector类似的功能。一般来说尽量使用标准库提供的类型，之后在考虑C++语言内置的低层的替代品数组或指针。
+
 ### Defined Terms
+
+| 中文       | 英文                  | 含义                                                         |
+| ---------- | --------------------- | ------------------------------------------------------------ |
+| 缓冲器溢出 | buffer overflow       | 一种严重的程序故障，主要原因是试图通过一个越界的索引访问容器内容，容器类型包括string、vector、数组等。 |
+| 拷贝初始化 | copy initialization   | 使用赋值号的初始化形式，新创建的对象是初始值的一个副本       |
+| 直接初始化 | direct initialization | 不使用赋值号的初始化形式                                     |
+| 实例化     | instantiation         | 编译器生成一个指定的模板类或函数的过程                       |
+|            | difference_type       | 由string和vector定义的一种带符号整数类型，表示两个迭代器之间的距离。 |
+|            | size_type             | 由string和vector定义的一种无符号整数类型，能存放下任意string对象或vector对象的大小 |
+|            | prtdiff_t             | cstddef头文件定义的一种与机器实现有关的带符号整数类型，空间足够大，足以表示数组中任意两个指针之间的距离 |
+|            | size_t                | cstddef头文件定义的一种与机器实现有关的带符号整数类型，空间足够大，足以表示任意数组的大小 |
+
+
 
 
 
@@ -1808,9 +2221,22 @@ for (decltype(ivec.size()) ix = 0; ix != 10; ++ix)
 
 ### Defined Terms
 
+| 中文 | 英文 | 含义 |
+| ---- | ---- | ---- |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+
+
+
 
 
 ## Chapter 5 Statements
+
 ### 5.1 Simple Statements
 
 ### 5.2 Statement Scope
@@ -2494,3 +2920,50 @@ for (decltype(ivec.size()) ix = 0; ix != 10; ++ix)
 
 
 
+
+
+
+
+# some code
+
+
+
+```c++
+#include <fstream>
+#include <iostream>
+#include<string>
+using namespace std;
+
+int main()
+{
+    //给每个以#开头的，加一个#以降低它的等级
+    string line;
+    // 以写模式打开文件
+    ifstream outfile;
+    string a = "#";
+    outfile.open("test.md", ios::out);
+    while (getline(outfile, line)) {
+        if (line[0] == '#') {
+            line.insert(0, a);
+        }
+        cout << line <<endl;
+    }
+    while (getline(outfile, line)) {
+        cout << line << endl;
+    }
+    outfile.close();
+    return 0;
+}
+```
+
+### Defined Terms
+
+| 中文 | 英文 | 含义 |
+| ---- | ---- | ---- |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
+|      |      |      |
