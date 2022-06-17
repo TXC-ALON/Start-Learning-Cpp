@@ -2650,7 +2650,7 @@ cond ? expr1 : expr2;
 
 条件运算符的优先级**非常低**，因此当一个长表达式中嵌套了条件运算子表达式时，通常需要在它两端加上括号。
 
-### 4.8 The Bitwise Operators
+### 4.8 The Bitwise Operators 位运算符
 
 位运算符作用于整数类型的运算对象，并把运算对象看成是二进制位的集合。位运算符提供检查和设置二进制的功能【17.2 - bitset.h】
 
@@ -2670,37 +2670,455 @@ cond ? expr1 : expr2;
 
 - 右移运算符`>>`的行为依赖于其左侧运算对象的类型：如果该运算对象是无符号类型，在其左侧插入值为0的二进制位；如果是带符号类型，在其左侧插入符号位的副本或者值为0的二进制位，如何选择视具体环境而定。
 
+##### 位取反运算符
 
+按位取反，char型会被提升为int类型。
 
+##### 位与位或位异或
 
+##### 移位运算符(IO运算符)满足左结合律
+
+很多人可能没使用过移位运算符，但是肯定用过它们的重载版本进行IO操作。
 
 ### 4.9 The sizeof Operator
 
+`sizeof`运算符返回一个表达式或一个类型名字所占的字节数，返回值是`size_t`类型。
+
+在`sizeof`的运算对象中解引用一个无效指针仍然是一种安全的行为，因为指针实际上并没有被真正使用。
+
+同样的，C++11允许我们通过作用域运算符来获取类成员的大小。通常情况下只有通过类的对象才能访问到类的成员，但是sizeof运算符无须我们提供一个具体的对象，因为想要知道类成员的大小无须真的获取该成员。
+
+`sizeof`运算符的结果部分依赖于其作用的类型：
+
+- 对`char`或者类型为`char`的表达式执行`sizeof`运算，返回值为1。
+- 对引用类型执行`sizeof`运算得到被引用对象所占空间的大小。
+- 对指针执行`sizeof`运算得到指针本身所占空间的大小。
+- 对解引用指针执行`sizeof`运算得到指针指向的对象所占空间的大小，指针不需要有效。
+- 对数组执行`sizeof`运算得到整个数组所占空间的大小。
+- 对`string`或`vector`对象执行`sizeof`运算只返回该类型固定部分的大小，不会计算对象中元素所占空间的大小。
+
+```c++
+	//可以通过下面的方式获得数组的大小。
+	int a[10];
+    cout << sizeof(a) / sizeof(*a) << endl;//10
+```
+
+
+
 ### 4.10 Comma Operator
+
+逗号运算符`,`含有两个运算对象，按照从左向右的顺序依次求值，首先对左侧的表达式求值，然后丢弃掉，逗号运算符真正的幽魂算结果是右侧表达式的值。逗号运算符经常用在`for`循环中。
+
+```c++
+vector<int>::size_type cnt = ivec.size();
+// assign values from size... 1 to the elements in ivec
+for(vector<int>::size_type ix = 0; ix != ivec.size(); ++ix, --cnt)
+    ivec[ix] = cnt;
+```
 
 ### 4.11 Type Conversions
 
+如果两种类型可以相互转换，那么它们就是关联的。
+
+无须程序员介入，会自动执行的类型转换叫做隐式转换（implicit conversions）。
+
+##### 何时发生隐式类型转换
+
+- 在大多数表达式中，比int类型小的整型值首先提升较大的整数类型
+- 在条件中，非布尔值转换成布尔类型
+- 初始化过程中，初始值转变成变量的类型；在赋值语句中，右侧运算对象转换成左侧运算对象的类型。
+- 算术运算或关系运算的运算对象有多种类型，需要转换成同一种类型。
+- 【6】，函数调用时也会发生类型转换。
+
 #### 4.11.1 The Arithmetic Conversions
+
+把一种算术类型转换成另一种算术类型叫做算术转换。
+
+整型提升（integral promotions）负责把小整数类型转换成较大的整数类型。前提是转换后的类型要能容纳原类型所有可能的值。
+
+无符号与有符号类型之间的转换：
+
+- 如果无符号类型不小于带符号类型，则带符号类型转换成无符号的。如果是负的可能会有意料之外的错误。
+- 如果带符号类型大于无符号类型，此时转换结果依赖于机器，如果无符号类型的所有值都能存在带符号类型中，则无符号转化为带符号，否则带符号转换为无符号；
 
 #### 4.11.2 Other Implicit Conversions
 
+##### 数组转化为指针
+
+在大多数表达式中，数组名字自动转换成指向数组首元素的指针。
+
+##### 指针的转换
+
+常量整数值0或字面值`nullptr`能转换成任意指针类型；指向任意非常量的指针能转换成`void*`；指向任意对象的指针能转换成`const void*`。【15.2.2】还会介绍在有继承关系的类型之间还有另外一种指针转换的方式。
+
+##### 转换成布尔类型
+
+任意一种算术类型或指针类型都能转换成布尔类型。如果指针或算术类型的值为0，转换结果是`false`，否则是`true`。
+
+##### 转换成常量
+
+指向非常量类型的指针能转换成指向相应的常量类型的指针。相反的操作不行，因为这试图删除底层的const。
+
+##### 类类型定义的转换
+
+编译器每次只能执行一种类类型的转换，【7.5.4】会看到一个拒绝同时转化多个请求的例子
+
+举例子：
+
+```c++
+while(cin >> s)
+```
+
+`while()`实际是检查istream类型的值，不过因为IO库定义了从istream型向布尔值转换的规则，所以可以进行成功转换。
+
 #### 4.11.3 Explicit Conversions
+
+显式类型转换也叫做强制类型转换（cast）。虽然有时不得不使用强制类型转换，但这种方法本质上是非常危险的。建议尽量避免强制类型转换。
+
+命名的强制类型转换（named cast）形式如下：
+
+```c++
+cast-name<type>(expression);
+```
+
+其中`type`是转换的目标类型，`expression`是要转换的值。如果`type`是引用类型，则转换结果是左值。`cast-name`是`static_cast`、`dynamic_cast`、`const_cast`和`reinterpret_cast`中的一种，用来指定转换的方式。
+
+- `dynamic_cast`支持运行时类型识别。【19.2】
+
+- 任何具有明确定义的类型转换，只要不包含底层`const`，都能使用`static_cast`。
+
+- `const_cast`只能改变运算对象的底层`const`，不能改变表达式的类型。同时也只有`const_cast`能改变表达式的常量属性。`const_cast`常常用于函数重载。
+
+- `reinterpret_cast`通常为运算对象的位模式提供底层上的重新解释。十分危险，类型改变了，但编译器不会给出任何警告或错误的提示信息。【6.4】
+
+早期版本的C++语言中，显式类型转换包含两种形式：
+
+```c++
+type (expression);    // function-style cast notation
+(type) expression;    // C-language-style cast notation
+```
+
+> # C++中的类型转换（static_cast、const_cast、dynamic_cast、reinterpret_cast）
+>
+> **1. c强制转换与c++强制转换**
+>
+> c语言[强制类型转换](https://so.csdn.net/so/search?q=强制类型转换&spm=1001.2101.3001.7020)主要用于基础的数据类型间的转换，语法为：
+>
+> ```
+> (type-id)expression//转换格式1
+> 
+> type-id(expression)//转换格式2123
+> ```
+>
+> c++除了能使用c语言的强制类型转换外，还新增了四种强制类型转换：static_cast、dynamic_cast、const_cast、reinterpret_cast，主要运用于继承关系类间的强制转化，语法为：
+>
+> ```
+> static_cast<new_type>      (expression)
+> dynamic_cast<new_type>     (expression) 
+> const_cast<new_type>       (expression) 
+> reinterpret_cast<new_type> (expression)1234
+> ```
+>
+> 备注：new_type为目标数据类型，expression为原始数据类型变量或者表达式。
+>
+> 《Effective C++》中将c语言强制类型转换称为旧式转型，c++强制类型转换称为新式转型。
+>
+> **2. static_cast、dynamic_cast、const_cast、reinterpret_cast**
+>
+> **static_cast**
+>
+> static_cast相当于传统的C语言里的强制转换，该运算符把expression转换为new_type类型，用来强迫隐式转换，例如non-const对象转为const对象，编译时检查，用于非多态的转换，可以转换指针及其他，***但没有运行时类型检查来保证转换的安全性\***。它主要有如下几种用法：
+> ①用于类层次结构中基类（父类）和派生类（子类）之间指针或引用的转换。
+> ***进行上行转换（把派生类的指针或引用转换成基类表示）是安全的；\***
+> ***进行下行转换（把基类指针或引用转换成派生类表示）时，由于没有动态类型检查，所以是不安全的。\***
+> ②用于基本数据类型之间的转换，如把int转换成char，把int转换成enum。这种转换的安全性也要开发人员来保证。
+> ③把空指针转换成目标类型的空指针。
+> ④把任何类型的表达式转换成void类型。
+> 注意：static_cast不能转换掉expression的const、volatile、或者__unaligned属性。
+>
+> 基本类型数据转换举例如下：
+>
+> ```
+> char a = 'a';
+> int b = static_cast<char>(a);//正确，将char型数据转换成int型数据
+> 
+> double *c = new double;
+> void *d = static_cast<void*>(c);//正确，将double指针转换成void指针
+> 
+> int e = 10;
+> const int f = static_cast<const int>(e);//正确，将int型数据转换成const int型数据
+> 
+> const int g = 20;
+> int *h = static_cast<int*>(&g);//编译错误，static_cast不能转换掉g的const属性1234567891011
+> ```
+>
+> 类上行和下行转换：
+>
+> ```
+> if(Derived *dp = static_cast<Derived *>(bp)){//下行转换是不安全的
+>   //使用dp指向的Derived对象  
+> }
+> else{
+>   //使用bp指向的Base对象  
+> }
+> 
+> if(Base*bp = static_cast<Derived *>(dp)){//上行转换是安全的
+>   //使用bp指向的Derived对象  
+> }
+> else{
+>   //使用dp指向的Base对象  
+> }12345678910111213
+> ```
+>
+> **dynamic_cast**
+>
+> ```
+> dynamic_cast<type*>(e)
+> dynamic_cast<type&>(e)
+> dynamic_cast<type&&>(e)123
+> ```
+>
+> type必须是一个类类型，在第一种形式中，type必须是一个有效的指针，在第二种形式中，type必须是一个左值，在第三种形式中，type必须是一个右值。在上面所有形式中，e的类型必须符合以下三个条件中的任何一个：e的类型是是目标类型type的公有派生类、e的类型是目标type的共有基类或者e的类型就是目标type的的类型。如果一条dynamic_cast语句的转换目标是指针类型并且失败了，则结果为0。如果转换目标是引用类型并且失败了，则dynamic_cast运算符将抛出一个std::bad_cast异常(该异常定义在typeinfo标准库头文件中)。e也可以是一个空指针，结果是所需类型的空指针。
+>
+> dynamic_cast主要用于类层次间的上行转换和下行转换，还可以用于类之间的交叉转换（cross cast）。
+> 在类层次间进行上行转换时，dynamic_cast和static_cast的效果是一样的；
+> ***在进行下行转换时，dynamic_cast具有类型检查的功能，比static_cast更安全。dynamic_cast是唯一无法由旧式语法执行的动作，也是唯一可能耗费重大运行成本的转型动作。\***
+>
+> （1）指针类型
+> 举例，Base为包含至少一个虚函数的基类，Derived是Base的共有派生类，如果有一个指向Base的指针bp，我们可以在运行时将它转换成指向Derived的指针，代码如下：
+>
+> ```
+> if(Derived *dp = dynamic_cast<Derived *>(bp)){
+>   //使用dp指向的Derived对象  
+> }
+> else{
+>   //使用bp指向的Base对象  
+> }123456
+> ```
+>
+> 值得注意的是，在上述代码中，if语句中定义了dp，这样做的好处是可以在一个操作中同时完成[类型转换](https://so.csdn.net/so/search?q=类型转换&spm=1001.2101.3001.7020)和条件检查两项任务。
+>
+> （2）引用类型
+>
+> 因为不存在所谓空引用，所以引用类型的dynamic_cast转换与指针类型不同，在引用转换失败时，会抛出std::bad_cast异常，该异常定义在头文件typeinfo中。
+>
+> ```
+> void f(const Base &b){
+>  try{
+>    const Derived &d = dynamic_cast<const Base &>(b);  
+>    //使用b引用的Derived对象
+>  }
+>  catch(std::bad_cast){
+>    //处理类型转换失败的情况
+>  }
+> }123456789
+> ```
+>
+> **const_cast**
+>
+> const_cast，用于修改类型的const或volatile属性。
+> 该运算符用来修改类型的const(唯一有此能力的C++-style转型操作符)或volatile属性。除了const 或volatile修饰之外， new_type和expression的类型是一样的。
+> ①常量指针被转化成非常量的指针，并且仍然指向原来的对象；
+> ②常量引用被转换成非常量的引用，并且仍然指向原来的对象；
+> ③const_cast一般用于修改底指针。如const char *p形式。
+>
+> 举例转换如下：
+>
+> ```
+> const int g = 20;
+> int *h = const_cast<int*>(&g);//去掉const常量const属性
+> 
+> const int g = 20;
+> int &h = const_cast<int &>(g);//去掉const引用const属性
+> 
+>  const char *g = "hello";
+> char *h = const_cast<char *>(g);//去掉const指针const属性12345678
+> ```
+>
+> **reinterpret_cast**
+>
+> new_type必须是一个指针、引用、算术类型、函数指针或者成员指针。它可以把一个指针转换成一个整数，也可以把一个整数转换成一个指针（先把一个指针转换成一个整数，再把该整数转换成原类型的指针，还可以得到原先的指针值）。
+>
+> ***reinterpret_cast意图执行低级转型，实际动作（及结果）可能取决于编辑器，这也就表示它不可移植。\***
+>
+> 举一个错误使用reintepret_cast例子，将整数类型转换成函数指针后，vc++在执行过程中会报”…中的 0xxxxxxxxx 处有未经处理的异常: 0xC0000005: Access violation”错误：
+>
+> ```
+> #include <iostream>
+> using namespace std;
+> int output(int p){
+>     cout << p <<endl;
+> 　　return 0;
+> }
+> 
+> typedef int (*test_func)(int );//定义函数指针test_func
+> int main(){
+>     int p = 10;
+>     test_func fun1 = output;
+>     fun1(p);//正确
+>     test_func fun2 = reinterpret_cast<test_func>(&p);
+>     fun2(p);//...处有未经处理的异常: 0xC0000005: Access violation
+>     return 0;
+> }12345678910111213141516
+> ```
+>
+> IBM的C++指南、C++之父Bjarne Stroustrup的FAQ网页和MSDN的Visual C++也都指出：错误的使用reinterpret_cast很容易导致程序的不安全，***只有将转换后的类型值转换回到其原始类型，这样才是正确使用reinterpret_cast方式。\***
+>
+> MSDN中也提到了，实际中可将reinterpret_cast应用到哈希函数中，如下（64位系统中需将unsigned int修改为unsigned long）：
+>
+> ```
+> // expre_reinterpret_cast_Operator.cpp
+> // compile with: /EHsc
+> #include <iostream>
+> 
+> // Returns a hash code based on an address
+> unsigned short Hash( void *p ) {
+>    unsigned int val = reinterpret_cast<unsigned int>( p );
+>    return ( unsigned short )( val ^ (val >> 16));
+> }
+> 
+> using namespace std;
+> int main() {
+>    int a[20];
+>    for ( int i = 0; i < 20; i++ )
+>       cout << Hash( a + i ) << endl;
+> }12345678910111213141516
+> ```
+>
+> 另外，static_cast和reinterpret_cast的区别主要在于多重继承，比如
+>
+> ```
+> class A {
+>     public:
+>     int m_a;
+> };
+> 
+> class B {
+>     public:
+>     int m_b;
+> };
+> 
+> class C : public A, public B {};1234567891011
+> ```
+>
+> 那么对于以下代码：
+>
+> ```
+> C c;
+> printf("%p, %p, %p", &c, reinterpret_cast<B*>(&c), static_cast <B*>(&c));12
+> ```
+>
+> 前两个的输出值是相同的，最后一个则会在原基础上偏移4个字节，这是因为static_cast计算了父子类指针转换的偏移量，并将之转换到正确的地址（c里面有m_a,m_b，转换为B*指针后指到m_b处），而reinterpret_cast却不会做这一层转换。
+>
+> 因此, 你需要谨慎使用 reinterpret_cast。
+>
+> **3. c++强制转换注意事项**
+>
+> 新式转换较旧式转换更受欢迎。原因有二，一是新式转型较易辨别，能简化“找出类型系统在哪个地方被破坏”的过程；二是各转型动作的目标愈窄化，编译器愈能诊断出错误的运用。
+> 尽量少使用转型操作，尤其是dynamic_cast，耗时较高，会导致性能的下降，尽量使用其他方法替代。
 
 ### 4.12 Operator Precedence Table
 
+####  [C++ 运算符优先级和关联性表](https://docs.microsoft.com/zh-cn/cpp/cpp/cpp-built-in-operators-precedence-and-associativity?view=msvc-170)
+
+下表显示 C++ 运算符的优先级和关联性（从最高优先级到最低优先级）。 优先级别编号相同的运算符具有等同的优先级别，除非由括号显式施加另一种关系。
+
+| 运算符说明                                                   | 运算符                                                       | 替代项       |
+| :----------------------------------------------------------- | :----------------------------------------------------------- | :----------- |
+| **组 1 优先级，无关联性**                                    |                                                              |              |
+| [范围解析](https://docs.microsoft.com/zh-cn/cpp/cpp/scope-resolution-operator?view=msvc-170) | [`::`](https://docs.microsoft.com/zh-cn/cpp/cpp/scope-resolution-operator?view=msvc-170) |              |
+| **组 2 优先级，从左到右关联**                                |                                                              |              |
+| [成员选择（对象或指针）](https://docs.microsoft.com/zh-cn/cpp/cpp/member-access-operators-dot-and?view=msvc-170) | 或 `->`                                                      |              |
+| [数组下标](https://docs.microsoft.com/zh-cn/cpp/cpp/subscript-operator?view=msvc-170) | [`[\]`](https://docs.microsoft.com/zh-cn/cpp/cpp/subscript-operator?view=msvc-170) |              |
+| [函数调用](https://docs.microsoft.com/zh-cn/cpp/cpp/function-call-operator-parens?view=msvc-170) | [`()`](https://docs.microsoft.com/zh-cn/cpp/cpp/function-call-operator-parens?view=msvc-170) |              |
+| [后缀递增](https://docs.microsoft.com/zh-cn/cpp/cpp/postfix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) | [`++`](https://docs.microsoft.com/zh-cn/cpp/cpp/postfix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) |              |
+| [后缀递减](https://docs.microsoft.com/zh-cn/cpp/cpp/postfix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) | [`--`](https://docs.microsoft.com/zh-cn/cpp/cpp/postfix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) |              |
+| [类型名称](https://docs.microsoft.com/zh-cn/cpp/cpp/typeid-operator?view=msvc-170) | [`typeid`](https://docs.microsoft.com/zh-cn/cpp/cpp/typeid-operator?view=msvc-170) |              |
+| [常量类型转换](https://docs.microsoft.com/zh-cn/cpp/cpp/const-cast-operator?view=msvc-170) | [`const_cast`](https://docs.microsoft.com/zh-cn/cpp/cpp/const-cast-operator?view=msvc-170) |              |
+| [动态类型转换](https://docs.microsoft.com/zh-cn/cpp/cpp/dynamic-cast-operator?view=msvc-170) | [`dynamic_cast`](https://docs.microsoft.com/zh-cn/cpp/cpp/dynamic-cast-operator?view=msvc-170) |              |
+| [重新解释的类型转换](https://docs.microsoft.com/zh-cn/cpp/cpp/reinterpret-cast-operator?view=msvc-170) | [`reinterpret_cast`](https://docs.microsoft.com/zh-cn/cpp/cpp/reinterpret-cast-operator?view=msvc-170) |              |
+| [静态类型转换](https://docs.microsoft.com/zh-cn/cpp/cpp/static-cast-operator?view=msvc-170) | [`static_cast`](https://docs.microsoft.com/zh-cn/cpp/cpp/static-cast-operator?view=msvc-170) |              |
+| **组 3 优先级，从右到左关联**                                |                                                              |              |
+| [对象或类型的大小](https://docs.microsoft.com/zh-cn/cpp/cpp/sizeof-operator?view=msvc-170) | [`sizeof`](https://docs.microsoft.com/zh-cn/cpp/cpp/sizeof-operator?view=msvc-170) |              |
+| [前缀递增](https://docs.microsoft.com/zh-cn/cpp/cpp/prefix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) | [`++`](https://docs.microsoft.com/zh-cn/cpp/cpp/prefix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) |              |
+| [前缀递减](https://docs.microsoft.com/zh-cn/cpp/cpp/prefix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) | [`--`](https://docs.microsoft.com/zh-cn/cpp/cpp/prefix-increment-and-decrement-operators-increment-and-decrement?view=msvc-170) |              |
+| [一个补充](https://docs.microsoft.com/zh-cn/cpp/cpp/one-s-complement-operator-tilde?view=msvc-170) | [`~`](https://docs.microsoft.com/zh-cn/cpp/cpp/one-s-complement-operator-tilde?view=msvc-170) | **`compl`**  |
+| [逻辑不是](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-negation-operator-exclpt?view=msvc-170) | [`!`](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-negation-operator-exclpt?view=msvc-170) | **`not`**    |
+| [一元否定](https://docs.microsoft.com/zh-cn/cpp/cpp/unary-plus-and-negation-operators-plus-and?view=msvc-170) | [`-`](https://docs.microsoft.com/zh-cn/cpp/cpp/unary-plus-and-negation-operators-plus-and?view=msvc-170) |              |
+| [一元加](https://docs.microsoft.com/zh-cn/cpp/cpp/unary-plus-and-negation-operators-plus-and?view=msvc-170) | [`+`](https://docs.microsoft.com/zh-cn/cpp/cpp/unary-plus-and-negation-operators-plus-and?view=msvc-170) |              |
+| [地址](https://docs.microsoft.com/zh-cn/cpp/cpp/address-of-operator-amp?view=msvc-170) | [`&`](https://docs.microsoft.com/zh-cn/cpp/cpp/address-of-operator-amp?view=msvc-170) |              |
+| [间接寻址](https://docs.microsoft.com/zh-cn/cpp/cpp/indirection-operator-star?view=msvc-170) | [`*`](https://docs.microsoft.com/zh-cn/cpp/cpp/indirection-operator-star?view=msvc-170) |              |
+| [创建对象](https://docs.microsoft.com/zh-cn/cpp/cpp/new-operator-cpp?view=msvc-170) | [`new`](https://docs.microsoft.com/zh-cn/cpp/cpp/new-operator-cpp?view=msvc-170) |              |
+| [销毁对象](https://docs.microsoft.com/zh-cn/cpp/cpp/delete-operator-cpp?view=msvc-170) | [`delete`](https://docs.microsoft.com/zh-cn/cpp/cpp/delete-operator-cpp?view=msvc-170) |              |
+| [投](https://docs.microsoft.com/zh-cn/cpp/cpp/cast-operator-parens?view=msvc-170) | [`()`](https://docs.microsoft.com/zh-cn/cpp/cpp/cast-operator-parens?view=msvc-170) |              |
+| **组 4 优先级，从左到右关联**                                |                                                              |              |
+| [指向成员的指针（对象或指针）](https://docs.microsoft.com/zh-cn/cpp/cpp/pointer-to-member-operators-dot-star-and-star?view=msvc-170) | 或 `->*`                                                     |              |
+| **组 5 优先级，从左到右关联**                                |                                                              |              |
+| [乘法](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) | [`*`](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) |              |
+| [部门](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) | [`/`](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) |              |
+| [模](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) | [`%`](https://docs.microsoft.com/zh-cn/cpp/cpp/multiplicative-operators-and-the-modulus-operator?view=msvc-170) |              |
+| **组 6 优先级，从左到右关联**                                |                                                              |              |
+| [加法](https://docs.microsoft.com/zh-cn/cpp/cpp/additive-operators-plus-and?view=msvc-170) | [`+`](https://docs.microsoft.com/zh-cn/cpp/cpp/additive-operators-plus-and?view=msvc-170) |              |
+| [减法](https://docs.microsoft.com/zh-cn/cpp/cpp/additive-operators-plus-and?view=msvc-170) | [`-`](https://docs.microsoft.com/zh-cn/cpp/cpp/additive-operators-plus-and?view=msvc-170) |              |
+| **组 7 优先级，从左到右关联**                                |                                                              |              |
+| [左移](https://docs.microsoft.com/zh-cn/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=msvc-170) | [`<<`](https://docs.microsoft.com/zh-cn/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=msvc-170) |              |
+| [右移](https://docs.microsoft.com/zh-cn/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=msvc-170) | [`>>`](https://docs.microsoft.com/zh-cn/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=msvc-170) |              |
+| **组 8 优先级，从左到右关联**                                |                                                              |              |
+| [小于](https://docs.microsoft.com/zh-cn/cpp/cpp/relational-operators-equal-and-equal?view=msvc-170) | [`<`](https://docs.microsoft.com/zh-cn/cpp/cpp/relational-operators-equal-and-equal?view=msvc-170) |              |
+| 大于                                                         | [`>`](https://docs.microsoft.com/zh-cn/cpp/cpp/relational-operators-equal-and-equal?view=msvc-170) |              |
+| 小于或等于                                                   | [`<=`](https://docs.microsoft.com/zh-cn/cpp/cpp/relational-operators-equal-and-equal?view=msvc-170) |              |
+| 大于或等于                                                   | [`>=`](https://docs.microsoft.com/zh-cn/cpp/cpp/relational-operators-equal-and-equal?view=msvc-170) |              |
+| **组 9 优先级，从左到右关联**                                |                                                              |              |
+| [等式](https://docs.microsoft.com/zh-cn/cpp/cpp/equality-operators-equal-equal-and-exclpt-equal?view=msvc-170) | [`==`](https://docs.microsoft.com/zh-cn/cpp/cpp/equality-operators-equal-equal-and-exclpt-equal?view=msvc-170) |              |
+| [不相等](https://docs.microsoft.com/zh-cn/cpp/cpp/equality-operators-equal-equal-and-exclpt-equal?view=msvc-170) | [`!=`](https://docs.microsoft.com/zh-cn/cpp/cpp/equality-operators-equal-equal-and-exclpt-equal?view=msvc-170) | **`not_eq`** |
+| **组 10 优先级从左到右关联**                                 |                                                              |              |
+| [按位 AND](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-and-operator-amp?view=msvc-170) | [`&`](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-and-operator-amp?view=msvc-170) | **`bitand`** |
+| **组 11 优先级，从左到右关联**                               |                                                              |              |
+| [位异或](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-exclusive-or-operator-hat?view=msvc-170) | [`^`](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-exclusive-or-operator-hat?view=msvc-170) | **`xor`**    |
+| **组 12 优先级，从左到右关联**                               |                                                              |              |
+| [位或](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-inclusive-or-operator-pipe?view=msvc-170) | [`|`](https://docs.microsoft.com/zh-cn/cpp/cpp/bitwise-inclusive-or-operator-pipe?view=msvc-170) | **`bitor`**  |
+| **组 13 优先级，从左到右关联**                               |                                                              |              |
+| [逻辑与](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-and-operator-amp-amp?view=msvc-170) | [`&&`](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-and-operator-amp-amp?view=msvc-170) | **`and`**    |
+| **组 14 优先级，从左到右关联**                               |                                                              |              |
+| [逻辑或](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-or-operator-pipe-pipe?view=msvc-170) | [`||`](https://docs.microsoft.com/zh-cn/cpp/cpp/logical-or-operator-pipe-pipe?view=msvc-170) | **`or`**     |
+| **组 15 优先级，从右到左关联**                               |                                                              |              |
+| [条件逻辑](https://docs.microsoft.com/zh-cn/cpp/cpp/conditional-operator-q?view=msvc-170) | [`? :`](https://docs.microsoft.com/zh-cn/cpp/cpp/conditional-operator-q?view=msvc-170) |              |
+| [分配](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [乘法赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`*=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [除法赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`/=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [取模赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`%=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [加法赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`+=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [减法赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`-=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [左移赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`<<=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [右移赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`>>=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) |              |
+| [按位“与”赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`&=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | **`and_eq`** |
+| [按位“与或”赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`|=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | **`or_eq`**  |
+| [按位“异或”赋值](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | [`^=`](https://docs.microsoft.com/zh-cn/cpp/cpp/assignment-operators?view=msvc-170) | **`xor_eq`** |
+| [引发表达式](https://docs.microsoft.com/zh-cn/cpp/cpp/try-throw-and-catch-statements-cpp?view=msvc-170) | [`throw`](https://docs.microsoft.com/zh-cn/cpp/cpp/try-throw-and-catch-statements-cpp?view=msvc-170) |              |
+| **组 16 优先级，从左到右关联**                               |                                                              |              |
+| [逗号](https://docs.microsoft.com/zh-cn/cpp/cpp/comma-operator?view=msvc-170) | [,](https://docs.microsoft.com/zh-cn/cpp/cpp/comma-operator?view=msvc-170) |              |
+
 ### Chapter Summary  
+
+​	C++ 提供了丰富的运算符，还支持运算符重载的机制，允许我们自定义运算符作用于类类型时的定义。【14】
+
+​	对于复杂的表达式，需要理解其含义关键要理解优先级、结合律和求值顺序。
+
+​	大多数运算符并不明确规定运算对象的求值顺序：编译器来处理这部分问题。但时在编程时，需要特别谨慎处理两个运算对象指向同一个对象而且其中一个改变了对象的值。
+
+​	运算对象经常从原始类型自动转换从某种关联的类型，我们也可以自己进行强制类型转换。 
 
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+| 中文     | 英文                     | 含义                                                         |
+| -------- | ------------------------ | ------------------------------------------------------------ |
+| 算术转换 | arithmetic conversion    | 从一种算术类型转成另一种，为了保留精度，通常是小类型转换成大类型。 |
+| 结合律   | associativity            | 规定具有相同优先级的运算符如何组合在一起，分为左结合律和右结合律。 |
+| 左值     | lvalue                   | 那些求职结果为对象或函数的表达式。一个表示对象的非常量左值可以作为赋值运算符的左侧运算对象。 |
+| 短路求值 | short-circuit evaluation | 专有名词，描述逻辑与和逻辑或运算符的执行过程，如果运算符的第一个运算对象就能判断整个表达式的值，求值终止。 |
+|          |                          |                                                              |
+|          |                          |                                                              |
+|          |                          |                                                              |
 
 
 
