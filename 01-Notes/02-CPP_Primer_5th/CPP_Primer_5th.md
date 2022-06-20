@@ -4054,15 +4054,438 @@ int (*matrix)[10];		//执行含有是个整数的数组的指针
 
 #### 6.2.5 main: Handling Command-Line Options
 
+可以在命令行中向`main`函数传递参数，形式如下：
+
+```c++
+int main(int argc, char *argv[]) { /*...*/ }
+int main(int argc, char **argv) { /*...*/ }
+```
+
+第二个形参`argv`是一个数组，数组元素是指向C风格字符串的指针；第一个形参`argc`表示数组中字符串的数量。
+
+当实参传递给`main`函数后，`argc`表示数组中字符串的数量。`argv`的第一个元素指向程序的名字或者一个空字符串，接下来的元素依次传递命令行提供的实参。最后一个指针之后的元素值保证为0。
+
+##### 个人实验
+
+````c++
+#include<iostream>
+using namespace std;
+int main(int argc,char **argv){
+    
+    string str;
+    for (int i = 0;i != argc; ++i) {
+        str += " ";
+        str += argv[i];
+    }
+    cout << str << endl;
+    cout<<endl;
+    cout<<argc<<endl;
+    cout<<endl;
+    for (int i = 0;i != argc; ++i) {
+        
+        cout<< argv[i] <<endl;
+    }
+
+    cout<<"start"<<endl;
+    if(argv[argc] == nullptr){//if(argv[argc] == 0){
+        cout<<"argv[argc] is a nullptr"<<endl;
+    }
+    cout<< argv[argc]<<endl;
+    cout<<"hello"<<endl;
+    return 0;
+}
+
+/*
+PS C:\Users\Administrator\Desktop> g++ .\0620.cpp     
+PS C:\Users\Administrator\Desktop> .\a.exe hello world
+ C:\Users\Administrator\Desktop\a.exe hello world
+
+3
+
+C:\Users\Administrator\Desktop\a.exe
+hello
+world
+start
+argv[argc] is a nullptr
+*/
+````
+
+可以看到 argv[argc] 确实是一个空指针。只不过我们用不到。
+
+todo 不知道为什么那个` cout<<"hello"<<endl;` 没有正常输出。
+
+> # C语言main()函数
+>
+> http://c.biancheng.net/view/328.html
+>
+> C 语言有两种可能的运行环境中，它们之间有一定差别：
+>
+> (1) 独立环境（freestanding）
+>    在独立环境中，C 程序的运行没有操作系统的支持，因此，只具有最小部分的标准库能力。
+>
+> (2) 宿主环境（hosted）
+>    在宿主环境中，C 程序会在操作系统的控制和支持下运行。可得到完整的标准库能力。
+>
+> 在独立环境中，程序开始时所调用的第一个函数，其类型和名称是由正在运行的 C 语言实现版本所决定的。除非是在嵌入式系统上进行 C 程序开发，否则程序一般都运行在宿主环境中。
+>
+> 在宿主环境中编译的 C 程序必须定义一个名为 main 的函数，这是程序开始时调用的第一个函数。main（）函数的定义有以下两种形式：
+> (1) 函数没有参数，返回值为 int 类型。
+>
+> int main( void ) { /* … */ }
+>
+> (2) 函数有两个参数，类型分别是 int 和 char**，返回值是 int 类型。
+>
+> int main( int argc, char *argv[ ] ) { /* … */ }
+>
+> 这两种定义方式都符合 C 语言标准。除此之外，许多 C 的实现版本还支持第三种、非标准语法的定义方式：
+>
+> int main( int argc, char *argv[ ], char *envp[ ] ) { /* … */ }
+>
+>
+> 函数返回值是 int，有 3 个参数：第一个是 int，另外两个是 char**。
+>
+> 在上面所有的例子中，main（）函数都会把最终的执行状态以整数的方式传递给操作系统。返回值如果是 0 或 EXIT_SUCCESS，就表示程序执行过程一切顺利；任何非 0 的返回值，尤其是 EXIT_FAILURE，则表示程序执行时出现了某种问题。
+>
+> 头文件 stdlib.h 中定义了上述的两个常量 EXIT_SUCCESS 和 EXIT_FAILURE。main（）函数不一定要有 return 语句。如果程序运行到 main（）函数块的右括号（}），那么就会自动向执行环境返回状态值 0。
+>
+> main（）函数结束等效于调用标准库函数 exit（），main（）的返回值作为 exit（）的参数。
+>
+> 参数 argc 和 argv（也可以根据需要另外命名），代表了程序的命令行参数。它们的作用如下：
+>
+> (1) argc（全称为 argument count）的值为 0 或者为命令行中启动该程序的字符串的数量。程序本身的名称也算作该字符串，也要计算进去。
+>
+> (2) argv（全称为 arguments vector）是一个 char 指针数组，每个指针都独立的指向命令行中每个字符串：
+> 　  数组中元素的个数，比 argc 的值多 1；最后一个元素 argv[argc] 是空指针。
+> 　  如果 argc 大于 0，那么第一个字符串，argv[0]，就是程序本身的名称。如果运行环境不支持程序名称，那么 argv[0] 为空。
+> 　  如果 argc 大于 1，从字符串 argv[1] 到 argv[argc-1] 包含该程序命令行参数。
+>
+> (3) envp（全称为 environment pointer）在非标准的、有 3 个参数的 main（）函数版本中，是一个指针数组，每个指针都指向组成程序环境的一个字符串。通常，这个字符串的格式是“名称=值”。在标准 C 语言中，可以利用函数 getenv（）获取得这些环境变量。
+
+在*Visual Studio*中可以设置`main`函数调试参数：(不知道为什么我的vs2019不行)
+
+![](CPP_Primer_5th.assets/6-1.png)
+
 #### 6.2.6 Functions with Varying Parameters
+
+C++11新标准提供了两种主要方法处理实参数量不定的函数。
+
+- 如果实参类型相同，可以使用`initializer_list`标准库类型。
+
+  ```c++
+  void error_msg(initializer_list<string> il)
+  {
+      for (auto beg = il.begin(); beg != il.end(); ++beg)
+      cout << *beg << " " ;
+      cout << endl;
+  }
+  ```
+
+- 如果实参类型不同，可以定义可变参数模板。【16.4】
+
+C++还可以使用**省略符形参**传递可变数量的实参，但这种功能一般只用在与C函数交换的接口程序中。
+
+`initializer_list`是一种标准库类型，定义在头文件`initializer_list`中，表示某种特定类型的值的数组。
+
+`initializer_list`提供的操作：
+
+![](CPP_Primer_5th.assets/6-2.png)
+
+拷贝或赋值一个`initializer_list`对象不会拷贝列表中的元素。拷贝后，原始列表和副本共享元素。
+
+不同于`vector`，`initializer_list`对象中的元素永远是常量值。
+
+如果想向`initializer_list`形参传递一个值的序列，则必须把序列放在一对花括号内。
+
+```c++
+if (expected != actual)
+    error_msg(ErrCode(42), {"functionX", expected, actual});
+else
+    error_msg(ErrCode(0), {"functionX", "okay"});
+```
+
+因为`initializer_list`包含`begin`和`end`成员，所以可以使用范围`for`循环处理其中的元素。
+
+##### 省略符形参
+
+省略符形参是为了便于C++程序访问某些特殊的C代码而设置的，这些代码使用了名为`varargs`的C标准库功能。通常，省略符形参不应该用于其他目的。
+
+省略符形参应该仅仅用于C和C++通用的类型，大多数类类型的对象在传递给省略符形参时都无法正确拷贝。
+
+省略符形参只能出现在形参列表的最后一个位置。它的形式无外乎两种。
+
+```c++
+void foo (para_list,...);
+void foo (...)
+```
+
+第一种形式指定了foo函数的部分形参的类型，对应于这些形参的实参将会执行正常的类型检查。形参后面的逗号 可选。
+
+省略符形参对应的实参无须类型检查。
+
+##### C++ 中 省略符形参示例
+
+```c++
+#include<cstdarg>
+#include<iostream>
+using namespace std;
+
+int add(int pre,...)  
+//求和函数
+{
+    va_list arg_ptr;
+    int sum=0;
+    int nArgValue;
+    sum+=pre;
+    va_start(arg_ptr,pre);
+    do
+    {
+        nArgValue=va_arg(arg_ptr,int);
+        sum+=nArgValue;       
+    }while(nArgValue!=0);   
+//自定义结束条件是输入参数为0
+   va_end(arg_ptr);
+    return sum;
+}
+int main()
+{
+   cout<<add(1,2,3,0)<<endl;  
+//必须以0结尾，因为参数列表结束的判断条件是读到0停止
+   return 0;
+}
+```
+
+##### C中省略符形参示例
+
+> 注意：省略号的优先级别最低，所以在函数解析时，只有当其它所有的函数都无法调用时，编译器才会考虑调用省略号函数的。
+>
+> （以下C语言的代码来解释）
+>
+> #include <stdio.h>
+>
+> #include <stdarg.h>
+>
+> void Function(const char *str, … )
+> {
+>      va_list ap;
+>
+> ```c
+>  int n = 3;
+> 
+>  char *a = NULL;
+> 
+> int b = 0;
+> 
+>  double c = 0.0;
+> 
+>  va_start(ap, str); // 注意！这里第二个参数是本函数的第一个形参
+> 
+>  a = va_arg(ap, char*);
+> 
+>  b = va_arg(ap, int);
+> 
+>  c = va_arg(ap, double);
+>  // 浮点最好用double类型，而不要用float类型；否则数据会有问题
+> 
+>  va_end(ap);
+> 
+>  printf("%s is %s %d, %f", str, a, b, c);
+> ```
+> }
+>
+> void main()
+> {
+>        Function(“Hello”, “world”, 1, 3.14);
+> }
+>
+> 对于void Function(const char *str, …)：
+>
+> 1、处理不定参数的函数要包含头文件：#include <stdarg.h>
+> 然后在处理不定参数的函数中先定义一个参数列表变量：va_list ap。
+>
+> 2、确定不定参数所在的位置。在这里，第一个参数为str，因此要从第二个参数进行获取参数列表。va_start(ap, str);表示在str参数之后获取参数。由于C调用是从右到左依次将参数压入堆栈的，因此处理起来比较容易。
+>
+> 3、获取参数并指明类型，如：va_arg(ap, char*);获取第一个参数，并指明类型为char* 。
+> 在main()函数中就对应着实参"world"；va_arg(ap, int);紧接着再取一个参数，并指明类型为int，对应main()函数中的实参1；va_arg(ap, double);再接着取第三个参数，并指明类型为double，对应main()中的实参3.14。
+>
+> 4、最后注意要有va_end(ap)。
+> ————————————————
+> 版权声明：本文为CSDN博主「outsiderJT」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/weixin_45781313/article/details/105547263
 
 ### 6.3 Return Types and the return Statement
 
+`return`语句有两种形式，作用是终止当前正在执行的函数并返回到调用该函数的地方。
+
+```c++
+return;
+return expression;
+```
+
 #### 6.3.1 Functions with No Return Value
+
+没有返回值的`return`语句只能用在返回类型是`void`的函数中。返回`void`的函数可以省略`return`语句，因为在这类函数的最后一条语句后面会隐式地执行`return`。
+
+通常情况下，如果`void`函数想在其中间位置提前退出，可以使用`return`语句。
+
+一个返回类型是`void`的函数也能使用`return`语句的第二种形式，不过此时`return`语句的`expression`必须是另一个返回`void`的函数。
+
+强行令`void`函数返回其他类型的表达式将产生编译错误。
 
 #### 6.3.2 Functions That Return a Value
 
+`return`语句的第二种形式提供了函数的结果。只要函数的返回类型不是`void`，该函数内的每条`return`语句就必须返回一个值，并且返回值的类型必须与函数的返回类型相同，或者能隐式地转换成函数的返回类型（`main`函数例外）。
+
+（C++ 无法检查返回结果的正确性，但是可以检查返回类型是否正确）
+
+**在含有`return`语句的循环后面应该也有一条`return`语句，否则程序就是错误的，但很多编译器无法发现此错误。**
+
+
+
+##### 值是如何被返回的？
+
+函数返回一个值的方式和初始化一个变量或形参的方式完全一样：返回的值用于初始化调用点的一个临时量，该临时量就是函数调用的结果。
+
+如果函数返回引用类型，则该引用仅仅是它所引用对象的一个别名。
+
+##### 不要返回局部对象的引用或指针
+
+函数不应该返回局部对象的指针或引用，因为一旦函数完成，局部对象将被释放。指针将指向一个不存在的对象。
+
+```c++
+// disaster: this function returns a reference to a local object
+const string &manip()
+{
+    string ret;
+    // transform ret in some way
+    if (!ret.empty())
+        return ret;   // WRONG: returning a reference to a local object!
+    else
+        return "Empty";   // WRONG: "Empty" is a local temporary string
+}
+```
+
+##### 返回类类型的函数和调用运算符
+
+如果函数返回指针、引用或类的对象，则可以使用函数调用的结果访问结果对象的成员。
+
+##### 引用返回左值
+
+调用一个返回引用的函数会得到左值，其他返回类型得到右值。
+
+##### 列表初始化返回值
+
+C++11规定，函数可以返回用花括号包围的值的列表。同其他返回类型一样，列表也用于初始化表示函数调用结果的临时量。如果列表为空，临时量执行值**初始化**；否则返回的值由函数的返回类型决定。
+
+- 如果函数返回内置类型，则列表内最多包含一个值，且该值所占空间不应该大于目标类型的空间。
+
+- 如果函数返回类类型，由类本身定义初始值如何使用。
+
+  ```c++
+  vector<string> process()
+  {
+      // . . .
+      // expected and actual are strings
+      if (expected.empty())
+          return {};  // return an empty vector
+      else if (expected == actual)
+          return {"functionX", "okay"};  // return list-initialized vector
+      else
+          return {"functionX", expected, actual};
+  }
+  ```
+
+##### 主函数main的返回值
+
+`main`函数可以没有`return`语句直接结束。如果控制流到达了`main`函数的结尾处并且没有`return`语句，编译器会隐式地插入一条返回0的`return`语句。
+
+`main`函数的返回值可以看作是状态指示器。返回0表示执行成功，返回其他值表示执行失败，其中非0值的具体含义依机器而定。
+
+为了使`main`函数的返回值与机器无关，头文件`cstdlib`定义了`EXIT_SUCCESS`和`EXIT_FAILURE`这两个预处理变量，分别表示执行成功和失败。
+
+```c++
+int main()
+{
+    if (some_failure)
+        return EXIT_FAILURE; // defined in cstdlib
+    else
+        return EXIT_SUCCESS; // defined in cstdlib
+}
+```
+
+建议使用预处理变量`EXIT_SUCCESS`和`EXIT_FAILURE`表示`main`函数的执行结果。
+
+##### 递归
+
+如果一个函数调用了它自身，不管这种调用是直接的还是间接的，都称该函数为递归函数（recursive function）。
+
+```c++
+// calculate val!, which is 1 * 2 * 3 . . . * val
+int factorial(int val)
+{
+    if (val > 1)
+        return factorial(val-1) * val;
+    return 1;
+}
+```
+
+在递归函数中，一定有某条路径是不包含递归调用的，否则函数会一直递归下去，直到程序栈空间耗尽为止。
+
+相对于循环迭代，递归的效率较低。但在某些情况下使用递归可以增加代码的可读性。循环迭代适合处理线性问题（如链表，每个节点有唯一前驱、唯一后继），而递归适合处理非线性问题（如树，每个节点的前驱、后继不唯一）。
+
+`main`函数不能调用它自身。
+
 #### 6.3.3 Returning a Pointer to an Array
+
+因为数组不能被拷贝(https://blog.csdn.net/weixin_45756796/article/details/104755556),所以函数不能返回数组，但可以返回数组的指针或引用。
+
+语法上来说，定义一个返回数组的指针或引用的函数比较繁琐，但是有些方法可以简化这一任务。最直接的方法就是使用类型别名。
+
+```c++
+typedef int arrT[0];
+using arrT = int[10];
+arrT* fun (int i); 	//函数声明 -- func 返回一个指向含有10个整数的数组的指针。
+```
+
+
+
+##### 声明一个返回数组指针的函数
+
+如果想在声明是不使用类型别名，那么必须牢记被定义的名字后面数组的维度。
+
+返回数组指针的函数形式如下：
+
+```c++
+Type (*function(parameter_list))[dimension]
+```
+
+其中`Type`表示元素类型，`dimension`表示数组大小，`(*function(parameter_list))`两端的括号必须存在。类似`int (*p2)[10] = &arr;` 定义了一个指向含有10个整数的数组的指针。
+
+##### 使用尾置返回类型
+
+C++11允许使用尾置返回类型（trailing return type）简化复杂函数声明。尾置返回类型跟在形参列表后面，并以一个`->`符号开头。为了表示函数真正的返回类型在形参列表之后，需要在本应出现返回类型的地方添加`auto`关键字。
+
+```c++
+// fcn takes an int argument and returns a pointer to an array of ten ints
+auto func(int i) -> int(*)[10];
+```
+
+任何函数的定义都能使用尾置返回类型，但是这种形式更适用于返回类型比较复杂的函数。
+
+##### 使用decltype
+
+如果我们知道函数返回的指针将指向哪个数组，就可以使用`decltype`关键字声明返回类型。但`decltype`并不会把数组类型转换成指针类型，所以还要在函数声明中添加一个`*`符号。
+
+```c++
+int odd[] = {1,3,5,7,9};
+int even[] = {0,2,4,6,8};
+// returns a pointer to an array of five int elements
+decltype(odd) *arrPtr(int i)
+{
+    return (i % 2) ? &odd : &even;  // returns a pointer to the array
+}
+```
+
+
 
 ### 6.4 Overloaded Functions
 
