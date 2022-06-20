@@ -3017,7 +3017,7 @@ type (expression);    // function-style cast notation
 > 新式转换较旧式转换更受欢迎。原因有二，一是新式转型较易辨别，能简化“找出类型系统在哪个地方被破坏”的过程；二是各转型动作的目标愈窄化，编译器愈能诊断出错误的运用。
 > 尽量少使用转型操作，尤其是dynamic_cast，耗时较高，会导致性能的下降，尽量使用其他方法替代。
 
-### 4.12 Operator Precedence Table
+### :sunny:4.12 Operator Precedence Table 优先级
 
 ####  [C++ 运算符优先级和关联性表](https://docs.microsoft.com/zh-cn/cpp/cpp/cpp-built-in-operators-precedence-and-associativity?view=msvc-170)
 
@@ -3659,7 +3659,398 @@ void reset(int &i)  // i is just another name for the object passed to reset
 
 #### 6.2.3 const Parameters and Arguments
 
+用实参初始化形参是会忽略掉顶层const。当形参有顶层`const`时，传递给它常量对象或非常量对象都是可以的。
+
+># const形参和实参
+>
+>顶层const： 表示任意的对象是常量。
+>
+>底层const： 与指针和引用等复合类型有关。
+>
+>    对指针而言， 顶层const表示指针本身是个常量， 而底层const表示指针所指的对象是一个常量。
+>
+>```c++
+>int i = 22;
+>const int ci = 20; //顶层const， 不能修改ci的值
+>const int *p1= &ci; //底层const， 允许修改p1的值， 但是不能通过*p1修改ci
+>的值。
+>int *const p2 = &i; //顶层const， 不能修改p2的值， 但是允许通过*p2修改i
+>的值
+>```
+>
+>
+>    用实参初始化形参时， 会忽略掉顶层const， 也就是说，当形参有顶层const时， 传给它常量对象或者非常量对象都是可以的。
+>
+>#### 总结
+>
+>     int cube(int i); 实参可以为int类型， 也可以为const int类型。 在函数体中可以修改i的值， 函数不会修改实参的值。
+>
+>    int cube(const int i); 实参可以为int类型， 也可以为const int类型。 在函数体中不可以修改i的值， 函数不会修改实参的值。
+>
+>    int pCube(int * pi); 实参为int * 类型的指针， 不能为const int * 类型。 可以通过修改* pi 的值修改实参指向的对象的值， 修改pi对实参没有影响。
+>
+>    int pCube(const int pi)； 实参可以为const int 类型，也可以为int * 类型。 不可以通过修改* pi 的值修改实参指向的对象的值， 修改pi对实参没有影响。
+>
+>    int pCube(int * const pi)； 实参为 int * 类型， 不能为const int * 类型。 可以通过修改* pi 的值修改实参指向的对象的值， 不可以给pi赋值。
+>
+>    void reset(int &r)； 实参为int类型， 不可以为const int 类型。 可以通过修改r的值， 从而修改实参的值。
+>
+>    void print(const int &r)； 实参可以为int类型， 也可以为const int类型， 不可以修改r的值。
+>
+>```c++
+>#include<iostream>
+>
+>using namespace std;
+>
+>int fun1(int i);
+>int fun2(const int i);
+>int pfun1(int *pi);
+>int pfun2(const int *pi);
+>int pfun3(int *const pi);
+>int rfun1(int &r);
+>int rfun2(const int &r);
+>int main()
+>{
+>    //num1为int类型的变量，可以修改它的值
+>    //num2为int类型的常量，不可以修改它的值
+>    int num1 = 10;
+>    const int num2 = 10;
+>    num1 = 20;
+>    //num2 = 20;
+>
+>    //普通指针，可以修改p1的值，也以通过修改*p1来修改num1的值。
+>    //所以只能用int类型的数据来初始化，不能用const int类型，不能修改常量的值
+>    int *p1 = &num1;
+>    //int *p2 = &num2; //出错
+>
+>    //底层const，可以修改指针（p3,p4），但是不可以通过*p3,*p4，去修改num1, num2的值。
+>    //可以使用int类型或const int类型的数据来初始化
+>    const int *p3 = &num1;
+>    const int *p4 = &num2;
+>
+>    //顶层const，不可以修改指针（p5,p6），但是可以通过*p5去修改num1的值。
+>    //所以只能使用int类型的数据来初始化，不能const int类型
+>    int * const p5 = &num1;
+>    //int * const p6 = &num2;  //错误
+>
+>    //int类型的引用，可以通过r1去修改num1的值，所以只能用int类型去初始化，不能使用const int类型
+>    int &r1 = num1;
+>    //int &r2 = num2; //出错
+>
+>    //const int类型的引用，不能修改r3,r4的值
+>    //可以使用int类型的数据来初始化，也可以使用const int类型
+>    const int &r3 = num1;
+>    const int &r4 = num2;
+>
+>    //实参为int类型或const int类型
+>    cout << fun1(num1)  << " "<< fun1(num2) << endl;
+>    cout << fun2(num1) << " " << fun2(num2) << endl;
+>
+>    //实参只能为int类型
+>    cout << pfun1(&num1) << endl;
+>    //cout << pfun1(&num2) << endl; //出错
+>
+>    //所以实参可以是int类型，也可以是const int类型
+>    cout << pfun2(&num1) << " " << pfun2(&num2) << endl;
+>
+>    //所以实参类型只能是int类型
+>    cout << pfun3(&num1) << endl;
+>    //cout << pfun3(&num2) << endl; //出错
+>
+>    //实参类型只能是int类型
+>    cout << rfun1(num1) << endl;
+>    //cout << rfun1(num2) << endl; //出错
+>
+>    //实参类型可以是int类型，也可以是const int类型
+>    cout << rfun2(num1) << " " << rfun2(num2) << endl;
+>    return 0;
+>}
+>
+>//可以修改形参i
+>int fun1(int i)
+>{
+>    //i = 0;
+>    return i * i * i;
+>}
+>//不可以修改形参i
+>int fun2(const int i)
+>{
+>    //i = 0;  //出错
+>    return i * i * i;
+>}
+>
+>int pfun1(int *pi)
+>{
+>    //*pi = 0;
+>    return *pi * (*pi) *(*pi);
+>}
+>
+>//可以修改pi，但是不可以修改*pi。所以实参可以是int类型，也可以是const int类型
+>int pfun2(const int *pi)
+>{
+>    //*pi = 0;  //出错
+>    return *pi * (*pi) *(*pi);
+>}
+>
+>//不可以修改pi，但是可以修改*pi，所以实参类型只能是int类型
+>int pfun3(int *const pi)
+>{
+>    //*pi = 0;
+>    return *pi * (*pi) *(*pi);
+>}
+>
+>//可以修改r，实参类型只能是int类型
+>int rfun1(int &r)
+>{
+>    //r = r * r * r;
+>    return r * r * r;
+>}
+>//不可以修改r,实参类型可以是int类型，也可以是const int类型
+>int rfun2(const int &r)
+>{
+>    //r = r * r * r; //出错
+>    return r * r * r;
+>}
+>
+>
+>```
+>
+>
+>
+>————————————————
+>版权声明：本文为CSDN博主「菠萝小笨笨」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+>原文链接：https://blog.csdn.net/xiaokunzhang/article/details/80977375
+
+```c++
+void fcn(const int i)
+void fcn(int i)//错误，因为初始化形参时会忽略const，所以两个调用的形参列表其实是一样的，因此第二个会报错。
+```
+
+
+
+##### 指针或引用形参与const
+
+类似通用的初始化规则，可以使用非常量对象初始化一个底层`const`形参，但是反过来不行。
+
+- 如果想用引用版本的reset
+
+```c++
+void reset(int &i){
+    i = 0;
+}
+```
+
+那么就只能使用int类型的对象，而不能使用字面值，求值结果为int的表达式，需要转换的对象或者const int 类型的对象。
+
+- 类似的，如果想使用指针版本的reset，只能使用int*
+
+```c++
+void reset(int* p) {
+    *p = 0;
+     p = nullptr;
+}
+```
+
+- 另外C++ 允许使用字面值初始化常量引用。
+
+
+
+##### 尽量使用常量引用
+
+把函数不会改变的形参定义成普通引用会极大地限制函数所能接受的实参类型，同时也会给别人一种误导，即函数可以修改实参的值。
+
 #### 6.2.4 Array Parameters
+
+数组有两个特殊性质：
+
+- 不能拷贝数组，所以无法以值传递的方式使用数组参数，但是可以把形参写成类似数组的形式。
+- 数组在使用时会被转换成指针，所以当我们传递给函数一个数组时，实际上传递的是指向数组首元素的指针。
+
+```c++
+// each function has a single parameter of type const int*
+void print(const int*);
+void print(const int[]);    // shows the intent that the function takes an array
+void print(const int[10]);  // dimension for documentation purposes (at best)
+```
+
+因为数组是以指针的形式传递给函数的，所以一开始函数并不知道数组的确切尺寸，调用者应该为此提供一些额外信息。管理指针形参有三种常用的技术。
+
+- 使用标记指定数组长度
+
+  适用于类似C风格字符串，有明确结束标记且不易混淆的情况。
+
+- 使用标准库规范、
+
+  传递数组首元素和尾后元素的指针
+
+  ```c++
+  void print(const int *beg, const int *end){
+      while(beg != end){
+          cout << *beg++ <<endl;
+      }
+  }
+  int j[20] = { ... };
+  print(begin(j),end(j));
+  ```
+
+- 显式传递一个表示数组大小的形参
+
+  ```c++
+  void print(const int ia[],size_t size){
+      for(size_t i = 0; i != size; ++i){
+          cout << ia[i] <<endl;
+      }
+  }
+  ```
+
+  
+
+以数组作为形参的函数必须确保使用数组时不会越界。
+
+如果函数不需要对数组元素执行写操作，应该把数组形参定义成指向常量的指针。
+
+##### 数组引用形参
+
+形参可以是数组的引用，但此时维度是形参类型的一部分，函数只能作用于**指定大小**的数组。
+
+将多维数组传递给函数时，数组第二维（以及后面所有维度）的大小是数组类型的一部分，不能省略。
+
+&arr两端的括号不可少，这是因为[]的优先级比&高。【4.12】
+
+```c++
+f(int &arr[10])     // error: declares arr as an array of references
+f(int (&arr)[10])   // ok: arr is a reference to an array of ten ints
+```
+
+类似的
+
+```c++
+int *matrix[10];		//10个指针构成的数组
+int (*matrix)[10];		//执行含有是个整数的数组的指针
+```
+
+##### 多维数组当做形参
+
+编译器一如既往会忽略掉第一个维度。
+
+> ### 二维数组存放方式
+>
+> https://blog.csdn.net/wokaowokaowokao12345/article/details/52999502
+>
+> 二维数组中元素排列的顺序是按行存放的，即在内存中先顺序存放第一行的元素，再存放第二行的元素…
+>
+> #### 二维数组作为函数参数
+>
+> 二维数组作为函数参数，实参可以直接使用二维数组名，在被调用函数中对形参数组定义可以指定所有维数的大小，也可以省略第一维的大小说明，如：
+>
+> void f(int a[3][4]);  
+> void f(int a[][4]); 
+>
+> 它们是合法且等价，也可以使用如下形式：
+>
+> void f(int (*a)[4]); 
+> 但不能省略第二维的大小，如下面的定义是不合法的，编译时会出错：
+>
+> void f(int a[][]);  
+> void f(int a[3][]);  
+> 因为从实参传递来的是数组的起始地址，如果在形参中不说明列数，编译器将无法定位元素的的位置。
+>
+> #### 各个维数不固定的二维数组
+>
+> 如果二维数组的各个维数不固定，我们将不能使用以上定义方法，可以通过以下2种简单的方法实现。
+>
+> 将二维数组当一维数组操作
+> 被调用函数定义：
+>
+> void f(int *a,int n); 
+> 实参传递：
+>
+> int a[3][4];  
+> f(*a,12);  
+> 手工转变寻址方式
+> 被调用函数定义：
+>
+> void f(int **a,int m,int n);  
+> 实参传递：
+>
+> int a[3][4];  
+> f((int **)a,3,4);  
+> 这样在被调用数组中对对元素a[i][j]的访问可以使用如下形式：
+>
+> `*((int *)a+n*i+j);  `
+> 注意不能使用a[i][j]来直接访问，因为编译器无法为其定位。
+>
+> 代码
+>
+> ```c++
+> 
+> #include <stdio.h>
+> /********************************* 
+> * 方法1: 第一维的长度可以不指定 * 
+> *                但必须指定第二维的长度 *                             
+> *********************************/ 
+> void print_a(int a[][5], int n, int m)     
+> { 
+>           int i, j; 
+> 
+>           for(i = 0; i < n; i++) 
+>           { 
+>                       for(j = 0; j < m; j++) 
+>                             printf("%d ", a[i][j]); 
+> 
+>                       printf("\n"); 
+>           } 
+> } 
+> /***************************************** 
+> *方法2: 指向一个有5个元素一维数组的指针 * 
+> *****************************************/ 
+> void print_b(int (*a)[5], int n, int m)         
+> { 
+>           int i, j; 
+> 
+>           for(i = 0; i < n; i++) 
+>           { 
+>                       for(j = 0; j < m; j++) 
+>                             printf("%d ", a[i][j]);
+>                       printf("\n"); 
+>           } 
+> }
+> /*********************************** 
+> *方法3: 利用数组是顺序存储的特性, * 
+> *              通过降维来访问原数组!          * 
+> ***********************************/ 
+> void print_c(int *a, int n, int m)                           
+> { 
+>           int i, j; 
+> 
+>           for(i = 0; i < n; i++) 
+>           { 
+>                       for(j = 0; j < m; j++) 
+>                             printf("%d ", *(a + i*m + j)); 
+> 
+>                       printf("\n"); 
+>           } 
+> }
+> int main(void) 
+> { 
+>         int a[5][5] = {{1, 2}, {3, 4, 5}, {6}, {7}, {0, 8}}; 
+> 
+>         printf("\n方法1:\n");   
+>         print_a(a, 5, 5); 
+> 
+>         printf("\n方法2:\n");   
+>         print_b(a, 5, 5);   
+> 
+>         printf("\n方法3:\n");   
+>         print_c(&a[0][0], 5, 5); 
+> 
+>         getch(); 
+>         return 0; 
+> } 
+> 参考
+> http://guoyiqi.iteye.com/blog/1626922
+> ```
+>
 
 #### 6.2.5 main: Handling Command-Line Options
 
