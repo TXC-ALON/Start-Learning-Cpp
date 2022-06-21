@@ -3124,7 +3124,7 @@ type (expression);    // function-style cast notation
 
 
 
-## Chapter 5 Statements
+## Chapter 5 Statements 语句
 
 通常情况下，语句是顺序执行的，但这远远不够，所以C++提供了一组控制流语句以支持更复杂而定执行路径。
 
@@ -4941,11 +4941,144 @@ decltype(sumLength) *getFcn(const string &);
 
 ## Chapter 7 Classes
 
+类的基本思想是**数据抽象（data abstraction）**和**封装（encapsulation）**。
+
+- 数据抽象是一种依赖于**接口（interface）**和实现**（implementation）**分离的编程及设计技术。
+  - 类的接口包括用户所能执行的操作；类的实现包括类的数据成员、负责接口实现的函数体以及其他私有函数。
+- 封装实现了类的接口和实现的分离。封装后的类隐藏了它的实现细节，也就是说，类的用户只能使用接口而无法访问实现部分。
+
+类想要实现数据抽象和封装，需要首先定义一个**抽象数据类型（abstract data type）**。
+
 ### 7.1 Defining Abstract Data Types
+
+封装（隐藏）
 
 #### 7.1.1 Designing the Sales_data Class
 
+类的用户是程序员，而非应用程序的最终使用者。
+
 #### 7.1.2 Defining the Revised Sales_data Class
+
+##### 定义成员函数
+
+成员函数（member function）的声明必须在类的内部，定义则既可以在类的内部也可以在类的外部。定义在类内部的函数是隐式的内联函数。
+
+```c++
+struct Sales_data
+{
+    // new members: operations on Sales_data objects
+    std::string isbn() const { return bookNo; }
+    Sales_data& combine(const Sales_data&);
+    double avg_price() const;
+
+    // data members
+    std::string bookNo;
+    unsigned units_sold = 0;
+    double revenue = 0.0;
+};
+```
+
+##### 引入this
+
+成员函数通过一个名为`this`的隐式额外参数来访问调用它的对象。`this`参数是一个常量指针，被初始化为调用该函数的对象地址。在函数体内可以显式使用`this`指针。
+
+```c++
+total.isbn()
+// pseudo-code illustration of how a call to a member function is translated
+Sales_data::isbn(&total)
+
+std::string isbn() const { return this->bookNo; }
+std::string isbn() const { return bookNo; }
+```
+
+##### 引入const成员函数
+
+默认情况下，`this`的类型是指向类类型非常量版本的常量指针 `类 *const`。
+
+> 因为this总指向这个对象，所以this是一个常量指针（*const），不允许改变this中保存的地址！
+
+`this`也遵循初始化规则，即"想存放常量对象的地址，只能使用指向常量的指针"。
+
+所以按照该规则，默认生成的`this`不能绑定到一个常量对象上，即不能在常量对象上调用普通的成员函数。这就不能符合要求。
+
+如果this 是个普通的指针，那么就该声明this 为`const 类 *const`类型，但是由于this是隐式的，所以C++允许在成员函数的参数列表后面添加关键字`const`，表示`this`是一个指向常量的指针`const 类 *const`，使用关键字`const`的成员函数被称作常量成员函数（const member function）。
+
+```c++
+std::string Sales_data::isbn() const { return bookNo};
+
+// pseudo-code伪代码 illustration of how the implicit this pointer is used
+// this code is illegal: we may not explicitly define the this pointer ourselves
+// note that this is a pointer to const because isbn is a const member
+std::string Sales_data::isbn(const Sales_data *const this)
+{
+    return this->isbn;
+}
+```
+
+常量对象和指向常量对象的引用或指针都只能调用常量成员函数。
+
+##### 类作用域和成员函数
+
+类本身就是一个作用域，成员函数的定义嵌套在类的作用域之内。编译器处理类时，会先编译成员声明，再编译成员函数体（如果有的话），因此成员函数可以随意使用类的其他成员而无须在意这些成员的出现顺序。
+
+##### 在类的外部定义成员函数
+
+在类的外部定义成员函数时，成员函数的定义必须与它的声明相匹配。如果成员函数被声明为常量成员函数，那么它的定义也必须在参数列表后面指定`const`属性。同时，类外部定义的成员名字必须包含它所属的类名。
+
+```c++
+double Sales_data::avg_price() const
+{
+    if (units_sold)
+        return revenue / units_sold;
+    else
+        return 0;
+}
+```
+
+##### 定义返回this对象的函数
+
+combine类似于`+=`。
+
+```c++
+Sales_data& Sales_data::combine(const Sales_data &rhs)
+{
+    units_sold += rhs.units_sold;   // add the members of rhs into
+    revenue += rhs.revenue;     // the members of 'this' object
+    return *this;       // return the object on which the function was called
+}
+```
+
+比如调用`total.combine(trans)`，那么total这个对象的地址就被绑定到隐式的this参数上。rhs被绑定到trans上。因为返回类型是Sales_data&，所以我们把调用函数的对象(total)作为一个整体来访问，return 语句解引用this指针以获得执行该函数的对象。即返回total 的引用。
+
+
+
+> ```c++
+> class Test
+> {
+>  public: 
+>     Test()
+>     { 
+>       return this;  //返回的当前对象的地址
+>     }
+>     Test&()
+>     { 
+>       return *this;  //返回的是当前对象本身 
+>     }
+>     Test()
+>     { 
+>       return *this;   //返回的当前对象的克隆
+>     }
+>  private:  //...
+> };
+> ```
+>
+> `this`是类自带的指针，指代的是对象本身。`*this`对指针[解引用](https://so.csdn.net/so/search?q=解引用&spm=1001.2101.3001.7020)，因此使用`*this`返回的就是一个对象本身。这样的操作可以满足连续的= (赋值操作)。
+>
+> return *this返回的是当前对象的克隆或者本身（若返回类型为A， 则是拷贝， 若返回类型为A&， 则是本身 ）。return this返回当前对象的地址（指向当前对象的指针）
+>
+> Watch out that if you try to use `return *this;` on a function whose return type is `Type` and not `Type&`, C++ will try to make a copy of the object and then immediately call the destructor, usually not the intended behaviour. So the return type should be a reference as in your example.
+
+todo，这边还需要研究一下，为什么不是引用的返回类型会返回拷贝并立即析构。
 
 #### 7.1.3 Defining Nonmember Class-Related Functions
 
