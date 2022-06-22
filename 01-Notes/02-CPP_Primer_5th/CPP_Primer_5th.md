@@ -5078,31 +5078,595 @@ Sales_data& Sales_data::combine(const Sales_data &rhs)
 >
 > Watch out that if you try to use `return *this;` on a function whose return type is `Type` and not `Type&`, C++ will try to make a copy of the object and then immediately call the destructor, usually not the intended behaviour. So the return type should be a reference as in your example.
 
-todo，这边还需要研究一下，为什么不是引用的返回类型会返回拷贝并立即析构。
+todo，这边还需要研究一下，为什么不是引用的返回类型会返回拷贝并立即析构
+
+> 解释：
+>
+> 【6.3.2 】
+>
+> 返回值和初始化一个变量或形参是一样的。函数会返回对象的副本。
+>
+> 函数返回引用，那么该引用只是它所引对象的一个别名，调用和返回时不会发生拷贝。
 
 #### 7.1.3 Defining Nonmember Class-Related Functions
 
-#### 7.1.4 Constructors
+类的作者通常会定义一些辅助函数，尽管这些函数从概念上来说属于类接口的组成部分，但实际上它们并不属于类本身。
+
+```c++
+// input transactions contain ISBN, number of copies sold, and sales price
+istream &read(istream &is, Sales_data &item)
+{
+    double price = 0;
+    is >> item.bookNo >> item.units_sold >> price;
+    item.revenue = price * item.units_sold;
+    return is;
+}
+
+ostream &print(ostream &os, const Sales_data &item)
+{
+    os << item.isbn() << " " << item.units_sold << " "
+        << item.revenue << " " << item.avg_price();
+    return os;
+}
+```
+
+如果非成员函数是类接口的组成部分，则这些函数的声明应该与类放在同一个头文件中。
+
+一般来说，执行输出任务的函数应该尽量减少对格式的控制。
+
+#### 7.1.4 Constructors 构造函数
+
+类通过一个或几个特殊的成员函数来控制其对象的初始化操作，这些函数被称作构造函数。只要类的对象被创建，就会执行构造函数。【7.5】【15.7】【18.1.3】【13】
+
+构造函数的名字和类名相同，没有返回类型，可以重载。
+
+不同于其他成员函数，构造函数不能被声明为`const`，当我们创建类的一个对象时，知道构造函数完成初始化过程，对象才能真正取得其“常量”属性。构造函数在`const`对象的构造过程中可以向其写值。
+
+```c++
+struct Sales_data
+{
+    // constructors added
+    Sales_data() = default;
+    Sales_data(const std::string &s): bookNo(s) { }
+    Sales_data(const std::string &s, unsigned n, double p):
+        bookNo(s), units_sold(n), revenue(p*n) { }
+    Sales_data(std::istream &);
+    // other members as before
+};
+```
+
+##### 合成构造函数（synthesized default constructor）
+
+类通过默认构造函数（default constructor）来控制默认初始化过程，默认构造函数无须任何实参。
+
+如果类没有显式地定义构造函数，则编译器会为类隐式地定义一个默认构造函数，该构造函数也被称为合成的默认构造函数（synthesized default constructor）。对于大多数类来说，合成的默认构造函数初始化数据成员的规则如下：
+
+- 如果存在类内初始值，则用它来初始化成员。
+
+- 否则默认初始化该成员。
+
+##### 某些类不能依赖于合成的默认构造函数。
+
+合成的默认构造函数只适合非常简单的类。对于普通的类，必须dingi定义自己的默认构造函数。
+
+- 只有当类没有声明任何构造函数时，编译器才会自动生成默认构造函数。一旦类定义了其他构造函数，那么除非再显式地定义一个默认的构造函数，否则类将没有默认构造函数。
+- 如果类包含内置类型或者复合类型的成员，则只有当这些成员全部存在类内初始值时，这个类才适合使用合成的默认构造函数。否则用户在创建类的对象时就可能得到**未定义的值。**
+- 编译器不能为某些类合成默认构造函数。例如类中包含一个其他类类型的成员，且该类型没有默认构造函数，那么编译器将无法初始化该成员。
+
+##### `=default` 的含意
+
+在C++11中，如果类需要默认的函数行为，可以通过在参数列表后面添加`=default`来要求编译器生成构造函数。其中`=default`既可以和函数声明一起出现在类的内部，也可以作为定义出现在类的外部。和其他函数一样，如果`=default`在类的内部，则默认构造函数是内联的。
+
+```c++
+Sales_data() = default;
+```
+
+如果编译器不支持类内初始值，那么默认构造函数就得使用构造函数初始值列表。
+
+##### 构造函数初始值列表
+
+构造函数初始值列表（constructor initializer list）负责为新创建对象的一个或几个数据成员赋初始值。形式是每个成员名字后面紧跟括号括起来的（或者在花括号内的）成员初始值，不同成员的初始值通过逗号分隔。
+
+```c++
+Sales_data(const std::string &s): bookNo(s) { }
+Sales_data(const std::string &s, unsigned n, double p):
+    bookNo(s), units_sold(n), revenue(p*n) { }
+```
+
+当某个数据成员被构造函数初始值列表忽略时，它会以与合成默认构造函数相同的方式隐式初始化。
+
+```c++
+// has the same behavior as the original constructor defined above
+Sales_data(const std::string &s):
+    bookNo(s), units_sold(0), revenue(0) { }
+```
+
+构造函数不应该轻易覆盖掉类内初始值，除非新值与原值不同。如果编译器不支持类内初始值，则所有构造函数都应该显式初始化每个内置类型的成员。
+
+##### 在类的外部定义构造函数
+
+```c++
+#include<iostream>
+using namesapce std;
+int main(void) {
+	class A
+	{
+	public:
+		A();//声明构造函数
+	};
+	A::A()//定义构造函数
+	{
+	};
+	return 0;
+}
+//在类内声明构造函数，在类的外面定义构造函数，
+//这种方式有的编译器能通过，有的编译器不能通过
+————————————————
+版权声明：本文为CSDN博主「atohome」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/qq_45812941/article/details/107883716
+```
+
+
 
 #### 7.1.5 Copy, Assignment, and Destruction
 
+对象在几种情况下会被拷贝：
+
+- 初始化变量【6.2.1】
+- 以值的方式传递或返回一个对象【6.3.2】
+
+##### 某些类不能依赖于合成的版本
+
+编译器能合成拷贝、赋值和析构函数，但是对于某些类来说合成的版本无法正常工作。特别是当类需要分配类对象之外的资源时，合成的版本通常会失效。例如【12】分配和管理动态内存【13.1.4】管理动态内存的类通常不能依赖于上述操作的合成版本。
+
 ### 7.2 Access Control and Encapsulation
 
-#### 7.2.1 Friends
+使用访问说明符（access specifier）可以加强类的封装性：
+
+- 定义在`public`说明符之后的成员在整个程序内都可以被访问。`public`成员定义类的接口。
+
+- 定义在`private`说明符之后的成员可以被类的成员函数访问，但是不能被使用该类的代码访问。`private`部分封装了类的实现细节。
+
+```c++
+class Sales_data
+{
+public: // access specifier added
+    Sales_data() = default;
+    Sales_data(const std::string &s, unsigned n, double p):
+    bookNo(s), units_sold(n), revenue(p*n) { }
+    Sales_data(const std::string &s): bookNo(s) { }
+    Sales_data(std::istream&);
+    std::string isbn() const { return bookNo; }
+    Sales_data &combine(const Sales_data&);
+
+private: // access specifier added
+    double avg_price() const { return units_sold ? revenue/units_sold : 0; }
+    std::string bookNo;
+    unsigned units_sold = 0;
+    double revenue = 0.0;
+};
+```
+
+一个类可以包含零或多个访问说明符，每个访问说明符指定了接下来的成员的访问级别，其有效范围到出现下一个访问说明符或类的结尾处为止。
+
+使用关键字`struct`定义类时，定义在第一个访问说明符之前的成员是`public`的；而使用关键字`class`时，这些成员是`private`的。二者唯一的区别就是默认访问权限不同。
+
+#### 7.2.1 Friends 友元
+
+类可以允许其他类或函数访问它的非公有成员，方法是使用关键字`friend`将其他类或函数声明为它的友元。
+
+```C++
+class Sales_data
+{
+    // friend declarations for nonmember Sales_data operations added
+    friend Sales_data add(const Sales_data&, const Sales_data&);
+    friend std::istream &read(std::istream&, Sales_data&);
+    friend std::ostream &print(std::ostream&, const Sales_data&);
+
+    // other members and access specifiers as before
+public:
+    Sales_data() = default;
+    Sales_data(const std::string &s, unsigned n, double p):
+    bookNo(s), units_sold(n), revenue(p*n) { }
+    Sales_data(const std::string &s): bookNo(s) { }
+    Sales_data(std::istream&);
+    std::string isbn() const { return bookNo; }
+    Sales_data &combine(const Sales_data&);
+
+private:
+    std::string bookNo;
+    unsigned units_sold = 0;
+    double revenue = 0.0;
+};
+
+// declarations for nonmember parts of the Sales_data interface
+Sales_data add(const Sales_data&, const Sales_data&);
+std::istream &read(std::istream&, Sales_data&);
+std::ostream &print(std::ostream&, const Sales_data&);
+```
+
+友元声明只能出现在类定义的内部，具体位置不限。
+
+友元不是类的成员，也不受它所在区域访问级别的约束。
+
+通常情况下，最好在类定义开始或结束前的位置集中声明友元。
+
+##### 封装的好处：
+
+- 确保用户代码不会无意间破坏封装对象的状态。
+- 被封装的类的具体实现细节可以随时改变，而无须调整用户级别的代码。
+
+##### 友元的声明
+
+友元声明仅仅指定了访问权限，而并非一个通常意义上的函数声明。如果希望类的用户能调用某个友元函数，就必须在友元声明之外再专门对函数进行一次声明（部分编译器没有该限制）。
+
+为了使友元对类的用户可见，通常会把友元的声明（类的外部）与类本身放在同一个头文件中。
 
 ### 7.3 Additional Class Features
 
 #### 7.3.1 Class Members Revisited
 
+##### 定义一个类型成员
+
+由类定义的类型名字和其他成员一样存在访问限制，可以是`public`或`private`中的一种。
+
+```c++
+class Screen
+{
+public:
+    // alternative way to declare a type member using a type alias
+    using pos = std::string::size_type;
+    // other members as before
+};
+```
+
+与普通成员不同，**用来定义类型的成员必须先定义后使用**【7.4.1】。类型成员通常位于类起始处。
+
+##### 令成员作为内联函数
+
+定义在类内部的成员函数是自动内联的。
+
+如果需要显式声明内联成员函数，建议只在类外部定义的位置说明`inline`。
+
+`inline`成员函数该与类定义在同一个头文件中。
+
+##### 可变数据成员
+
+使用关键字`mutable`可以声明可变数据成员（mutable data member）。可变数据成员永远不会是`const`的，即使它在`const`对象内。因此`const`成员函数可以修改可变成员的值。
+
+```c++
+class Screen
+{
+public:
+    void some_member() const;
+private:
+    mutable size_t access_ctr;  // may change even in a const object
+    // other members as before
+};
+
+void Screen::some_member() const
+{
+    ++access_ctr;   // keep a count of the calls to any member function
+    // whatever other work this member needs to do
+}
+```
+
+提供**类内初始值**时，必须使用`=`或花括号形式。
+
 #### 7.3.2 Functions That Return *this
+
+【7.1.2】类似的，为了连续的左值调用，需要返回对象本身而不是副本拷贝，所以返回类型得是引用。
+
+##### 从const成员函数返回*this
+
+`const`成员函数如果以引用形式返回`*this`，则返回类型是常量引用。无法嵌入一组动作的序列中去。
+
+```c++
+Screen myScreen;
+my Screen.display(cout).set('*');//如果display的const版本返回，会是常量引用，显然set函数无法set一个常量。
+```
+
+##### 基于const 的重载
+
+通过区分成员函数是否为`const`的，可以对其进行重载。在常量对象上只能调用`const`版本的函数；在非常量对象上，尽管两个版本都能调用，但会选择非常量版本。
+
+```c++
+public:
+    Screen &display(std::ostream &os) 
+                  { do_display(os); return *this; }
+    const Screen &display(std::ostream &os) const
+                  { do_display(os); return *this; }
+private:
+     // function to do the work of displaying a Screen
+     void do_display(std::ostream &os) const {os << contents;}
+};
+```
+
+调用过程描述：
+
+​	一个成员在调用另一个成员时，this指针在其中隐式地传递。
+
+- display是非常量版本时，this指针将隐式地从执行非常量的指针转换成执行常量的指针【4.11.2】；do_display完成后，display函数各自`return *this`，非常量版本中，this指向一个非常量对象，因此display返回一个普通的非常量引用。
+- 如果说const成员返回一个常量引用。
+
+> ## const 在函数中的位置与作用
+>
+> ```c++
+> const int fun(const int var) const;
+> ```
+>
+> 1、 第一个const：函数的返回值是const。
+>
+> 此处返回const值,意思指返回的原函数里的变量的初值不能被修改,但是函数按值返回的这个变量被制成副本,能不能被修改就没有了意义,它可以被赋给任何的const或非const类型变量,完全不需要加上这个const关键字.但这只对于内部类型而言(因为内部类型返回的肯定是一个值,而不会返回一个变量,不会作为左值使用),对于用户自定义类型,返回值是常量是非常重要的 [2].
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> class A
+> {
+> public:
+> int _a;
+> A(int a):_a(a){}
+> friend const A operator +(const A& lft,const A& rgt)
+> {
+>   return A(lft._a + rgt._a);
+> }
+> };
+> 
+> int main()
+> {
+> A a(1),b(3),c(7);
+> a + b = c; //error: passing 'const A' as 'this' argument discards qualifiers [-fpermissive]|
+> A result = a + b + c; // 11
+> cout << result._a << endl;
+> return 0;
+> }
+> 
+> ```
+>
+>
+> + 运算符重载加const 约束 对 a+b+c 这样的运算没有影响，因为a+b 运算的结果是const ，但对其只是只读操作，会创建一个新的 A 类返回。
+>
+> 2、第二个const：函数参数是const。传递过来的参数var在函数内不可以改变，一般我们的只读参数需要使用const来加以保护；
+>
+> 3、第三个const：该函数是const。编译器会对这个函数进行检查,在这个函数中的任何试图改变成员变量和调用非const成员函数的操作都被视为非法。
+> 如：
+> ```c++
+> int Stack::functiont(void)  const 
+> { 
+>    ++ m_num; // 编译错误，企图修改数据成员 m_num 
+>    Pop();  // 编译错误，企图调用非const 函数 
+>    return m_num; 
+>  }
+> ```
+> 参考：
+> [c++函数返回类型什么情况带const](https://www.cnblogs.com/Azhu/p/4352613.html)
+> [C++中const的不同位置的用法](https://blog.csdn.net/liujuan0827/article/details/73692774)
+> ————————————————
+> 版权声明：本文为CSDN博主「十一月zz」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/baidu_35679960/article/details/83504018
+
+
 
 #### 7.3.3 Class Types
 
+每个类定义了唯一的类型。即使两个类的成员列表完全一致，它们也是不同的类型。
+
+可以仅仅声明一个类而暂时不定义它。这种声明被称作前向声明（forward declaration），用于引入类的名字。在类声明之后定义之前都是一个不完全类型（incomplete type）。
+
+```c++
+class Screen;   // declaration of the Screen class
+```
+
+可以定义指向不完全类型的指针或引用，也可以声明（不能定义）以不完全类型作为参数或返回类型的函数。
+
+创建一个类的对象前，类必须被完整定义，而不是仅仅被声明。不然编译器不知道这样的对象需要多少空间。也不知道类里有哪些成员。所以一个类的成员类型不能是该类本身。
+
+但是一旦类的名字出现，就可以被认为是声明过了，因此类可以包含指向它自身类型的引用或指针。
+
+```c++
+class Link_screen
+{
+    Screen window;
+    Link_screen *next;
+    Link_screen *prev;
+};
+```
+
+> 这里中文版书上有些问题，在P250页，“在7.6节中我们将描述一种例外的情况`：`”,他用了冒号，但从语义上来说，后面他接着说“直到类被定义之后数据成员才能被声明成这种类类型”，并不是例外啊。
+>
+> 所谓的7.6节的例外，是指静态成员，P271，静态类型成员可以是不完全类型，因为静态类型成员内存位置可以在其他位置。
+>
+> 另外英文版，这里不是冒号而是逗号。
+>
+> 要是我翻译会是，除了我们在7.6提到的例外，只有在类被定义后，数据成员菜鸟被声明为这种类类型。
+>
+> ![image-20220622161153167](CPP_Primer_5th.assets/image-20220622161153167.png)
+>
+> 应该算个瑕疵吧。
+
+
+
 #### 7.3.4 Friendship Revisited
 
-### 7.4 Class Scope
+##### 类之间的友元关系
+
+除了普通函数，类还可以把其他类或其他类的成员函数声明为友元。友元类的成员函数可以访问此类包括非公有成员在内的所有成员。
+
+```c++
+class Screen
+{
+    // Window_mgr members can access the private parts of class Screen
+    friend class Window_mgr;// 这样window_mgr就可以使用screen里面的参数了。
+    // ... rest of the Screen class
+};
+```
+
+友元关系不存在传递性，每个类负责控制自己的友元类或友元函数。
+
+##### 令成员函数作为友元
+
+除了令整个类作为友元外，还可以只为某个成员函数设定友元，不过需要明确指出该成员函数属于哪个类。
+
+##### 函数重载和友元
+
+重载函数实际上是不同的函数，那么是否友元也得一个个声明
+
+##### 友元声明和作用域
+
+友元函数可以直接定义在类的内部，这种函数是隐式内联的。但是必须在类外部提供相应声明令函数可见。
+
+```c++
+struct X
+{
+    friend void f() { /* friend function can be defined in the class body */ }
+    X() { f(); }   // error: no declaration for f
+    void g();
+    void h();
+};
+
+void X::g() { return f(); }     // error: f hasn't been declared
+void f();   // declares the function defined inside X
+void X::h() { return f(); }     // ok: declaration for f is now in scope
+```
+
+需要理解友元声明的作用是影响访问权限，而不是普通意义上的声明。
+
+### 7.4 Class Scope 类作用域
+
+一个类就是一个作用域，当成员函数定义在类外时，返回类型中使用的名字位于类的作用域之外，此时返回类型必须指明它是哪个类的成员。
+
+```c++
+class Window_mgr
+{
+public:
+    // add a Screen to the window and returns its index
+    ScreenIndex addScreen(const Screen&);
+    // other members as before
+};
+
+// return type is seen before we're in the scope of Window_mgr
+Window_mgr::ScreenIndex Window_mgr::addScreen(const Screen &s)
+{
+    screens.push_back(s);
+    return screens.size() - 1;
+}
+```
+
+
 
 #### 7.4.1 Name Lookup and Class Scope
+
+之前我们接触到的都是名字查找，过程大致如下：
+
+- 首先，在名字所在的块中寻找其声明语句，只考虑在名字的使用之前出现的声明。
+- 如果没找到，继续查找外层作用域。
+- 如果最终没有找到匹配的声明，则程序报错。
+
+对于定义在类内部的成员函数来说，解析其中名字的方式与上述的查找规则有些差异，类的定义分两步处理：
+
+- 首先，编译成员的声明
+- 知道类全部可见后才编译函数体
+
+正因为成员函数体直到整个类可见后才会被处理，因此它能使用类中定义的任何名字。
+
+##### 用于类成员声明的名字查找
+
+这种两阶段的处理方式只适用于成员函数中使用的名字。声明中使用的名字，包括返回类型或参数列表，都必须确保使用前可见。
+
+##### 类型名要特殊处理
+
+如果类的成员使用了外层作用域的某个名字，而该名字表示一种类型，则类不能在之后重新定义该名字。
+
+```c++
+typedef double Money;
+class Account
+{
+public:
+    Money balance() { return bal; } // uses Money from the outer scop
+private:
+    typedef double Money; // error: cannot redefine Money
+    Money bal;
+    // ...
+};
+```
+
+类型名定义通常出现在类起始处，这样能确保所有使用该类型的成员都位于类型名定义之后。
+
+##### 成员定义中的普通块作用域的名字查找
+
+成员函数中名字的解析顺序：
+
+- 在成员函数内查找该名字的声明，只有在函数使用之前出现的声明才会被考虑。
+
+- 如果在成员函数内没有找到，则会在类内继续查找，这时会考虑类的所有成员。
+
+- 如果类内也没有找到，会在成员函数定义之前的作用域查找。
+
+```c++
+// it is generally a bad idea to use the same name for a parameter and a member
+int height;   // defines a name subsequently used inside Screen
+class Screen
+{
+public:
+    typedef std::string::size_type pos;
+    void dummy_fcn(pos height)
+    {
+        cursor = width * height;  // which height? the parameter
+    }
+
+private:
+    pos cursor = 0;
+    pos height = 0, width = 0;
+};
+```
+
+这里的height参数隐藏了同名的成员。dummy_fun函数体内使用的名字是参数声明。
+
+可以通过作用域运算符`::`或显式`this`指针来强制访问被隐藏的类成员。
+
+```c++
+// bad practice: names local to member functions shouldn't hide member names
+void Screen::dummy_fcn(pos height)
+{
+    cursor = width * this->height;  // member height
+    // alternative way to indicate the member
+    cursor = width * Screen::height;  // member height
+}
+
+// good practice: don't use a member name for a parameter or other local variable
+//建议不要将成员名字作为参数或其他局部变量使用。最好给参数起个别的名字。
+void Screen::dummy_fcn(pos ht)
+{
+    cursor = width * height;  // member height
+}
+```
+
+##### 在文件中名字的出现处对其进行解析
+
+当成员定义在类的外部时，名字查找的第三步不仅要考虑定义之前的全局作用域中的声明，还需要考虑在成员函数定义之前的全局作用域中的声明。
+
+```c++
+int height; // defines a name subsequently used inside Screen
+class Screen {
+public:
+typedef std::string::size_type pos;
+void setHeight(pos);
+pos height = 0; // hides the declaration of height in the outer scope
+};
+Screen::pos verify(Screen::pos);
+void Screen::setHeight(pos var) {
+// var: refers to the parameter
+// height: refers to the class member
+// verify: refers to the global function
+height = verify(var);
+}
+```
+
+全局函数verify的声明（8）在Screen定义（2）前不可见，但是名字查找第三步包括了成员函数出现前的全局作用域。
+
+此例中verify声明位于setHeight定义之前，因此可以正常使用。之后就不行了。
 
 ### 7.5 Constructors Revisited
 
