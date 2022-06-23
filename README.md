@@ -14,6 +14,8 @@
 
 - 20220525 [C++ primer 5th](./01-Notes/02-CPP_Primer_5th/CPP_Primer_5th.md)
 
+- 20220624 CPP primer 看完基础了，结合 [侯捷-C++面向对象高级编程](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程.md) 继续巩固一下，查漏补缺。
+
 
 
 ## 资源
@@ -37,6 +39,10 @@
 [czs108笔记](https://github.com/czs108/Cpp-Primer-5th-Notes-CN)
 
 [PengKeCpp笔记](https://github.com/PengKeCpp/Cpp-Primer)
+
+### 侯捷老师
+
+
 
 
 
