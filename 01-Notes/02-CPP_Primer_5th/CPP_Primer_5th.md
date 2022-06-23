@@ -953,7 +953,7 @@ int i = 1024, *p = &i, &r = i;
 >
 > > http://www.morecpp.cn/cpluspluc-declarations/
 
-##### 
+
 
 ##### 指向指针的指针（Pointers to Pointers）：
 
@@ -1125,7 +1125,7 @@ cptr = &dval;       // ok: but can't change dval through cptr
 
 常量指针（const pointer）必须初始化，而放在指针中的那个地址也就不能再改变了。
 
-定义语句中把`*`放在`const`之前用来说明指针本身是一个常量。这也暗示了不变得是指针而不是指向的那个值。
+定义语句中把`*`放在`const`之前用来说明指针本身是一个常量。这也暗示了不变的是指针而不是指向的那个值。
 
 ```c++
 int errNumb = 0;
@@ -1641,7 +1641,7 @@ cout<<str<<endl;
 
 ```
 
-##### 只处理string内的一部分字符？
+##### 只处理string内的一部分字符?
 
 想要访问string对象中的单个字符有两种方式：一种是使用下标，另外一种是迭代器（3.4 和 第九章介绍）
 
@@ -1787,7 +1787,7 @@ for (auto it = s.begin(); it != s.end() && !isspace(*it);++it)
 
 - 箭头运算符->
 
-  箭头运算符将解引用和成员访问两个操作结合在一起。省略了步骤，还不比考虑什么结合优先级的问题。【4.1.2】
+  箭头运算符将解引用和成员访问两个操作结合在一起。省略了步骤，还不必考虑什么结合优先级的问题。【4.1.2】
 
   ```c++
   it->mem; == (*it).men;
@@ -1795,7 +1795,7 @@ for (auto it = s.begin(); it != s.end() && !isspace(*it);++it)
 
 - 某些vector对象的操作会使迭代器失效
 
-  不能在范围for循环中向vector对象添加元素；任何一种可能改变vector对象容量的操作，也会是vector迭代器失效。【9.3.6】会解释为什么失效
+  ef: 不能在范围for循环中向vector对象添加元素；任何一种可能改变vector对象容量的操作，也会是vector迭代器失效。【9.3.6】会解释为什么失效
 
 谨记：但凡是使用了迭代器的循环体，都不要向迭代器所属的容器添加元素。
 
@@ -4776,7 +4776,7 @@ assert 行为依赖于一个名为NDEBUG 的预处理变量的状态。如果定
 2. 通过const转换【4.11.2】实现的匹配（非常量变成常量）
 3. 通过类型提升【4.11.1】实现的匹配
 4. 通过算术类型转换【4.11.1】或指针转换【4.11.2】实现的匹配
-5. 通过类类型转换实现的匹配【1】
+5. 通过类类型转换实现的匹配【14.9】
 
 所有算术类型转换的级别都一样。int->unsigned int 并不比int -> double 高。
 
@@ -4939,7 +4939,7 @@ decltype(sumLength) *getFcn(const string &);
 
 
 
-## Chapter 7 Classes
+## Chapter 7 Classes 类
 
 类的基本思想是**数据抽象（data abstraction）**和**封装（encapsulation）**。
 
@@ -5078,7 +5078,7 @@ Sales_data& Sales_data::combine(const Sales_data &rhs)
 >
 > Watch out that if you try to use `return *this;` on a function whose return type is `Type` and not `Type&`, C++ will try to make a copy of the object and then immediately call the destructor, usually not the intended behaviour. So the return type should be a reference as in your example.
 
-todo，这边还需要研究一下，为什么不是引用的返回类型会返回拷贝并立即析构
+~~todo~~，这边还需要研究一下，为什么不是引用的返回类型会返回拷贝并立即析构
 
 > 解释：
 >
