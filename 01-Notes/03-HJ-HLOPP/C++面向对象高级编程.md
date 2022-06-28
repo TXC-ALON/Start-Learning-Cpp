@@ -42,7 +42,7 @@
 
 自己写的 ""
 
-##### :sunny:头文件的防卫式声明
+##### :sunny:<font color='#DB4437'>头文件的防卫式声明</font>
 
 ```c++
 #ifndef __标记__
@@ -93,7 +93,7 @@
 
 数值的设置有两个阶段，初始化与赋值。
 
-:sunny:尽量使用初始化，以提高效率。
+:sunny:<font color='#DB4437'>尽量使用初始化，以提高效率。</font>
 
 ```c++
 complex (double r = 0,double i = 0)
@@ -177,7 +177,7 @@ double imag() const {return im;}
 
 引用在底层就是一个const 指针。所以传递效率快。
 
-参数传递尽量传reference。
+<font color='#DB4437'>参数传递尽量传reference</font>。
 
 返回值传递尽量传reference。
 
@@ -243,3 +243,70 @@ complex::operator += (const complex& r){
 
 
 ## 五、操作符重载与临时对象
+
+###   操作符重载-1 成员函数
+
+```c++
+inline complex&
+__doapl(complex* ths,const complex& r){
+	ths->re += r.re;
+    the->im += r.im;
+    return *ths;
+}
+
+inline complex& //真正写代码的时候不能写this，实际上是隐含的。指向调用者
+complex::operator += (this,const complex& r){
+    return __doapl(this,r);
+}
+```
+
+`doapl`   do assignment plus。 赋值加法。
+
+- 注意，`return *ths` 返回的是指针的值，但是传递者无需知道接受者是以reference的形式来接受。如果返回值，会产生不必要的临时变量。
+- 如果是void类型，两个参数也能跑，但是`c3+=c2+=c1;`就过不了关了。
+
+###  操作符重载-2 非成员函数
+
+```c++
+inline complex
+operator + (const complex& x,const complex& y){
+    return complex (real(x) + real (y) ,imag(x) + imag (y));
+} 
+```
+
+- 成员函数形式和非成员函数只能写一个。
+
+- 全局函数没有this指针。
+
+- 返回值不能是reference，因为他们返回的必定是local reference，不同于成员函数，本身就有左值，而全局函数，离开函数数据就死亡了。所以不能return by reference。
+- `类名（）` 创建一个临时对象，生命到下一行就结束了。
+
+- 理论上，下面的取正操作，没有改变传入的对象，可以返回reference，但是标准库没有这么做。
+
+```c++
+inline complex
+operator + (const complex& x){
+	return x;
+}
+```
+
+- `<<` 只能写成全局函数，因为`cout`这些东西都是老东西。不指望他们能适配成员函数版本的操作符。且不能写成const。
+- 乍一看`<<`结果输出到屏幕，数据没用了，可以用void，但是如果迭代使用，那么还是不行。
+
+### 本章总结
+
+设计一个class 要注意
+
+- 构造函数的初始化参数列表要会用，能初始化别赋值
+- 函数要不要加`const`一定要考虑
+
+- 尽量考虑传reference
+- return 是回reference，还是value要考虑
+- 函数大多放在public， 数据放在private
+
+
+
+## 第六章 复习Complex 类的实现过程
+
+
+
