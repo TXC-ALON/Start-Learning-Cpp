@@ -6118,14 +6118,155 @@ private:
 
 # Part II The C++ Library
 
+新的C++标准目前大约2/3 用来描述标准库
+
 ## Chapter 8 The IO Library
+部分IO库设施：
+
+- `istream`：输入流类型，提供输入操作。
+
+- `ostream`：输出流类型，提供输出操作。
+
+- `cin`：`istream`对象，从标准输入读取数据。
+
+- `cout`：`ostream`对象，向标准输出写入数据。
+
+- `cerr`：`ostream`对象，向标准错误写入数据。
+
+- `>>`运算符：从`istream`对象读取输入数据。
+
+- `<<`运算符：向`ostream`对象写入输出数据。
+
+- `getline`函数：从`istream`对象读取一行数据，写入`string`对象。
+
 ### 8.1 The IO Classes
+
+IO**处理头文件**
+
+- `iostream`定义了用于读写流的基本类型，
+
+- `fstream`定义了读写命名文件的类型，
+
+- `sstream`定义了读写内存中`string`对象的类型。
+
+![](CPP_Primer_5th.assets/8-1.png)
+
+宽字符版本的IO类型和函数的名字以`w`开始，如`wcin`、`wcout`和`wcerr`分别对应`cin`、`cout`和`cerr`。它们与其对应的普通`char`版本都定义在同一个头文件中，如头文件`fstream`定义了`ifstream`和`wifstream`类型。
+
+##### IO类型间的关系
+
+标准库使我们进行IO操作时不用考虑不同类型的流之间的差异。这是通过**继承机制**(inheritance)实现的。【15】【18.3】会介绍C++如何支持继承机制的。
+
+简单来说，我们可以声明一个特定类继承自另一个类，可以将派生类的对象当作其基类的对象使用。
 
 #### 8.1.1 No Copy or Assign for IO Objects
 
+IO对象无拷贝或赋值
+
+```c++
+ofstream out1, out2;
+out1 = out2;    // error: cannot assign stream objects
+ofstream print(ofstream);   // error: can't initialize the ofstream parameter
+out2 = print(out2);     // error: cannot copy stream objects
+```
+
+由于IO对象不能拷贝，因此不能将函数形参或返回类型定义为流类型。进行IO操作的函数通常以引用方式传递和返回流。读写一个IO对象会改变其状态，因此传递和返回的引用不能是`const`的。****
+
 #### 8.1.2 Condition States
 
-#### 8.1.3 Managing the Output Buffer
+IO库条件状态：
+
+![](CPP_Primer_5th.assets/8-2.png)
+
+一个流一旦发生错误，其上后续的IO操作都会失败。
+
+##### 查询流的状态
+
+IO库定义了一个与机器无关的iostate类型，它提供了表达流状态的完整功能。IO库中定义了4个iostate类型的constexpr值。
+
+`badbit`表示系统级错误，如不可恢复的读写错误。通常情况下，一旦`badbit`被置位，流就无法继续使用了。
+
+在发生可恢复错误后，`failbit`会被置位，如期望读取数值却读出一个字符。如果到达文件结束位置，`eofbit`和`failbit`都会被置位。如果流未发生错误，则`goodbit`的值为0。如果`badbit`、`failbit`和`eofbit`任何一个被置位，检测流状态的条件都会失败。
+
+```c++
+while (cin >> word)
+    // ok: read operation successful...
+```
+
+`good`函数在所有错误均未置位时返回`true`。而`bad`、`fail`和`eof`函数在对应错误位被置位时返回`true`。此外，在`badbit`被置位时，`fail`函数也会返回`true`。因此应该使用`good`或`fail`函数确定流的总体状态，`eof`和`bad`只能检测特定错误。
+
+##### 管理条件状态
+
+流对象的`rdstate`成员返回一个`iostate`值，表示流的当前状态。`setstate`成员用于将指定条件置位（叠加原始流状态）。`clear`成员的无参版本清除所有错误标志；含参版本接受一个`iostate`值，用于设置流的新状态（覆盖原始流状态）。
+
+```c++
+// remember the current state of cin
+auto old_state = cin.rdstate();     // remember the current state of cin
+cin.clear();    // make cin valid
+process_input(cin);     // use cin
+cin.setstate(old_state);    // now reset cin to its old state
+```
+
+
+
+#### 8.1.3 Managing the Output Buffer 管理输出缓冲
+
+每个输出流都管理一个缓冲区，用于保存程序读写的数据。导致缓冲刷新（即数据真正写入输出设备或文件）的原因有很多：
+
+- 程序正常结束。
+- 缓冲区已满。
+- 使用操纵符（如`endl`）显式刷新缓冲区。
+- 在每个输出操作之后，可以用`unitbuf`操纵符设置流的内部状态，从而清空缓冲区。默认情况下，对`cerr`是设置`unitbuf`的，因此写到`cerr`的内容都是立即刷新的。
+- 一个输出流可以被关联到另一个流。这种情况下，当读写被关联的流时，关联到的流的缓冲区会被刷新。默认情况下，`cin`和`cerr`都关联到`cout`，因此，读`cin`或写`cerr`都会刷新`cout`的缓冲区。
+
+##### 刷新输出缓冲区
+
+`flush`操纵符刷新缓冲区，但不输出任何额外字符。
+
+`ends`向缓冲区插入一个空字符，然后刷新缓冲区。
+
+```c++
+cout << "hi!" << endl;   // writes hi and a newline, then flushes the buffer
+cout << "hi!" << flush;  // writes hi, then flushes the buffer; adds no data
+cout << "hi!" << ends;   // writes hi and a null, then flushes the buffer
+```
+
+##### unitbuf 操纵符
+
+如果想在每次输出操作后都刷新缓冲区，可以使用`unitbuf`操纵符。它令流在接下来的每次写操作后都进行一次`flush`操作。而`nounitbuf`操纵符则使流恢复使用正常的缓冲区刷新机制。
+
+```C++
+cout << unitbuf;    // all writes will be flushed immediately
+// any output is flushed immediately, no buffering
+cout << nounitbuf;  // returns to normal buffering
+```
+
+##### 注意：如果程序异常终止，输出缓冲区不会被刷新。
+
+所以在调试时，常常需要检查是无法正确输出还是卡在缓存区没输出来。
+
+##### 关联输入和输出流
+
+当一个输入流被关联到一个输出流时，任何试图从输入流读取数据的操作都会先刷新关联的输出流。标准库将`cout`和`cin`关联在一起，因此下面的语句会导致`cout`的缓冲区被刷新：
+
+```c++
+cin >> ival;
+```
+
+交互式系统通常应该关联输入流和输出流。这意味着包括用户提示信息在内的所有输出，都会在读操作之前被打印出来。
+
+使用`tie`函数可以关联两个流。它有两个重载版本：无参版本返回指向输出流的指针。如果本对象已关联到一个输出流，则返回的就是指向这个流的指针，否则返回空指针。`tie`的第二个版本接受一个指向`ostream`的指针，将本对象关联到此`ostream`。
+
+```c++
+cin.tie(&cout);     // illustration only: the library ties cin and cout for us
+// old_tie points to the stream (if any) currently tied to cin
+ostream *old_tie = cin.tie(nullptr); // cin is no longer tied
+// ties cin and cerr; not a good idea because cin should be tied to cout
+cin.tie(&cerr);     // reading cin flushes cerr, not cout
+cin.tie(old_tie);   // reestablish normal tie between cin and cout
+```
+
+每个流同时最多关联一个流，但多个流可以同时关联同一个`ostream`。向`tie`传递空指针可以解开流的关联。
 
 ### 8.2 File Input and Output
 
