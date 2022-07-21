@@ -26,9 +26,9 @@
 
 ### 对class的分类
 
-#### 不带指针 -- 复数 complex
+#### 不带指针 -- 举例：复数 complex
 
-#### 带指针  --  字符串 string -- 一个指针
+#### 带指针     -- 举例：字符串 string -- 一个指针
 
 
 
@@ -61,7 +61,7 @@
 
 
 
-## complex
+## 以complex举例
 
 ## 三、构造函数
 
@@ -329,6 +329,211 @@ operator + (const complex& x){
 
 
 
-## String
+## 以String举例
 
-## 第七章 三大函数：拷贝构造、拷贝复制、析构
+## 第七章 三大函数：拷贝构造、拷贝赋值、析构
+
+带指针的类不能使用编译器默认的拷贝，要自己写。
+
+class with pointer members 必须有copy ctor 和copy op=   
+
+#### **深拷贝与浅拷贝**
+
+![image-20220720112526452](C++面向对象高级编程.assets/image-20220720112526452.png)
+
+浅拷贝一方面会造成别名，一方面会造成内存泄漏，非常危险。
+
+
+
+#### 拷贝赋值 copy op=
+
+1. 清空待赋值空间
+2. 开辟一块足够复制的空间
+3. 复制
+
+注：需要注意一定要检测是否自赋值
+
+![image-20220720153818102](C++面向对象高级编程.assets/image-20220720153818102.png)
+
+
+
+```c++
+//String.h
+#ifndef __MYSTRING__
+#define __MYSTRING__
+
+class String
+{
+public:                                 
+    String(const char* cstr = 0);
+    String(const String& str);//接受自己这种东西--拷贝构造
+    String& operator =(const String& str);//操作符重载--赋值自己这种东西--拷贝赋值
+    ~String();//析构函数        
+   ~String();                                    
+   char* get_c_str() const { return m_data; }
+private:
+   char* m_data;
+};
+
+#include <cstring>
+
+inline
+String::String(const char* cstr)
+{
+   if (cstr) {
+      m_data = new char[strlen(cstr)+1];
+      strcpy(m_data, cstr);
+   }
+   else {   
+      m_data = new char[1];
+      *m_data = '\0';
+   }
+}
+
+inline
+String::~String()
+{
+   delete[] m_data;
+}
+
+inline
+String& String::operator=(const String& str)
+{
+   if (this == &str) // 检测是否是自我赋值 
+      return *this;
+
+   delete[] m_data;
+   m_data = new char[ strlen(str.m_data) + 1 ];
+   strcpy(m_data, str.m_data);
+   return *this;
+}
+
+inline
+String::String(const String& str)
+{
+   m_data = new char[ strlen(str.m_data) + 1 ];
+   strcpy(m_data, str.m_data);
+}
+
+#include <iostream>
+using namespace std;
+
+ostream& operator<<(ostream& os, const String& str)
+{
+   os << str.get_c_str();
+   return os;
+}
+
+#endif
+
+```
+
+```c++
+//string_test.cpp
+#include "string.h"
+#include <iostream>
+
+using namespace std;
+
+int main()
+{
+  String s1("hello"); 
+  String s2("world");
+  String *p = new String("yah");
+  delete p;//动态分配，需要手动释放
+  String s3(s2);
+  cout << s3 << endl;
+  
+  s3 = s1;
+  cout << s3 << endl;     
+  cout << s2 << endl;  
+  cout << s1 << endl;      
+}
+```
+
+
+
+## 第八章 堆、栈与内存管理
+
+###  Stack栈
+
+所谓栈，是存在于某作用域scope的一块内存空间 `memory space`。 例如当你调用函数，函数本身即会形成一个stack用来放置它所接收的参数，以及返回地址。
+
+在函数本体内声明的任何变量，其所使用的内存块都取自上述stack。
+
+`stack object` ，其生命在作用域`scope`结束之际结束，这种作用域内的`object`，又称为`auto object`，因为他会被自动清理。
+
+### Heap堆
+
+所谓堆，或谓 `system heap`，是指由操作系统提供的一块global 内存空间，程序可动态分配 `dynamic allocated` 从某种获得若干区块 `blocks`.
+
+`heap object` ，生命在`delete`之际结束
+
+**new出来的内存空间，有义务在函数结束前手动处理掉。**
+
+### Static 静态对象
+
+`static object`，其生命在作用域scope结束后依然存在，直到整个程序结束。
+
+### 全局数据区
+
+静态变量跟全局变量一样，存放在全局数据段，程序载入时分配空间，位置固定不再变化
+堆和栈的空间是动态变化的
+
+
+
+#### New
+
+new: 先分配memory，再调用ctor。
+
+```c++
+Complex* pc = new Complex(1,2);
+==
+Complex *pc;
+void* mem = operator new(sizeof(Complex));  // 底部调用malloc，分配内存
+pc = static_cast<Complex*>(mem);		//转型 将void*转化为Complex*
+pc->Complex::Complex(1,2);			//构造函数 = Complex::Complex(this,1,2);
+```
+
+#### delete
+
+delete: 先调用析构，再释放内存
+
+```c++
+delete pc;
+==  
+String::~String(ps);	//析构函数
+operator delete(ps);    //底部是free(ps),释放内存
+```
+
+#### 动态分配内存细节
+
+![image-20220721104757135](C++面向对象高级编程.assets/image-20220721104757135.png)
+
+1. 在VC环境，调试模式下，new的块前面会加32，后面会加4，加上本身两个double的8，和两个cookie 8，所以一共52，而内存分配一定是16的倍数，所以52最近的是64 。
+2. cookie 主要是为了记录区块的大小，便于回收。64 的16进位是40，而用最后一位表示给出去1，收回0，所以是41。这里有个小tip，因为是16的倍数，所以bit位最后四位都是0，所以不会有冲突。也算是废空间利用了。
+3. 字符串本身只内含一根指针，大小为4。
+
+#### 动态分配内存-数组
+
+![image-20220721110919367](C++面向对象高级编程.assets/image-20220721110919367.png)
+
+1. 两个double一组，乘3，然后加上32+4的dubug头尾，加上cookie4*2，加上标记数组数量的4字节。共72，补全80。
+2. 每个对象死亡之前，析构函数都要被调用。所以array new 要array delete。不然会造成数组后面的内存泄露。
+3. 如果这里不是string 而是复数，由于其不带指针，且没有动态分配内存，所以不用array delete也行。但是要养成好习惯，尽量使用array delete
+
+
+
+## 第九章 复习String类的实现过程
+
+1. 由于数组需要指明大小，所以在设计字符串这类对象，一般的解决方法是在类里放一根指针(32位4个字节)，动态地去申请内存。
+
+2. 时刻注意要不要加const。  **函数之后加，表示函数不改动数据；参数列表里加，表示不会改动传入的参数**
+
+3. 判断返回类型是不是引用----返回值不是local object，就用引用
+
+4. Big Three 函数，都不能加const，因为这三个都是改变了目的端的数据，不可能不改变。
+5. 内存空间在拷贝，赋值时，需要时刻注意要提供足够大的空间。
+6. 要考虑种种细节，例如有无初值，**是否自赋值**
+7. 尽量让函数成为inline。  
+8. 运算符重载，如果返回类型是void，不是String&，不能连贯使用。也要有return *this

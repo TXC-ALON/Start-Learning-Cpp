@@ -48,7 +48,7 @@ private:
     static double interestRate; 
     static double initRate() { return .0225; }
     static const std::string accountType;
-    static constexpr int period = 30;// period is a constant expression
+    static const int period = 30;// period is a constant expression
     double daily_tbl[period];
 };
 #endif

@@ -1,0 +1,6 @@
+make.exe --dry-run --always-make --keep-going --print-directory
+make.exe: Entering directory `e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code'
+make.exe: Leaving directory `e:/00Learning/C++/Start learing C++/01-Notes/02-CPP_Primer_5th/code'
+ 
+make.exe: *** û��ָ��Ŀ�겢���Ҳ��� makefile�� ֹͣ��
+
