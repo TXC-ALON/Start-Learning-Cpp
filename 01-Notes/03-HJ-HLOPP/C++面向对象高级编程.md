@@ -537,3 +537,91 @@ operator delete(ps);    //底部是free(ps),释放内存
 6. 要考虑种种细节，例如有无初值，**是否自赋值**
 7. 尽量让函数成为inline。  
 8. 运算符重载，如果返回类型是void，不是String&，不能连贯使用。也要有return *this
+
+
+
+## 第十章 拓展补充：类模板、函数模板、及其他
+
+
+
+### Static 静态
+
+static 可以规定数据成员或成员函数是静态的。
+
+加了static后，成员/成员函数就和对象脱离了，单独有一个内存区域存储成员/成员函数。**静态的数据只有一份**。没有this指针。
+
+调用静态函数的方式有二：
+
+1. 通过对象object调用，因为是静态，编译器不会放this进入函数。
+2. 通过class name 调用 --- 即不建立对象也能使用这个函数
+
+ 
+
+#### 将构造函数放在private
+
+**设计模式 -- Singleton 单例，外界只能用一份**
+
+```c++
+class A {
+public:
+	static A& getInstance( return a;);//外界唯一的接口
+	void setup(){};
+private:
+	A();
+	A(const A& rhs);
+	Static A a;// 唯一的自己
+};
+//取得那一份
+A::getInstance().setup();
+```
+
+这种写法有个问题，就是外界不用A，a仍然存在
+
+**设计模式 -- Meyers Singleton 单例**
+
+#todo 回头看effective c++ 时候再说。 静态变量内存不是编译时预先分配吗？
+
+```c++
+class A {
+public:
+	static A& getInstance();
+	void setup(){};
+private:
+	A();
+	A(const A& rhs);
+
+};
+A& A::getInstance()
+{
+	static A a; //有人调用函数才会创建，离开函数依然存在。
+	return a;
+}
+
+//取得那一份
+A::getInstance().setup();
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
