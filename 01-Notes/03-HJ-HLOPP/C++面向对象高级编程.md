@@ -603,25 +603,146 @@ A::getInstance().setup();
 
 
 
+### cout
+
+```c++
+class _IO_ostream_withassign
+    : public ostream(
+    ...
+    );
+extern _IO_ostream_withassign cout; // 继承自ostream 
+```
+
+ostream 有非常多的重载运算符
 
 
 
+### class template 类模板
+
+ 对编译器来说，会造成代码的膨胀。但这是必要的代价
 
 
 
+### function template 函数模板
+
+```c++
+template <class T>
+    inline
+const T& min(const T& a, const T& b)
+{
+    return b<a ? b : a;
+}
+
+stone r1(2,4),r2(4,4),r3;
+r3 = min(r1,r2);//编译器会对function template 进行实参推导。不需要明确指出来class类型。
+//最后调用到return语句，调用stone::operator<
+```
 
 
 
+### namespace 命名空间
+
+- using directive 
+
+  等同于将封锁全部打开，不用写全名。
+
+- using declaration
+
+  一条一条声明
+
+- 写出全部全名。
+
+  
 
 
 
+## 第十一章 组合与继承
+
+Object Oriented Programming
+
+Object Oriented Design
+
+### 类和类之间的关系  ----  面向对象
+
+- Inheritance 继承
+- Composition 复合
+- Delegation 委托 
 
 
 
+#### Composition 复合 表示has-a
+
+```c++
+template <class T, class Sequence = deque<T> >
+class queue{
+	...
+protected:
+    Sequence c; // 底层容器
+public:
+    //以下都是使用c的操作函数。
+    bool empty() const {return c.empty();}
+    size_type size() const {return c.size();}
+    reference front() {return c.front();}
+    reference back() { return c.back();}
+    //deque 是两端可进出，queue是先进先出。
+    void push(const value_type& x) {c.push_back(x);}
+    void pop() {c.pop_front();}
+};
+```
+
+这种设计模式叫Adapter（适配）。从一个较为完备的类取出一些功能，重新封装。
+
+![image-20220728151957371](C++面向对象高级编程.assets/image-20220728151957371.png)
+
+Container 的构造函数 由内而外，先调用Component的默认构造函数，再执行自己的ctor。
+
+Container 的析构函数从外而内，先调用自己的析构函数，再执行Component的。
+
+可以联想为做胶带球和切胶带球
 
 
 
+#### Delegation 委托 - Composition by reference
 
+H andle
 
+```c++
+//file String.hpp
+class StringRep;
+class String{
+    public:
+    String();
+    String(const char* s);
+    String(cosnt String& s);
+    String &operator(const String& s);
+    ~String();
+    private:
+    StringRep* rep;
+};
+```
 
+Body
+
+```c++
+//file String.cpp
+#include "String.hpp"
+namespace {
+class StringRep{
+    StringRep(const char* s);
+    ~StringRep();
+    int count;
+    char* rep;
+};
+}
+String::String(){...}
+
+```
+
+a、这种委托的实现方式是通过`pimpl(point to implementation)`设计模式实现，即通过指针变量指向一个类；
+
+b、构造函数和析构函数在两者间是不同步的；
+
+c、Handle部分提供的是接口部分，底层可以通过Body部分实现不同的操作；
+
+注：内存在共享时，要注意不能牵一发而动全身，比如三个指针指向同一个东西，其中一个要修改指针内容，那么就`Copy on Write`，拷贝出一份单独的供他修改并指向，其余两个不动。
 
