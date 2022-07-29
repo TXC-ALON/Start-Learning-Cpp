@@ -694,6 +694,8 @@ public:
 
 ![image-20220728151957371](C++面向对象高级编程.assets/image-20220728151957371.png)
 
+![image-20220729095520446](C++面向对象高级编程.assets/image-20220729095520446.png)
+
 Container 的构造函数 由内而外，先调用Component的默认构造函数，再执行自己的ctor。
 
 Container 的析构函数从外而内，先调用自己的析构函数，再执行Component的。
@@ -746,3 +748,289 @@ c、Handle部分提供的是接口部分，底层可以通过Body部分实现不
 
 注：内存在共享时，要注意不能牵一发而动全身，比如三个指针指向同一个东西，其中一个要修改指针内容，那么就`Copy on Write`，拷贝出一份单独的供他修改并指向，其余两个不动。
 
+
+
+#### Inheritance, 继承  is-a
+
+```c++
+struct _List_node_base
+{
+    _List_node_base* _M_next;
+    _List_node_base* _M_prev;
+};
+template<typename _Tp>
+struct _List_node
+    : public _List_node_base
+{
+	_Tp _Mdata;
+}
+```
+
+- C++提供了三种继承，public，private，protected。
+
+- 继承类比于 界门纲目科属种 
+- 继承与虚函数搭配才能体现出真正价值。
+
+![image-20220729095458816](C++面向对象高级编程.assets/image-20220729095458816-16590597124801.png)
+
+##### 父类的析构函数必须是虚函数
+
+1、如果父类的析构函数不是虚函数，则不会触发动态绑定（多态），结果就是只会调用父类的析构函数，而不会调用子类的析构函数，从而**可能**导致子类的内存泄漏（如果子类析构函数中存在free delete 等释放内存操作时）；
+2、如果父类的析构函数是虚函数，则子类的析构函数一定是虚函数（即使是子类的析构函数不加virtual,这是C++的语法规则），则会在父类指针或引用指向一个子类时，触发动态绑定（多态），析构实例化对象时，若是子类则会执行子类的析构函数，同时，编译器会在子类的析构函数中插入父类的析构函数，最终实现了先调用子类析构函数再调用父类析构函数。
+
+
+
+## 第十二章 虚函数与多态
+
+- non-virtual 函数： 你不希望derived class 重新定义(override)它
+- virtual 函数： 你希望derived class 重新定义，但也有默认定义
+- pure virtual 函数：你希望derived class 一定要重新定义它，你对它没有默认定义。
+
+```c++
+class Shape{
+    public:
+    virtual void draw() const = 0; //pure V
+    virtual void error(const std::string& msg);// impure V
+    int objectID() const;//non-V
+}
+```
+
+函数的继承不应该从内存的角度来理解，继承实际上继承的是函数的调用权。
+
+通过子类的对象调用父类的函数。  
+
+### Template Method
+
+java里面函数就是method。
+
+将父类里的函数接口放在子类，留到后面再实现。 （23个设计模式之一）
+
+![image-20220729103946276](C++面向对象高级编程.assets/image-20220729103946276.png)
+
+### 继承与复合的关系
+
+![image-20220729105706910](C++面向对象高级编程.assets/image-20220729105706910.png)
+
+下面的图很明显，我要构造派生类，我就要先构造父类，构造父类，我就要先构造其中包含的类。
+
+而上面的时候，当我们需要构造派生类时，肯定的是派生类是最后构造的，那么父类和复合类的先后顺序是什么样的呢，在WINDOWS下利用VS2012，实现以下的函数
+
+```c
+//Inter+compositon.h
+
+#ifndef INHER_COMPOSITION_H
+#define INHER_CONMPOSITON_H
+#include <iostream>
+using namespace std;
+class A{
+public:
+	A(){ cout << "A is make" << endl;}
+	~A(){ cout << "~A is delete" << endl;}
+};
+class C{
+public:
+	C() { cout << "C is make" << endl;}
+	~C(){ cout << "~C is delete" << endl;}
+};
+class B:public A{
+public:
+	B(){ cout << "B is make" << endl;}
+	~B(){ cout << "~B is delete" << endl;}
+private:
+	C c;
+};
+
+
+#endif
+```
+
+```c++
+//test.cpp
+#include <iostream>
+#include "Inher+conpositon.h"
+using namespace std;
+
+
+int main(){
+	B b;
+	return EXIT_SUCCESS;
+}
+```
+
+```c++
+A is make;
+C is make;
+B is make;
+~B is deleted;
+~C is deleted;
+~A is deleted;
+```
+
+运行结果如下
+
+我们发现父类先被构造，然后是复合类，然后才是子类，析构与之正好相反。
+
+> 原文链接：https://blog.csdn.net/cbf9526/article/details/78711373 
+
+### 委托与继承的关系
+
+####  以Observer为例 
+
+```c++
+class subject{
+private:
+    int m_value;
+    vector<observer*> m_views;//一个容器包含多个窗口，就可以实现多个窗口
+public:
+    void attch(observer* obs){
+        m_views.push_back(obs);//谁要使用就来注册，开辟窗口
+    }
+    void set_value(const int& value){
+        m_value = value;
+        notify();   //每次改变数据都去更新
+    }
+    void notify(){
+        for(int i = 0;i<m_views.size();i++)
+        {
+            m_views[i]->update(this,m_value);
+        }
+    }
+    //还少一个注销的功能  
+};
+```
+
+
+
+```c++
+class observer{
+public:
+    virtual void update(suject& sub,int value);//一个父类，让每个子类窗口的表现都可以不一样
+};
+```
+
+后续会用observer作为父类进行开发，那么都可以放入subject里面的容器内。
+
+
+
+## 第十三章 委托相关设计
+
+### Composite 复合
+
+![image-20220729163242573](C++面向对象高级编程.assets/image-20220729163242573.png)
+
+Primitive 单个
+
+Composite 复合
+
+#### 代码分析
+
+1. 先看Component里的add。add应该要被下面的子类重新定义，所以要是虚函数，但是若是纯虚函数，子类必须定义，而primitive没有加的功能，所以不能是纯虚。用一个空函数的虚函数就行了。
+2. Composite 里有一个容器，容器里是指向父类的指针。
+
+### Prototype 原型（Design Patterns explained simply）
+
+![image-20220729165737152](C++面向对象高级编程.assets/image-20220729165737152.png)
+
+问题：我现在要创建未来的class对象。
+
+解决方法：下面派生的子类，每个人创建一个自己当做原型，而框架可以看到这些原型，进行复制，相当于创建。
+
+代码分析：
+
+以LandSatImage举例，类里面有一个静态的对象LSAT（图里有下划线表示静态）
+
+> 写代码的时候，是先写typename，后写object名字，画图的时候相反。先写变量的名称，有时候需要写才写typename。
+>
+> -LandSatImage() 是private的，，，，因为是-
+>
+> public + 可以省略不写，比如clone就可以不写。
+>
+> #LandSatImage() 是protected的，，，，因为是#
+
+上面的准备好空间，下面的做好放上去。
+
+**放上去**---LandSatImage() 是类内自己人再调用，所以private也可以。这个构造函数执行一个addPrototype操作（父类写好的）。
+
+clone() 就是new一个自己。框架端通过原型里的对象就可以调用clone这个函数。做出一个副本。
+
+注：如果以为clone写成静态函数就可以不用原型来调用，但是实际上静态函数需要的调用一定要classname。但是不知道classname是什么。
+
+```c++
+class Image
+{
+public:
+    virtual void draw() = 0;//抽象类，留给子类实现
+    static Image* findAndClone(imageType);
+protected:
+    virtual imageType returnType() = 0;//子类决定类型
+    virtual Image* clone() = 0;//多态，返回子类对象
+    static void addPrototype(Image* image)
+    {
+        _prototypes[_nextSlot++] = image;
+    }
+private:
+    static Image* _prototypes[10];//静态数据成员，存放原型对象
+    static int _nextSlot;
+};
+Image* Image::_prototypes[];//注意，静态需要在类外给出定义
+int Image::_nextSlot;
+
+Image* Image::findAndClone(imageType type)
+{
+    for (int i = 0; i < _nextSlot; ++i)
+        if (_prototypes[i]->returnType() == type)
+            return _prototypes[i]->clone();//通过原型产生子类对象
+}
+```
+
+`
+
+```c++
+class LandSatImage : public Image
+{
+public:
+    imageType returnType()
+    {
+        return LSAT;
+    }
+    void draw()
+    {
+        cout << "LandSatImage::draw" << _id << endl;
+    }
+    Image* clone()
+    {
+        return new LandSatImage(1);//使用另个一个构造函数，避免反复addPrototype
+    }
+    //用另一个构造函数，防止重复添加原型
+protected://具体是Protected还是private都都行，但是要和之前的构造函数区隔开
+    LandSatImage(int dummy)//dummy参数无需用到
+    {
+        _id = _count++;
+    }
+private:
+    static LandSatImage _landSatImage;//静态数据，子类原型
+    LandSatImage()
+    {
+        _id = 0;
+        addPrototype(this);
+    }
+    //私有构造函数，调用父类方法将原型添加
+    int _id;
+    static int _count;
+};
+
+LandSatImage LandSatImage::_landSatImage;
+int LandSatImage::_count=1;
+```
+
+
+
+## 上半总结
+
+学习了
+
+基于对象的单一类打下基础
+
+面向对象的三大武器
+
+一些设计模式的经典做法，类和类之间如何关联
