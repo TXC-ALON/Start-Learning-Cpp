@@ -6,21 +6,21 @@
 
 - 20220420 [翁恺 OOP in C++](./01-Notes/00-ZJU_CPP/Object-Oriented-Programming.md)
 
-  上面一个视频质量不高（不是老师不行），感觉还是更从基础抓起，看下Essential C++
+  视频质量不高（不是老师不行，主要是剪辑问题），感觉还是更从基础抓起，看下Essential C++
 
 - 20220512 [Essential C++](./01-Notes/01-Essential_C++/Essential_C++.md)
 
    85/100 好书，还是挺适合入门的
 
-- 20220525 [C++ primer 5th](./01-Notes/02-CPP_Primer_5th/CPP_Primer_5th.md)
+- 20220525 开始[C++ primer 5th](./01-Notes/02-CPP_Primer_5th/CPP_Primer_5th.md)
 
-- 20220624 CPP primer 看完基础了，结合 [侯捷-C++面向对象高级编程](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程.md) 继续巩固一下，查漏补缺。
+- 20220624 CPP primer 看完基础（第一部分），结合 [侯捷-C++面向对象高级编程](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程.md) 继续巩固一下，查漏补缺。
+
+- 20220729 [侯捷-C++面向对象高级编程](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程.md)  看完，不得不说真的是深入浅出，回头还会多翻几遍。开始下卷[侯捷-C++面向对象高级编程](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程下.md) 
 
 
 
 ## 资源
-
-
 
 ### 浙大翁恺 OOP in C++
 
