@@ -278,3 +278,234 @@ ptr->mytest();
 
 所以说操作符重载非常重要。
 
+
+
+看你马的台湾局势，看你马的国际政治，管你鸟事，好好学技术才是真的。
+
+嘴炮屁用没有。
+
+
+
+## function-like classes
+
+像函数一样的类，意思就是将一个类定义为可以接受`()`这个操作符的东西。
+
+能接受`()`的对象 ，就是一个函数对象或仿函数。
+
+```c++
+template<class T>
+class Identity {
+public:
+    //重载()操作符，使该类衍生的对象可以像函数一样调用
+    T& operator()(T& x) {
+        return x;
+    }
+};
+
+class Test {
+public:
+    void mytest() {
+        printf("testing...\n");
+    }
+}; 
+```
+
+
+
+```c++
+int a1 = 5;
+Identity<int> iden_i;
+int a2 = iden_i(a1);
+cout << a2 << endl;
+
+Test t1;
+Identity<Test> iden_t;
+Test t2 = iden_t(t1);
+t2.mytest();
+```
+> 标准库的仿函数多会继承一些奇特的类型
+> ```c++
+> template <class Arg, class Result>  //这两个类的特点：大小为0，没有函数
+> struct unary_function  {//一个操作数
+>     typedef Arg argumrnt_type;
+>     typedef Result result_type;
+> };
+> 
+> template <class Arg1,class Arg2,class Result>
+> struct binary_function  {//两个操作数
+>     typedef Arg1 first_argument_type;
+>     typedef Arg2 second_argument_type;
+>     typedef Result result_type;
+> };
+> 
+> template <class T>
+> struct identity:public unary_function<T,T>  {  //继承了奇怪的类
+>     const T&
+>     operator()  (const T& x)  const  {return x;  }  //重载了()
+> };
+> 
+> template <class Pair>
+> struct select1st:public unary_function<Pair, typename Pair::first_type>  {
+>     const typename Pair::first_type&
+>     operator() (const Pair& x)  const
+>     {  return x.first;  }
+> };
+> template <class Pair>
+> struct select2nd:public unary_function<Pair, typename Pair::second_type> {
+>     const typename Pair::second_type &
+>     operator()(const Pair &x) const { return x.second; }
+> };
+> template <class T1,class T2>
+> struct pair  {
+>     T1 first;
+>     T2 second;
+>     pair():first(T1()),second(T2())  { }
+>     pair(const T1& a,const T2& b)
+>             :  first(a), second(b)  { }
+> };
+> ```
+
+## namespace 经验谈
+
+要养成使用命名空间的习惯。
+
+## class template 类模板
+
+将可以提供外界控制的类型名抽出来，然后制作模板
+
+```c++
+template<typename T>
+class complex
+{
+public:
+    complex(T r = 0,T i = 0)
+    : re(r),im(i)
+    {}
+    complex& operator += (const complex&);
+    T real () const {return re;}
+    T imag () const {return im;}
+private:
+    T re,im;
+    friend complex& __doapl(complex*,const complex&);
+};
+
+{
+    complex<double>c1(1.4,3.2);
+    complex<int>c2(2,4);
+}
+```
+
+## Function template 函数模板 
+
+同理
+
+```c++
+template<class T>
+inline
+const T& min(const T& a , const T& b)
+{
+    return b < a ? b : a;
+}
+class stone
+{
+public:
+    stone(int w, int h,int we)
+        : _W(w),_H(h),_WE(we)
+        {}
+    bool operator< (const stone& rhs) const
+    {
+        return _WE < rhs._WE;
+    }
+private:
+    int _W;
+    int _H;
+    int _WE;
+}
+
+
+//编译器会对Function template进行实参推导argument deduction。 
+stone r1(2,4),r2(3,4),r3;
+r3 = min(r1,r2)
+```
+
+## Member template 成员模板
+
+```c++
+template<class T1,class T2>
+class Pair {
+public:
+    T1 first;
+    T2 second;
+    //普通构造
+    Pair() :first(T1()), second(T2()) {}
+    Pair(const T1& a,const T2& b):first(a),second(b){}
+    //成员模板
+    template<class U1,class U2>
+    Pair(const Pair<U1, U2>& p) : first(p.first),second(p.second) {}
+
+};
+//Base1理解为鱼类
+class Base1 {};
+//derived1理解为鲫鱼
+class derived1 :public Base1 {};
+//Base2理解为鸟类
+class Base2 {};
+//derived2理解为麻雀
+class derived2 :public Base2 {};
+```
+
+Q: 将一个由鲫鱼和麻雀构成的pair，放进一个由鸟类和鱼类构成的pair中，可行吗？
+
+A: 可以，反之不行。为满足这种需求，设计pair的人，需要特殊设计，
+
+```c++
+template<class U1,class U2>
+    Pair(const Pair<U1, U2>& p) : first(p.first),second(p.second) {}
+```
+
+将初值的头尾放入当做本身的头尾。可以通过。
+
+**标准库的构造函数 大量使用这种手法，为了使构造函数更有弹性**
+
+### 成员模板与智能指针
+
+将成员模板引申到前面所讲的智能指针，即可实现父类指针指向子类对象的效果。
+
+因为普通的指针都可以指向自己子类的对象`up-cast`，那么作为这个指针的封装（智能指针），那必须能够指向子类对象。所以，可以模板T1就是父类类型，U1就是子类类型。实现如下：
+
+```c++
+template<class T>
+class shared_ptr {
+public:
+    T& operator*() const {
+        return *px;
+    }
+    T* operator->() const {
+        return px;
+    }
+    shared_ptr(T* p):px(p) {}
+    //成员模板
+    template<class U>
+    explicit shared_ptr(U* p) : px(p) {}
+private:
+    T* px;
+};
+//测试类，将其对象指针包装成shared_ptr智能指针
+class Test {
+public:
+    virtual void mytest() {
+        printf("testing...\n");
+    }
+};
+class Test2 :public Test {
+    void mytest() {
+        printf("testing2...\n");
+    }
+}; 
+
+//
+Test2 t2;
+shared_ptr<Test> ptr(&t2); //实际上里面的成员属性px是Test类型的，但是保存的却是Test2类型数据
+ptr->mytest();  //输出testing2..
+```
+
