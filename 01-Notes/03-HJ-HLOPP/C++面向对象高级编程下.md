@@ -509,3 +509,309 @@ shared_ptr<Test> ptr(&t2); //实际上里面的成员属性px是Test类型的，
 ptr->mytest();  //输出testing2..
 ```
 
+## specialization 模板特化
+
+模板特化和泛化是反义的。我们使用的普通模板化指模板泛化，
+
+而特化就是指在泛化的基础上，有一些特殊的类型做特殊处理，例如： 
+
+```c++
+//这个是Hash类的泛化定义
+using namespace std;
+template<class T>
+class Hash {
+public:
+    size_t operator()(T in)const {
+        cout << "Template:"<<in << endl;
+        return in;
+    }
+};
+//这个是Hash类对于int类型的特化定义
+template<>//这个东西因为被绑定，所以不用写class了
+class Hash<int> {
+public:
+    void operator()(int in)const {// 每个特化都对()做重载
+        cout << "Int:"<<in<< endl;
+    }
+};
+//这个是Hash类对于Double类型的特化定义
+template<>
+class Hash<double> {
+public:
+    void operator()(double in)const {
+        cout << "Double:" << in << endl;
+    }
+};
+```
+
+调用：
+
+```c++
+#include <iostream>
+#include "head.h"
+using namespace std;
+int main() {
+    Hash<int> hash_int;
+    hash_int(50);
+//double类型调用的是double类型的特化
+    Hash<double> hash_db;
+    hash_db(88.8);
+//float类型调用的是泛化情况下的构造方法
+    Hash<float> hash_fl;
+    hash_fl(77.7);
+
+    cout<< Hash<long>()(1000)<<endl; // Hash<long>()这是一个临时对象 () 启动operator()
+    return 0;
+}
+
+
+Int:50
+Double:88.8
+Template:77.7
+Template:1000
+1000
+```
+
+
+
+## partial special 模板偏特化
+
+- 个数上偏
+
+```c++
+template<typename T,typename Alloc=...>//vector 可以指定 类型以及分配器
+class vector{
+  ...  
+};
+//绑定
+template<typename Alloc=...>
+class vector<bool,Alloc>{
+    ...
+}
+```
+
+- 范围上偏
+
+从任意类型缩小到指针
+
+```c++
+template<typename T>
+class C
+{
+    ...
+};
+
+template<typename T>
+class C<T*> // 如果使用者使用的是指针，就使用这一套代码
+{
+    ...
+};
+//上下两个T完全没有关系，可以换名字
+template<typename U>
+class C<U*>
+{
+    ...
+};
+
+//
+C<string> obj1;
+C<string*> obj2;
+```
+
+
+
+
+
+
+
+
+
+> 偏特化是在全特化的基础上发展来的，全特化就是上面所述的例子，只有一个泛化类型T。而偏特化就是指有多个泛化类型，例如：
+>
+> ```
+> //多类型模板泛化
+> template<class T1,class T2,class T3>
+> class Hash2 {
+> public:
+>     void operator()(T1 in1,T2 in2,T3 in3)const {
+>         cout <<"泛化"<< endl;
+>     }
+> };
+> //前两个固定为int和double，偏泛化
+> template<class T3>
+> class Hash2<int,double, T3> {
+> public:
+>     void operator()(int in1,double in2,T3 in3)const {
+>         cout << "偏特化"<<endl;
+>     }
+> };
+> ```
+>
+> 调用：
+>
+> ```
+> //泛化
+> Hash2<float, double, float> hash_fdf;
+> hash_fdf(5.0, 6.6, 7.7); //输出 泛化
+> //偏特化
+> Hash2<int,double,float> hash_idf;
+> hash_idf(5,6.6,7.7); //输出 偏泛化
+> ```
+>
+> **范围上的偏**
+>
+> 本来是全泛化，假设为template<class T>，我们想单独拿出任意类型的指针来偏特化。
+>
+> ```
+> template<class T>
+> class  A {
+> public:
+>     void operator()(T t)const {
+>         cout << "泛化" << endl;
+>     }
+> };
+> 
+> template<class T>
+> class A<T*> {
+> public:
+>     void operator()(T* tp)const {
+>         cout << "范围偏特化" << endl;
+>     }
+> };
+> ```
+>
+> 调用：
+>
+> ```
+> int num = 5;
+> int *p_num = &num;
+> A<int> a1;
+> A<int*> a2;
+> a1(num);    //输出泛化
+> a2(p_num);    //输出范围偏特化
+> ```
+
+
+
+## 模板模板参数 template template parameter  
+
+模板参数本身也是模板
+
+```c++
+#include<list>
+template<typename T,
+        template<typename T> //这里会报错，侯捷老师这边这样讲没问题，是实际操作时候不能同名
+        /*
+         *The rule clang is using to block it is: C++ 2011 [temp.local] Paragraph 6: A template-parameter shall not be redeclared within its scope (including nested scopes). A template- parameter shall not have the same name as the template name. This can be found in the clang source code within the Sema::DiagnoseTemplateParameterShadow method. – 
+Bill Lynch
+ Jan 2, 2014 at 2:04 
+        */
+            class Container
+          >
+class XCLS{
+private:
+    Container<T>c;
+public:
+
+};
+
+template<typename T>
+using Lst = std::list<T,std::allocator<T>>;
+
+//
+XCls<string,list>mylist1;//error list 本身是个模板，里面类型和分配器都未定。不能直接这样使用
+XCLs<string,Lst> mylist2;//ok
+```
+
+PS：只有在template<>的尖括号里面，`class`和`typename`是共通的。这是因为最初没有`typename`关键词，借用的`class` 。属于历史问题。
+
+### 另一种情况 - 传smartPtr
+
+smartPtr里面shared_ptr和auto_ptr接受一个参数
+
+![image-20220804105513770](C++面向对象高级编程下.assets/image-20220804105513770.png)
+
+### 这不是template template parameter
+
+```c++
+template<class T,class Sequence = deque<T>>
+class stack{
+	friend bool operator == <> (const stack&,cosnt stack&);
+	friend bool operator < <> (const stack&,cosnt stack&);
+protected:
+	Sequence c;
+}
+//
+stack<int>s1; // 由于第二个有默认值，只指定第一个模板参数
+stack<int,list<int>> s2;//这个第二个参数已经写死，不再是模板参数。
+```
+
+
+
+>模板的参数就是指template<typename T>中的T，他可以是任意类型。
+>
+>但是当T也是一个模板时，就叫模板的模板参数。
+>
+>```
+>template<class T>
+>class Test{};
+>
+>template<typename T,template<typename CT> class C>
+>class XC {
+>
+>private:
+>    //C可以是List,该list需要一个模板参数CT,可以是任何类型，这里使用T的类型
+>    C<T> c;
+>};
+>```
+>
+>调用：
+>
+>```
+>//实际上xc中的c的类型为Test<int>
+>XC<int, Test> xc;
+>```
+>
+>当然，像vector等类型拥有多于1个的模板参数，所以以上代码中的C不能是vector。如果要实现vector作为XC的第二个模板，那么需要指明vector的两个模板参数：
+>
+>```
+>template<class T>
+>class Test{};
+>
+>template< class T1,class T2, template<class CT1, class CT2>  class C>
+>class XC {
+>
+>private:
+>    //C可以是List,该list需要一个模板参数CT,可以是任何类型，这里使用T的类型
+>    C<T1,T2> c;
+>};
+>```
+>
+>调用：
+>
+>```
+>//实际上xc中的c的类型为vector<int,std::allocator<int>>
+>XC<int, std::allocator<int>,vector> xc;
+>```
+>
+> **模板的模板参数，还需要和另一种形式区分开：**
+>
+>```
+>template<class T, class Sequence = deque<T>> //这种不是模板的模板参数
+>```
+>
+>Sequence的默认值deque<T>实际上已经指明了Sequence的类型时deque，只是因为deque还有一个模板参数而已。
+>
+>它和上面讲的不一样，上面讲的 template<class CT1, class CT2> class C，相当于Sequence<T>，Sequence和T都是待指定的模板参数。所以还是有本质区别的。
+
+
+
+## 关于C++标准库
+
+![image-20220804110313076](C++面向对象高级编程下.assets/image-20220804110313076.png)
+
+![image-20220804110847806](C++面向对象高级编程下.assets/image-20220804110847806.png)
+
+
+
+## 三个主题
