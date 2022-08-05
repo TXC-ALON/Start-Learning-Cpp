@@ -2,7 +2,7 @@
 
 ## 导读
 
- 本课程包括模板等等，不仅仅是面向对象。所以叫这个名字、
+ 本课程包括模板等等，不仅仅是面向对象。所以叫这个名字
 
 **勿在浮沙筑高台**
 
@@ -17,6 +17,12 @@
 
 - 编译 `compile`
 - 链接 `link`
+
+
+
+发现一个很好的博客   https://www.cnblogs.com/leokale-zz/p/11090627.html
+
+
 
 
 
@@ -815,3 +821,191 @@ stack<int,list<int>> s2;//这个第二个参数已经写死，不再是模板参
 
 
 ## 三个主题
+
+### Variadic templates(since C++11) 模板参数可变化
+
+variadic 是生造出来的一个单词。
+
+新的语法允许你写任意个数的模板参数。
+
+递归拆包。 
+
+ ```c++
+ //用于当args...里没有参数的时候调用，避免报错
+ void leo_print() {
+     //Do Nothing
+ }
+ 
+ //数量不定模板参数
+ template<class T, class ... Types>// 一包，用...表示
+ void leo_print(const T& firstArg, const Types& ... args)
+ {
+     cout << firstArg << endl;
+     //递归调用leo_print，每次打印下一个参数
+     //自动将args...里的多个参数分为1+n个
+     leo_print(args...);
+ }
+ //
+ leo_print(64, 5.5, "gogogo", 90, bitset<16>(377);
+ ```
+
+注：这里递归调用，包里面的参数都已经有了<<重载。
+
+ 可以使用`sizeof...(args)`来抓住这一包几个。
+
+标准库用这个语法大量返修过了。
+
+
+
+### auto（since C++11)
+
+auto关键字的作用在于，让编译器自动帮你推导需要的类型。这是一个语法糖，仅仅是让写代码更加方便。
+
+例如：
+
+```
+list<int> c;
+c.push_back(11);
+c.push_back(22);
+c.push_back(33);
+    
+//普通写法，自定指定类型
+list<int>::iterator ite;
+ite = find(c.begin(), c.end(), 33);
+//auto写法，编译器从右边的find返回值推导其变量类型
+auto ite = find(c.begin(), c.end(), string("leo"));
+//错误写法
+auto ite; //光从这句话，编译器没法推导他的类型
+ite = find(c.begin(), c.end(), string("hello3"));
+```
+
+###  基于range的循环
+
+```
+list<int> c;
+c.push_back(11);
+c.push_back(22);
+c.push_back(33);
+//遍历一个容器里的元素    
+for (int i : c) {
+    cout << i << endl;
+}
+//除了遍历传统的容器，还能遍历{...}形式的数据
+//{}中的数据要和i的类型符合
+for (int i : {1,2,3,4,5,6,7,8,9,10}){
+    cout << i << endl;
+}    
+//使用auto自己推导遍历元素的类型
+for (auto i : c)
+{        
+    cout << i <<endl;
+}    
+```
+
+上面过程，遍历到的数据都是拷贝给“i”的，不会影响容器中的数据。
+
+可以通过传引用改变容器中的数据。
+
+```
+//pass by reference，直接作用于容器元素本身
+for (auto& i : c) {
+    i *= 3;
+}
+```
+
+
+
+
+
+## Reference 再探引用
+
+##  ![img](C++面向对象高级编程下.assets/1244144-20190627021704182-655246197.png)
+
+```c++
+int x = 0;
+int *p = &x;
+int &r = x;
+int x2 = 5;
+r = x2;
+int &r2 = r; 
+```
+
+
+
+1.x是一个int类型的变量，大小为4bytes。
+
+2.p是一个指针变量，保存的是x的地址，在32bit计算机中，指针的大小为4bytes。
+
+3.r是x的引用，可以认为r就是x，x就是r，
+
+> 引用就是一个编译器增加了严格限制的const指针，单纯用c++代码看引用的地址是和变量相同，但是用汇编代码看，是会把变量地址放入引用中，因此从内存角度来说，引用是和指针一样的。
+>
+> https://zhuanlan.zhihu.com/p/89175296  
+
+4.当r=x2时，相当于也是x=x2。
+
+5.r2是r的引用，也即是x的引用。现在r、r2、x都是一体。
+
+6.使用sizeof()来看引用r和变量x的大小，返回的数值是一样的。
+
+```c++
+	int a = 4;
+    int* o = &a;
+    int& b = a;
+    double m[5] = {1,2,5,6,4};
+    double* p = m;
+    double(&t)[5] = m;
+    cout << sizeof(a) << endl;
+    cout << sizeof(o) << endl;
+    cout << sizeof(b) << endl;
+    cout << "----------" << endl;
+    cout << sizeof(m) << endl;
+    cout << sizeof(p) << endl;
+    cout << sizeof(*p) << endl;
+    cout << sizeof(t) << endl;
+    cout << t[3] << endl;
+/* 
+32位系统
+4
+4
+4
+----------
+40
+4
+8
+40
+6
+*/
+```
+
+
+
+7.对引用r和变量x取地址，返回的地址也都是一样的。
+
+### 对引用的几个认识
+
+从实现的角度来看，引用的底层都是通过指针来实现的。但是从逻辑的角度来看，引用又不是指针，我们看到引用，就要像看到变量本身一样，例如一个int类型变量，其引用也应该看成整数。
+
+**引用就是一个变量的别名，引用就是那个变量。**引用一旦创建，就不能再代表其他变量了。如果此时再将某个变量赋值给这个引用，相当于赋值给引用代表的变量。参照前面第4点。
+
+**所以，对引用最好的理解方式，就是认为引用就是变量，不用关心为什么，编译器给我们制造了一个假象，就像一个人有大名和小名一样。你对引用做的任何操作，就相当于对变量本身做操作。**
+
+### 引用的常见用途
+
+引用多用在参数传递和返回类型上，从写法上来说，传引用也更优美。
+
+![image-20220805174123253](C++面向对象高级编程下.assets/image-20220805174123253.png)
+
+### 引用不能重载
+
+```
+double imag(const double& im){}
+double imag(const double im){}
+```
+
+上述两句代码不能并存，因为他们的签名（signature）是相同的，signature就是[ imag(const double im) ----- ]这一段，‘----’表示可能存在的const关键字等。（const是作为签名的一部分的）
+
+为什么不能并存，因为这两个函数虽然传参数的方式不同，一个传引用，一个传值。但**对于调用**来说，是一样的imag(im)，这样对于编译器来说，它不知道该调用哪一个，所以不能并存（重载）。
+
+
+
