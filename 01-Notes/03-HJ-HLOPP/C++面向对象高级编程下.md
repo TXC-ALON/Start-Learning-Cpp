@@ -909,11 +909,9 @@ for (auto& i : c) {
 
 
 
-
-
 ## Reference 再探引用
 
-##  ![img](C++面向对象高级编程下.assets/1244144-20190627021704182-655246197.png)
+ ![img](C++面向对象高级编程下.assets/1244144-20190627021704182-655246197.png)
 
 ```c++
 int x = 0;
@@ -1079,6 +1077,289 @@ double imag(const double im){} //AmbiguityS
 
 ![img](C++面向对象高级编程下.assets/1244144-20190627035203775-1861052767.png)
 
-如上图所示，我们使用子类对象myDoc来调用OnFileOpen()。OnFileOpen()函数是父类的非虚函数，但是myDoc的指针会被编译器以隐式的方式传入OnFileOpen()，这个指针就是this指针，OnFileOpen()函数中的步骤运行到需要调用Serialize()函数时，因为Serialize()函数是一个虚函数，并且子类CMyDoc对其进行了override，所以编译器去调用Serialize()时，是使用的this->Serialize()。
+如上图所示，我们使用子类对象myDoc来调用父类的函数  OnFileOpen()。OnFileOpen()函数是父类的非虚函数，但是myDoc的指针会被编译器以隐式的方式传入OnFileOpen()，这 个指针就是this指针，OnFileOpen()函数中的步骤运行到需要调用Serialize()函数时，因为Serialize()函数是一个虚函数，并且子类CMyDoc对其进行了override，所以编译器去调用Serialize()时，是使用的this->Serialize()。
 
 注意图中左上角的红框，this指针指向的是myDoc对象，该对象里有虚指针，虚指针指向的虚表中有属于CMyDoc子类的Serialize()虚函数。所以最终调用的是子类的Serialize()。
+
+
+
+
+
+## 对象模型 - 关于动态绑定
+
+**静态绑定：**
+
+![img](C++面向对象高级编程下.assets/1244144-20190627224121106-2038596215.png)
+
+如上图所示，对象b被强转为A类对象，那么由a来调用vfunc1()就是静态绑定，因为它不满足动态绑定的三个条件（见十六节）的第一个，需要由指针来调用虚函数，并且指针是父类指针。
+
+> **什么时候编译器使用动态绑定，三个条件（也是多态的条件）：**
+>
+> 1.函数由指针调用。
+>
+> 2.指针向上转型（up cast），父类指针指向子类对象。
+>
+> 3.调用的是虚函数
+
+图右边的紫色是编译器注释以及候老师的注释，说明调用的是A类的A::vfunc1()虚函数，使用的是**call xxx的静态绑定**形式。
+
+**动态绑定：**
+
+![img](C++面向对象高级编程下.assets/1244144-20190627224724227-228772244.png)
+
+如图所示，pa为A类指针，指向新new出来的B类对象，满足第一个条件：是指针，满足第二个条件：向上转型。然后使用pa调用vfunc1()，满足第三个条件：调用虚函数。所以是动态绑定。
+
+call 不再是固定地址，而是右边红色部分。
+
+取对象b的地址，并赋值给指针pa，b是类B的对象，而pa是A类的指针，所以满足前两个条件：指针以及向上转型。然后再使用pa指针调用vfunc1()，满足第三个条件：调用虚函数。所以也是使用的动态绑定。
+
+
+
+## 谈谈const
+
+const的使用情况：
+
+**1.放在成员函数的小括号之后，函数本体的前面：**例如int test() const { return this->img; }
+
+这种情况下，const表示这个成员函数保证不去修改类的成员变量，只做访问等操作。
+
+注意：这个位置加const，只发生在类的成员函数上，**全局函数不能加const**。（因为这个const保证不修改数据，是有保证对象的，保证的对象就是该类的一个常量对象，即使用const修饰的该类对象，见后续说明）。
+
+**2.放在变量的前面：例如const A a;**
+
+这种情况下，const表示修饰的变量（基础变量或对象等）是不能修改的（如果是对象，就不能修改他内部的成员变量）。
+
+**以上两种情况就可以搭配起来使用：**
+
+![img](C++面向对象高级编程下.assets/1244144-20190627230227545-419434940.png)
+
+分为四种情况：
+
+**①.对象是const，成员函数也是const，能够完美搭配。**因为对象是不能修改的，而该函数又保证不修改数据，一拍即合。
+
+**②.对象是non-const，成员函数是const。也是能够配合的。**因为对象可以接受修改，也可以接受不修改，而函数保证不修改，没毛病。
+
+**③.对象是const，成员函数是non-const，不能搭配。**因为对象不允许修改数据，但是函数不保证，无法协调。
+
+**④.对象是non-const，成员函数也是non-const，能搭配。**因为对象不限制修改数据，函数也不保证，那就随便吧。
+
+ **想要记住也很简单， 就是non-const对象可以适配const函数， 但是const对象比较专一，只能适配const函数。**
+
+**const是属于函数签名的一部分。**
+
+
+
+> 字符串拷贝在底层是通过 “共享” reference counting 。 所以如果要改变被共享的字符串，如abcd共享，那么要改a，那么就把a单独拷贝一份给他去改，其余接着共享。
+>
+> 当共享发生改写，就需要**COW** Copy on Write
+>
+> 常量字符串，不能做改写，不能也不必考虑cow。
+>
+> 那么为了区分，函数后面就可以加上const。就可以区分。
+
+
+
+当成员函数的const和non-const版本同时存在，const object只能使用const版本，non-const object 只能使用non-const版本。
+
+
+
+**侯老师经验：**在设计类的时候，考虑一共要设计几个函数，每个函数叫什么名字的时候，心里就应该知道那些函数是绝对不会修改数据的，那么这些函数就必须加上const。否者，如果其他人使用你设计的类，定义了一个const类型的对象，却因为你没有指明const关键字而无法调用一个可能名为print的输出函数（输出函数肯定不用修改数据，只是做访问和打印而已）。
+
+换句话说，你自己究竟有没有完全掌握这个类的设计，知道哪些该动，哪些不该动。
+
+
+
+## 关于 new，delete
+
+**new分解为三步：**
+
+1.分配内存（底层是malloc(size)，内存大小为sizeof(class_name)）
+
+2.转换内存指针的类型为class_name*，原本为void*
+
+3.用该指针调用构造函数，p->Foo::Foo();
+
+**delete分解为两步：**
+
+1.使用传入的指针调用析构函数p->~Foo();
+
+2.释放对象占用的内存空间（底层是free()）
+
+### 重载全局的new/delete
+
+**我们可以重载全局的new和delete（但一定要小心，影响很大）以进行一些内存管理的设计：**
+
+![img](C++面向对象高级编程下.assets/1244144-20190628002249457-464882535.png)
+
+
+
+有关new ，一定要有一个参数，即大小size。 
+
+有关delete，得给他一个指针。
+
+###  重载类成员的new/delete
+
+**我们也可以重载类成员new和delete（只影响该类）：**![img](C++面向对象高级编程下.assets/1244144-20190628002526419-1282850206.png)
+
+![img](C++面向对象高级编程下.assets/1244144-20190628002545503-77823884.png)
+
+一般重载成员new和delete，主要是做内存池。
+
+**重载成员Array new和Array delete：**
+
+![img](C++面向对象高级编程下.assets/1244144-20190628003755480-28483806.png)
+
+注意：array new的时候，分配的内存大小为sizeof(Foo)*N + 4，这里的4个byte，只在N个Foo对象内存的前面，有一个int类型的数，里面的值为N，用于标记有几个Foo对象。如下图：
+
+![img](C++面向对象高级编程下.assets/1244144-20190628005847217-678916611.png)
+
+红框处就是一个int所占用的空间，里面的值为N（假设N=5），一个Foo对象为12bytes，那么总共分配内存大小为12*5+4=64。
+
+
+
+![image-20220809164358948](C++面向对象高级编程下.assets/image-20220809164358948.png)
+
+为了不然程序崩掉，重载的new和delete需要真正的去分配内存和释放内存，底层采用的是malloc和free。如果不想使用已重载的new和delete，可以使用`::new class_name`;来强制使用全局new，`::delete pf`;强制使用全局delete。
+
+
+
+
+
+### 示例代码
+
+```c++
+//head
+#include<string>
+using namespace std;
+class Foo
+{
+public:
+    int _id;//4
+    long _data;//4
+    string _str;//28
+
+public:
+    Foo() : _id(0) {cout<<"default ctor.this = "<<this<<" id="<<_id<<endl;}
+    Foo(int i) : _id(i) {cout<<"default ctor.this = "<<this<<" id="<<_id<<endl;}
+
+    //virtual
+    ~Foo(){cout<<"dtor.this = "<<this<<" id="<<_id<<endl;}
+    static void* operator new(size_t size);
+    static void operator delete(void* pdead, size_t size);
+    static void* operator new[](size_t size);
+    static void operator delete[] (void* pdead, size_t size);
+};
+
+void *Foo::operator new(size_t size) {
+    Foo *p = (Foo*)malloc(size);
+    cout<<"ctor.this = "<<p<<" id="<<p->_id<<endl;
+    return p;
+}
+
+void Foo::operator delete(void *pdead, size_t size) {
+    cout<<"dtor.this = "<<pdead<<endl;
+    free(pdead);
+}
+
+void *Foo::operator new[](size_t size) {
+    Foo *p = (Foo*)malloc(size);
+    cout<<"[]ctor.this = "<<p<<" id="<<p->_id<<endl;
+    return p;
+}
+
+void Foo::operator delete[](void *pdead, size_t size) {
+    cout<<"[]dtor.this = "<<pdead<<endl;
+    free(pdead);
+}
+
+```
+
+
+
+```c++
+#include <iostream>
+#include "head.h"
+using namespace std;
+int main() {
+//    Foo* pf = new Foo;
+//    cout << "sizeof(pf) = " << sizeof(pf) << endl;
+//    cout << "sizeof(pf) = " << sizeof(*pf) << endl;
+//    delete pf;
+//    cout<<endl;
+//    Foo *pg = ::new Foo;
+//    ::delete pg;
+    Foo* pa = new Foo[5];
+    cout << "sizeof(pa) = " << sizeof(*pa) << endl;
+    cout << "sizeof(Foo[5]) = " << sizeof(Foo[5]) << endl;
+    delete pa;
+    return 0;
+}
+```
+
+
+
+这边的运行结果我感觉有些疑惑诶。
+
+#todo
+
+linux下
+
+![image-20220809172542285](C++面向对象高级编程下.assets/image-20220809172542285.png)
+
+clion下
+
+![image-20220809172507716](C++面向对象高级编程下.assets/image-20220809172507716.png)
+
+vs
+
+![image-20220809172813320](C++面向对象高级编程下.assets/image-20220809172813320.png)
+
+可以看到不同的编译工具，大小不一，另外析构函数崩了。
+
+这部分涉及到内存管理了。留待后面进行分析吧。
+
+### 解析
+
+目前可知的是，
+
+对于int long string
+
+linux  4,8,32
+
+clion 64位，4,4,32
+
+vs 32位 4,4,28
+
+> ![image-20220809173533065](C++面向对象高级编程下.assets/image-20220809173533065.png)
+>
+> 28 32 36 40 都是可行的。
+>
+> 版权声明：本文为CSDN博主「树叶上的蜗牛」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/sols000/article/details/103989637
+
+靠，没用正确的delete重载。
+
+太菜了。
+
+```c++
+//使用的delete[] pa;
+
+sizeof(int) = 4
+sizeof(long) = 4
+sizeof(string) = 32
+[]ctor.this = 0x2bf696e6820 id=1768845728
+default ctor.this = 0x2bf696e6828 id=0
+default ctor.this = 0x2bf696e6850 id=0
+default ctor.this = 0x2bf696e6878 id=0
+default ctor.this = 0x2bf696e68a0 id=0
+default ctor.this = 0x2bf696e68c8 id=0
+sizeof(pa) = 40
+sizeof(Foo[5]) = 200
+dtor.this = 0x2bf696e68c8 id=0
+dtor.this = 0x2bf696e68a0 id=0
+dtor.this = 0x2bf696e6878 id=0
+dtor.this = 0x2bf696e6850 id=0
+dtor.this = 0x2bf696e6828 id=0
+[]dtor.this = 0x2bf696e6820
+```
+
