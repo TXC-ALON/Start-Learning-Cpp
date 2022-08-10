@@ -60,9 +60,9 @@ double d = 4 + f;
 
 首先看有没有配套的重载，结果没有写。
 
-然后看有没有合适的转换，使f是double。
+然后看有没有合适的转换，使f是`double`。
 
-**注：分子分母都需要进行强制转换为double，并不是简单括起来就可以了，编辑环境不管是clion，vstudio，还是linux环境，不进行强制转换，结果都是整数而非分数。**
+**注：分子分母都需要进行强制转换为`double`，并不是简单括起来就可以了，编辑环境不管是clion，vs studio，还是linux环境，不进行强制转换，结果都是整数而非分数。**
 
 #### non-explicit-one-argument ctor
 
@@ -109,7 +109,7 @@ Fraction dvi = f + 4 ;
 cout << dvi << endl; //输出3/22
 ```
 
-如果转换和cxoa-ctor并存，会有问题。
+如果转换和单参数构造函数并存，会有问题。
 
 ```c++
 class Fraction {
@@ -171,9 +171,9 @@ cout << dvi << endl;
 
 
 
-### explict-one-argument ctor
+### explicit-one-argument ctor
 
-explicit关键字意为“明确的”。很大几率用在构造函数前面，指明该构造函数只做构造函数使用，让编译器不要自动去调用它。
+`explicit`关键字意为“明确的”。很大几率用在构造函数前面，指明该构造函数只做构造函数使用，让编译器不要自动去调用它。
 
 ```c++
 class Fraction {
@@ -209,7 +209,7 @@ inline ostream& operator<<(ostream& os,const Fraction& f) {
 }
 ```
 
-在构造函数前使用了explicit关键字，也就相当于把前面例子里编译器面对的两条路减少为一条，这就没有冲突了。程序就能正确运行，但只能将f转换为double进行运算。
+在构造函数前使用了`explicit`关键字，也就相当于把前面例子里编译器面对的两条路减少为一条，这就没有冲突了。程序就能正确运行，但只能将f转换为double进行运算。
 
 ```c++
 Fraction f(10, 3);
@@ -218,13 +218,13 @@ double dvi = f + 4 ;
 cout << dvi << endl;  //输出7.3333
 ```
 
-**总结：**explicit很少使用，90%的几率都使用在构造函数之前，还有模板里很小一部分会用到。用作控制编译器的自动行为，减少从中带来的莫名错误。
+**总结：**`explicit`很少使用，90%的几率都使用在构造函数之前，还有模板里很小一部分会用到。用作控制编译器的自动行为，减少从中带来的莫名错误。
 
 
 
 ## Pointer-like class
 
-Pointer-like class 即做出来的对象，像一个指针。例如智能指针就是其中一种。在这种类中，一定包含一个普通的指针。基本都会包括`.` `->`的重载。
+`Pointer-like class `即做出来的对象，像一个指针。例如智能指针就是其中一种。在这种类中，一定包含一个普通的指针。基本都会包括`.` `->`的重载。
 
 ### 智能指针 
 
@@ -263,22 +263,22 @@ ptr->mytest();
 
 ### 迭代器
 
-迭代器类型的Pointer-like和智能指针的Pointer-like有一定的区别。
+迭代器类型的`Pointer-like`和智能指针的`Pointer-like`有一定的区别。
 
 作为迭代器，他将一个对象（结构体或类产生的对象）的指针包装为一个迭代器（类指针对象），例如链表的某个节点指针，这样，在他的内部重载多个操作符，比如“*”、“->”、“++”、“--”、“==”、“!=”等，分别对应链表节点之间的取值、调用、右移、左移、判断等于、判断不等于。
 链表的基本结构图：
 
-![img](C++面向对象高级编程下.assets/1244144-20190626190908080-1756617049.png)
+![image-20220810153106063](C++面向对象高级编程下.assets/image-20220810153106063.png)
 
  迭代器中“*”和“->”的重载：
 
-![img](C++面向对象高级编程下.assets/1244144-20190626191004817-1295883612.png)
+![image-20220810153124215](C++面向对象高级编程下.assets/image-20220810153124215.png)
 
 图中所示，迭代器中的“*”，返回的是某个node中的data，而不是这个node（这些实现都是根据用户需求来实现）。
 
 `迭代器中的“->”返回的是data的指针，因为operator*()就是调用“*”的重载函数，返回data数据，前面再使用“&”来取地址，则就是data的指针。从而可以达到使用“->”来完成data->func_name()的目的。`
 
-![image-20220802174348439](C++面向对象高级编程下.assets/image-20220802174348439.png)
+![image-20220810153141186](C++面向对象高级编程下.assets/image-20220810153141186.png)
 
 举一反三，其他的符号重载也是根据用户需求来做相应的操作。
 
@@ -727,11 +727,11 @@ PS：只有在template<>的尖括号里面，`class`和`typename`是共通的。
 
 ### 另一种情况 - 传smartPtr
 
-smartPtr里面shared_ptr和auto_ptr接受一个参数
+`smartPtr`里面`shared_ptr`和`auto_ptr`接受一个参数
 
 ![image-20220804105513770](C++面向对象高级编程下.assets/image-20220804105513770.png)
 
-### 这不是template template parameter
+### 这种不是template template parameter
 
 ```c++
 template<class T,class Sequence = deque<T>>
@@ -818,7 +818,7 @@ stack<int,list<int>> s2;//这个第二个参数已经写死，不再是模板参
 
 ### Variadic templates(since C++11) 模板参数可变化
 
-variadic 是生造出来的一个单词。
+`variadic` 是生造出来的一个单词。
 
 新的语法允许你写任意个数的模板参数。
 
@@ -853,7 +853,7 @@ variadic 是生造出来的一个单词。
 
 ### auto（since C++11)
 
-auto关键字的作用在于，让编译器自动帮你推导需要的类型。这是一个语法糖，仅仅是让写代码更加方便。
+`auto`关键字的作用在于，让编译器自动帮你推导需要的类型。这是一个语法糖，仅仅是让写代码更加方便。
 
 例如：
 
@@ -911,7 +911,7 @@ for (auto& i : c) {
 
 ## Reference 再探引用
 
- ![img](C++面向对象高级编程下.assets/1244144-20190627021704182-655246197.png)
+![image-20220810153225658](C++面向对象高级编程下.assets/image-20220810153225658.png)
 
 ```c++
 int x = 0;
@@ -1025,7 +1025,7 @@ double imag(const double im){} //AmbiguityS
 
 ## 对象模型 - 关于虚指针Vptr和虚表Vtbl
 
-![img](C++面向对象高级编程下.assets/1244144-20190627025914624-145489017.png)
+![image-20220810153251941](C++面向对象高级编程下.assets/image-20220810153251941.png)
 
 图中最右边是A,B,C三个类的继承关系。
 
@@ -1075,7 +1075,7 @@ double imag(const double im){} //AmbiguityS
 
 **什么是this指针：**通过一个对象来调用成员函数，那个对象的地址就是this指针，就是这么简单。
 
-![img](C++面向对象高级编程下.assets/1244144-20190627035203775-1861052767.png)
+![image-20220810153332798](C++面向对象高级编程下.assets/image-20220810153332798.png)
 
 如上图所示，我们使用子类对象myDoc来调用父类的函数  OnFileOpen()。OnFileOpen()函数是父类的非虚函数，但是myDoc的指针会被编译器以隐式的方式传入OnFileOpen()，这 个指针就是this指针，OnFileOpen()函数中的步骤运行到需要调用Serialize()函数时，因为Serialize()函数是一个虚函数，并且子类CMyDoc对其进行了override，所以编译器去调用Serialize()时，是使用的this->Serialize()。
 
@@ -1089,7 +1089,7 @@ double imag(const double im){} //AmbiguityS
 
 **静态绑定：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190627224121106-2038596215.png)
+![image-20220810153358960](C++面向对象高级编程下.assets/image-20220810153358960.png)
 
 如上图所示，对象b被强转为A类对象，那么由a来调用vfunc1()就是静态绑定，因为它不满足动态绑定的三个条件（见十六节）的第一个，需要由指针来调用虚函数，并且指针是父类指针。
 
@@ -1105,7 +1105,7 @@ double imag(const double im){} //AmbiguityS
 
 **动态绑定：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190627224724227-228772244.png)
+![image-20220810153417812](C++面向对象高级编程下.assets/image-20220810153417812.png)
 
 如图所示，pa为A类指针，指向新new出来的B类对象，满足第一个条件：是指针，满足第二个条件：向上转型。然后使用pa调用vfunc1()，满足第三个条件：调用虚函数。所以是动态绑定。
 
@@ -1117,9 +1117,9 @@ call 不再是固定地址，而是右边红色部分。
 
 ## 谈谈const
 
-const的使用情况：
+`const`的使用情况：
 
-**1.放在成员函数的小括号之后，函数本体的前面：**例如int test() const { return this->img; }
+**1.放在成员函数的小括号之后，函数本体的前面：**例如`int test() const { return this->img; }`
 
 这种情况下，const表示这个成员函数保证不去修改类的成员变量，只做访问等操作。
 
@@ -1131,7 +1131,7 @@ const的使用情况：
 
 **以上两种情况就可以搭配起来使用：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190627230227545-419434940.png)
+![image-20220810153442868](C++面向对象高级编程下.assets/image-20220810153442868.png)
 
 分为四种情况：
 
@@ -1189,7 +1189,7 @@ const的使用情况：
 
 **我们可以重载全局的new和delete（但一定要小心，影响很大）以进行一些内存管理的设计：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190628002249457-464882535.png)
+![image-20220810153458976](C++面向对象高级编程下.assets/image-20220810153458976.png)
 
 
 
@@ -1199,19 +1199,19 @@ const的使用情况：
 
 ###  重载类成员的new/delete
 
-**我们也可以重载类成员new和delete（只影响该类）：**![img](C++面向对象高级编程下.assets/1244144-20190628002526419-1282850206.png)
+**我们也可以重载类成员new和delete（只影响该类）：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190628002545503-77823884.png)
+![image-20220810153531186](C++面向对象高级编程下.assets/image-20220810153531186.png)
 
 一般重载成员new和delete，主要是做内存池。
 
 **重载成员Array new和Array delete：**
 
-![img](C++面向对象高级编程下.assets/1244144-20190628003755480-28483806.png)
+![image-20220810153555095](C++面向对象高级编程下.assets/image-20220810153555095.png)
 
 注意：array new的时候，分配的内存大小为sizeof(Foo)*N + 4，这里的4个byte，只在N个Foo对象内存的前面，有一个int类型的数，里面的值为N，用于标记有几个Foo对象。如下图：
 
-![img](C++面向对象高级编程下.assets/1244144-20190628005847217-678916611.png)
+![image-20220810153618847](C++面向对象高级编程下.assets/image-20220810153618847.png)
 
 红框处就是一个int所占用的空间，里面的值为N（假设N=5），一个Foo对象为12bytes，那么总共分配内存大小为12*5+4=64。
 
@@ -1363,3 +1363,190 @@ dtor.this = 0x2bf696e6828 id=0
 []dtor.this = 0x2bf696e6820
 ```
 
+
+
+## 重载placement new() delete()
+
+我们可以重载多个版本的new和delete，每个不同的new和delete的参数列不同。例如：
+
+```c++
+class Foo {
+
+public:
+    Foo() {}
+    Foo(int) {}
+
+    //这个是普通的new重载，只有一个默认参数
+    void * operator new (size_t size) {
+        return malloc(size);
+    }
+    //下面三个都是placement new重载
+    void * operator new(size_t size, void * start) {
+        return start;
+    }
+    void * operator new (size_t size, long extra) {
+        return malloc(size + extra);
+    }
+    void * operator new(size_t size, long extra, char init) {
+        return malloc(size + extra);
+    }
+};
+```
+
+如何使用这些new呢？
+
+```c++
+void * p = 0;
+//普通new
+Foo * f1 = new Foo();
+//额外带一个void*参数的new
+Foo * f2 = new(p) Foo;
+//额外带一个long参数的new
+Foo * f3 = new(300) Foo;
+//额外带一个long和一个char参数的new
+Foo * f4 = new(300, 'a') Foo;
+```
+
+
+
+**（以下部分作为了解：）**
+
+对于delete来说，我们当然也可以重载多个placement delete，但是注意一点，除了默认的那个delete，其余几个特殊的delete都不会被调用，他们被调用的唯一可能是，当对应的placement new分配内存后，调用构造函数抛出异常的时候，需要对应的delete去释放坏内存，才会去调用对应的placement delete。例如：
+
+```c++
+//对应普通的new，size_t是默认参数（可选的）
+void operator delete(void * ,size_t){}
+//对应operator new(size_t size, void * start)
+void operator delete(void *, void*){}
+//对应operator new (size_t size, long extra)
+void operator delete(void *, long) {}
+//对应operator new(size_t size, long extra, char init)
+void operator delete(void *, long, char) {}
+```
+
+delete的时候默认都是调用第一个普通的，后面几个特殊的，只有在上述条件下才会被调用（不一定？根据编译器不同可能会有变化 侯捷测试G4.9没调用，G2.9调用了）。
+
+如果没有写一一对应的delete，那么编译器也不会报错，只是会放弃对ctor的异常处理。
+
+PS
+
+```c++
+#include <iostream>
+using namespace std;
+class Bad{
+public:
+    Bad(){cout<<"bad"<<endl;}
+};
+class Foo {
+public:
+    Foo() {cout<<"Foo::Foo()"<<endl;}
+    Foo(int) {cout<<"Foo::Foo(int)"<<endl;throw Bad();}
+
+    //这个是普通的new重载，只有一个默认参数
+    void * operator new (size_t size) {
+        cout<<"opeartor new(size_t size)"<<" size= "<<size<<endl;
+        return malloc(size);
+    }
+    //下面三个都是placement new重载
+    void * operator new(size_t size, void * start) {
+        cout<<"opeartor new(size_t size, void * start)"<<" size= "<<size<<" start="<<start<<endl;
+        return start;
+    }
+    void * operator new (size_t size, long extra) {
+        cout<<"opeartor new(size_t size, long extra)"<<" size= "<<size<<" extra= "<<extra<<endl;
+        return malloc(size + extra);
+    }
+    void * operator new(size_t size, long extra, char init) {
+        cout<<"opeartor new(size_t size, long extra, char init)"<<" size= "<<size<<" extra= "<<extra<<size<<" char= "<<init<<endl;
+        return malloc(size + extra);
+    }
+
+    //对应普通的new，size_t是默认参数（可选的）
+    void operator delete(void * ,size_t){
+        cout<<"operator delete(void * ,size_t)"<<endl;
+    }
+//对应operator new(size_t size, void * start)
+    void operator delete(void *, void*){
+        cout<<"operator delete(void *, void*)"<<endl;
+    }
+//对应operator new (size_t size, long extra)
+    void operator delete(void *, long) {
+        cout<<"operator delete(void *, long)"<<endl;
+    }
+//对应operator new(size_t size, long extra, char init)
+    void operator delete(void *, long, char) {
+        cout<<"operator delete(void *, long, char)"<<endl;
+    }
+};
+int main() {
+    Foo start;
+    Foo* p1 = new Foo;
+    Foo* p2 = new(&start) Foo;
+    Foo* p3 = new(100) Foo;
+    Foo* p4 = new(100,'a') Foo;
+    Foo* p5 = new(100) Foo(1);
+    Foo* p6 = new(100,'a') Foo(1);
+    Foo* p7 = new(&start) Foo(1);
+    Foo* p8 = new Foo(1);
+    return 0;
+}
+
+//在三个平台都试了一下，都是这样，也没用调用，可能现在编译器都做了一定的优化。
+/*
+Foo::Foo()
+opeartor new(size_t size) size= 1
+Foo::Foo()
+opeartor new(size_t size, void * start) size= 1 start=0x7ffc99d9d077
+Foo::Foo()
+opeartor new(size_t size, long extra) size= 1 extra= 100
+Foo::Foo()
+opeartor new(size_t size, long extra, char init) size= 1 extra= 1001 char= a
+Foo::Foo()
+opeartor new(size_t size, long extra) size= 1 extra= 100
+Foo::Foo(int)
+bad
+terminate called after throwing an instance of 'Bad'
+*/
+```
+
+
+
+## Basic_string 使用new(extra)扩充申请量
+
+![image-20220810111934109](C++面向对象高级编程下.assets/image-20220810111934109.png)
+
+如上图所示，在标准库的basic_string（就是string的底层）中，有一个内部结构体Rep，
+
+标准库针对Rep做了placement new的重载，额外添加了一个size_t的参数，
+
+在Rep *p = new(extra) Rep;中，传入了一个参数extra，这个参数表示在Rep初始化的过程中除了分配自身大小的空间，还额外分配了一个大小为extra的空间。
+
+basic_string就是利用这块额外的空间Rep来存放实际的字符串数据，而且利用Rep对象来执行COW的控制，也就是控制有多少个string共享同一份数据。 
+
+
+
+
+
+
+
+
+
+## 学习总结
+
+感觉进入了比较深的部分了，但是这部分在c++里还算比较浅的
+
+可笑我当初看完第一部分，就想着c++还能讲什么呢？结果才入门呢。
+
+看来我自认的三年入门c++没说错。
+
+这第二部分感觉反复强调两个，一个是对象模型，一个是运算符重载。
+
+对象模型就是各种模板设计，各种绑定，虚指针，虚表，多态这些。
+
+运算符重载一开始我以为是很简单的一个功能，类似换挂载，现在看可能挂载的理解没错，但是对它的应用范围认识还是浅了。
+
+另外在学习时候也感到了编译器的更新发展，很多时候运算结果已经和侯老师讲课时候不同了。
+
+慢慢来吧。
+
+学习效率要提高些。
