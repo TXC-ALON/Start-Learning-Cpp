@@ -6502,17 +6502,195 @@ fstream 以及stringstream都继承自iostream
 
 ## Chapter 9 Sequential Containers
 
+一个容器就是一些特定类型对象的集合。
+
+顺序容器为程序员提供了控制元素存储和访问顺序的能力。这种顺序不依赖于元素的值，而是和元素加入容器的位置相对应。
+
 ### 9.1 Overview of the Sequential Containers
+
+所有的顺序都提供了快速顺序访问元素的能力。但是这些容器在以下方面都有不同的性能折中。
+
+- 向容器添加或从容器中删除元素的代价
+- 非顺序访问容器中元素的代价
+
+顺序容器类型：
+
+![9-1](CPP_Primer_5th.assets/9-1.png)
+
+|      类型      |                             特性                             |
+| :------------: | :----------------------------------------------------------: |
+|    `vector`    | 可变大小数组。支持快速随机访问。在尾部之外的位置插入/删除元素可能很慢 |
+|    `deque`     |   双端队列。支持快速随机访问。在头尾位置插入/删除速度很快    |
+|     `list`     | 双向链表。只支持双向顺序访问。在任何位置插入/删除速度都很快  |
+| `forward_list` | 单向链表。只支持单向顺序访问。在任何位置插入/删除速度都很快  |
+|    `array`     |      固定大小数组。支持快速随机访问。不能添加/删除元素       |
+|    `string`    | 类似`vector`，但用于保存字符。支持快速随机访问。在尾部插入/删除速度很快 |
+
+`forward_list`和`array`是C++11新增类型。与内置数组相比，`array`更安全易用。
+
+为了避免开销，`forward_list`没有`size`操作。
+
+
+
+#### 容器选择原则：
+
+- 除非有合适的理由选择其他容器，否则应该使用`vector`。
+
+- 如果程序有很多小的元素，且空间的额外开销很重要，则不要使用`list`或`forward_list`。
+
+- 如果程序要求随机访问容器元素，则应该使用`vector`或`deque`。
+
+- 如果程序需要在容器头尾位置插入/删除元素，但不会在中间位置操作，则应该使用`deque`。
+
+- 如果程序只有在读取输入时才需要在容器中间位置插入元素，之后需要随机访问元素。则：
+
+  - 先确定是否真的需要在容器中间位置插入元素。当处理输入数据时，可以先向`vector`追加数据，再调用标准库的`sort`函数重排元素，从而避免在中间位置添加元素。
+
+  - 如果必须在中间位置插入元素，可以在输入阶段使用`list`。输入完成后将`list`中的内容拷贝到`vector`中。
+
+- 不确定应该使用哪种容器时，可以先只使用`vector`和`list`的公共操作：使用迭代器，不使用下标操作，避免随机访问。这样在必要时选择`vector`或`list`都很方便。
 
 ### 9.2 Container Library Overview
 
-#### 9.2.1 Iterators
+这一节，会介绍适用于所有容器的操作。
+
+每个容器都定义在一个头文件中，文件名与类型名相同。容器均为模板类型。
+
+![9-2](CPP_Primer_5th.assets/9-2.png)
+
+
+
+#### 9.2.1 Iterators 迭代器
+
+类似容器，迭代器有着公共的接口：如果一个迭代器提供某个操作，那么所有提供相同操作的迭代器度这个操作的实现方式都是相同的。例如访问容器元素（解引用），递增运算符等等。
+
+##### 标准迭代器支持的操作
+
+![3-6](CPP_Primer_5th.assets/3-6.png)
+
+`PS：forward_list`类型不支持递减运算符`--`。
+
+##### 标准迭代器支持的算术运算
+
+这些运算只支持`string`,`vector`,`deque`,`array`的迭代器。
+
+![3-6](CPP_Primer_5th.assets/3-7.png)
+
+##### 迭代器范围
+
+**迭代器的范围是标准库的基础**
+
+一个迭代器范围（iterator range）由一对迭代器表示。
+
+这两个迭代器通常被称为`begin`和`end`，分别指向同一个容器中的元素或尾后地址。
+
+`end`迭代器不会指向范围中的最后一个元素，而是指向尾元素之后的位置。这种元素范围被称为左闭合区间（left-inclusive interval），其标准数学描述为`[begin，end）`。迭代器`begin`和`end`必须指向相同的容器，`end`可以与`begin`指向相同的位置，但不能指向`begin`之前的位置（由程序员确保）。
+
+##### 左闭合范围蕴含的编程假定
+
+假定`begin`和`end`构成一个合法的迭代器范围，则：
+
+- 如果`begin`等于`end`，则范围为空。
+
+- 如果`begin`不等于`end`，则范围内至少包含一个元素，且`begin`指向该范围内的第一个元素。
+
+- 可以递增`begin`若干次，令`begin`等于`end`。
+
+```c++
+while (begin != end)
+{
+    *begin = val;   // ok: range isn't empty so begin denotes an element
+    ++begin;    // advance the iterator to get the next element
+}
+```
+
+
 
 #### 9.2.2 Container Type Members
 
+部分容器还提供反向迭代器（++就是--）【10.4.3】会介绍。
+
+通过类型别名，可以在不了解容器元素类型的情况下使用元素。如果需要元素类型，可以使用容器的`value_type`。如果需要元素类型的引用，可以使用`reference`或`const_reference`。
+
+> 这里我还疑惑，为什么要搞这个东西，比如`vector<int>::value_type x;`其实就是`int x`，这不是脱裤子放屁吗？但是稍微查了下，就发现这实际上是提供了一层抽象。
+>
+> > ```c++
+> > typedef _Vector_base<_Tp, _Alloc>			_Base;
+> >       typedef typename _Base::_Tp_alloc_type		_Tp_alloc_type;
+> >       typedef __gnu_cxx::__alloc_traits<_Tp_alloc_type>	_Alloc_traits;
+> > public:
+> >   typedef _Tp              value_type;
+> >   typedef typename _Base::pointer        pointer;
+> >   typedef typename _Alloc_traits::const_pointer    const_pointer;
+> >   typedef typename _Alloc_traits::reference       reference;
+> >   typedef typename _Alloc_traits::const_reference  const_reference;
+> > ```
+>
+> 底层是用typedef _Tp来做的，所以实际上和`typedef double _DBX32`没啥区别。
+>
+> 都是为了方便后面的操作，比如改一下容器内部类型，不必一个个去修改变量前的类型名。
+>
+> 在模板里面肯定有更多的应用。
+
 #### 9.2.3 begin and end Members
 
-#### 9.2.4 Defining and Initializing a Container
+`begin`和`end`操作生成指向容器中第一个元素和尾后地址的迭代器。其常见用途是形成一个包含容器中所有元素的迭代器范围。
+
+`begin`和`end`操作有多个版本：带`r`的版本返回反向迭代器。以`c`开头的版本（C++11新增）返回`const`迭代器。不以`c`开头的版本都是重载的，当对非常量对象调用这些成员时，返回普通迭代器，对`const`对象调用时，返回`const`迭代器。
+
+```c++
+list<string> a = {"Milton", "Shakespeare", "Austen"};
+auto it1 = a.begin();    // list<string>::iterator
+auto it2 = a.rbegin();   // list<string>::reverse_iterator
+auto it3 = a.cbegin();   // list<string>::const_iterator
+auto it4 = a.crbegin();  // list<string>::const_reverse_iterator
+```
+
+当`auto`与`begin`或`end`结合使用时，返回的迭代器类型依赖于容器类型。但调用以`c`开头的版本仍然可以获得`const`迭代器，与容器是否是常量无关。
+
+当程序不需要写操作时，应该使用`cbegin`和`cend`。
+
+#### 9.2.4 Defining and Initializing a Container 容器初始化
+
+容器定义和初始化方式：
+
+![9-3](CPP_Primer_5th.assets/9-3.png)
+
+将一个容器初始化为另一个容器的拷贝时，两个容器的容器类型和元素类型都必须相同。
+
+传递迭代器参数来拷贝一个范围时，不要求容器类型相同，而且新容器和原容器中的元素类型也可以不同，但是要能进行类型转换。
+
+```c++
+// each container has three elements, initialized from the given initializers
+list<string> authors = {"Milton", "Shakespeare", "Austen"};
+vector<const char*> articles = {"a", "an", "the"};
+list<string> list2(authors);        // ok: types match
+deque<string> authList(authors);    // error: container types don't match
+vector<string> words(articles);     // error: element types must match
+// ok: converts const char* elements to string
+forward_list<string> words(articles.begin(), articles.end());
+```
+
+C++11允许对容器进行列表初始化。
+
+```c++
+// each container has three elements, initialized from the given initializers
+list<string> authors = {"Milton", "Shakespeare", "Austen"};
+vector<const char*> articles = {"a", "an", "the"};
+```
+
+定义和使用`array`类型时，需要同时指定元素类型和容器大小。
+
+```c++
+array<int, 42>      // type is: array that holds 42 ints
+array<string, 10>   // type is: array that holds 10 strings
+array<int, 10>::size_type i;   // array type includes element type and size
+array<int>::size_type j;       // error: array<int> is not a type
+```
+
+对`array`进行列表初始化时，初始值的数量不能大于`array`的大小。如果初始值的数量小于`array`的大小，则只初始化靠前的元素，剩余元素会被值初始化。如果元素类型是类类型，则该类需要一个默认构造函数。
+
+可以对`array`进行拷贝或赋值操作，但要求二者的元素类型和大小都相同。
 
 #### 9.2.5 Assignment and swap
 
