@@ -6270,31 +6270,233 @@ cin.tie(old_tie);   // reestablish normal tie between cin and cout
 
 ### 8.2 File Input and Output
 
+头文件`fstream`定义了三个类型来支持文件IO：`ifstream`从给定文件读取数据，`ofstream`向指定文件写入数据，`fstream`可以同时读写指定文件。
+
+可以通过IO操作符`<<` `>>`来读写文件，可以通过getline从ifstream读取数据。
+
+**fstream特有的一些操作**
+
+![8-3](CPP_Primer_5th.assets/8-3.png)
+
+### 
+
 #### 8.2.1 Using File Stream Objects
+
+每个文件流类型都定义了`open`函数，它完成一些系统操作，定位指定文件，并视情况打开为读或写模式。
+
+创建文件流对象时，如果提供了文件名（可选），`open`会被自动调用。
+
+```C++
+ifstream in(ifile);   // construct an ifstream and open the given file
+ofstream out;   // output file stream that is not associated with any file
+```
+
+在C++11中，文件流对象的文件名可以是`string`对象或C风格字符数组。旧版本的标准库只支持C风格字符数组。
+
+##### 用fstream代替iostream&
+
+在要求使用基类对象的地方，可以用继承类型的对象代替。因此一个接受`iostream`类型引用或指针参数的函数，可以用对应的`fstream`类型来调用。
+
+```c++
+ifstream input(argv[1]);			// 打开销售记录文件
+ofstream output(argv[2]);			// 打开输出文件
+Sales_data total;					// 保存销售总额的变量
+if(read(input,total)) {
+    Sales_data trans;
+    while(read(input,trans)) {
+        if(total.isbn() == trans.isbn())
+            total.combine(trans);
+        else {
+            print(output,total) << endl;		// 注意，endl 换行同样会写入文件，因为print 返
+            									// 回的仍然是 output
+            total = trans;
+        }
+    }
+    print(output,total) << endl;
+} else 
+    cerr << "No data?!" << endl;
+
+// read 与 print
+istream &read(istream &is,Sales_data &item) {
+    double price = 0;							// price 表示某书单价
+    is >> item.bookNo >> item.units_sold >> price;
+    item.revenue = price * item.units_sold;
+    return is;
+}
+ostream &print(ostream &os,const Sales_data &item) {
+    os << item.isbn() << " " << item.units_sold << " "
+       << item.revenue << " " << item.avg_price();
+    return os;
+}
+
+```
+
+
+
+> 当用&引用的方式进行值传递时，就相当将自己阉割成父类对象的样子，即将只属于自己的那一部分割去。然后将剩下的这一部分当作实参传递给函数。
+>
+> https://blog.csdn.net/weixin_45590473/article/details/108328192
+
+
+
+##### 成员函数open和close
+
+可以先定义空文件流对象，再调用`open`函数将其与指定文件关联。如果`open`调用失败，`failbit`会被置位。
+
+**检测文件是否正常打开，是个好习惯**
+
+对一个已经打开的文件流调用`open`会失败，并导致`failbit`被置位。随后试图使用文件流的操作都会失败。如果想将文件流关联到另一个文件，必须先调用`close`关闭当前文件，再调用`clear`重置流的条件状态（`close`不会重置流的条件状态）。
+
+##### 自动构造和析构
+
+当`fstream`对象被销毁时，`close`会自动被调用。
 
 #### 8.2.2 File Modes
 
+每个流都有一个关联的文件模式，用来指出如何使用文件。
+
+![8-4](CPP_Primer_5th.assets/8-4.png)
+
+我们在很多地方都可以指定文件格式，调用open打开文件时可以。用一个文件名初始化流来隐式打开文件时也可以。指定文件模式有以下限制。
+
+- 只能对`ofstream`或`fstream`对象设定`out`模式。
+
+- 只能对`ifstream`或`fstream`对象设定`in`模式。
+
+- 只有当`out`被设定时才能设定`trunc`模式。
+
+- 只要`trunc`没被设定，就能设定`app`模式。在`app`模式下，即使没有设定`out`模式，文件也是以输出方式打开。
+
+- 默认情况下，即使没有设定`trunc`，以`out`模式打开的文件也会被截断。如果想保留以`out`模式打开的文件内容，就必须同时设定`app`模式，这会将数据追加写到文件末尾；或者同时设定`in`模式，即同时进行读写操作。
+
+- `ate`和`binary`模式可用于任何类型的文件流对象，并可以和其他任何模式组合使用。
+
+- 与`ifstream`对象关联的文件默认以`in`模式打开，与`ofstream`对象关联的文件默认以`out`模式打开，与`fstream`对象关联的文件默认以`in`和`out`模式打开。
+
+默认情况下，打开`ofstream`对象时，文件内容会被丢弃，阻止文件清空的方法是同时指定`app`或`in`模式。
+
+流对象每次打开文件时都可以改变其文件模式。
+
+```c++
+ofstream out;   // no file mode is set
+out.open("scratchpad");    // mode implicitly out and trunc
+out.close();    // close out so we can use it for a different file
+out.open("precious", ofstream::app);   // mode is out and app 输出和追加
+out.close();
+```
+
+第一个open 调用未显式指定输出模式，文件隐式地以out模式打开。一般地 ， out 模式同时使用trunc模式。
+
+除非使用append模式，否则文件内容将被情况。
+
 ### 8.3 string Streams
+
+头文件`sstream`定义了三个类型来支持内存IO：`istringstream`从`string`读取数据，`ostringstream`向`string`写入数据，`stringstream`可以同时读写`string`的数据。使得string就好像一个IO流一样。
+
+![8-5](CPP_Primer_5th.assets/8-5.png)
 
 #### 8.3.1 Using an istringstream
 
+### 使用istringstream（Using an istringstream）
+
+```c++
+// members are public by default
+struct PersonInfo
+{
+    string name;
+    vector<string> phones;
+};
+
+string line, word;   // will hold a line and word from input, respectively
+vector<PersonInfo> people;    // will hold all the records from the input
+// read the input a line at a time until cin hits end-of-file (or another error)
+while (getline(cin, line))
+{
+    PersonInfo info;    // create an object to hold this record's data
+    istringstream record(line);    // bind record to the line we just read
+    record >> info.name;    // read the name
+    while (record >> word)  // read the phone numbers
+        info.phones.push_back(word);   // and store them
+    people.push_back(info);    // append this record to people
+}
+```
+
+
+
+> 流插入,流提取运算符重载和类型转换的讲解和实例
+>
+> https://bbs.huaweicloud.com/blogs/271271
+>
+> ```c++
+> template<typename _Traits>
+>     inline basic_ostream<char, _Traits>&
+>     operator<<(basic_ostream<char, _Traits>& ___out, const char* __s)
+>     {
+>       if (!__s)
+> 	___out.setstate(ios_base::badbit);
+>       else
+> 	__ostream_insert(___out, __s,
+> 			 static_cast<streamsize>(_Traits::length(__s)));
+>       return ___out;
+>     }
+> ```
+>
+> <<的模板源码，在ostream600行左右，目前来看它可以过滤掉空格，回头等学完模板来研究一下。
+
 #### 8.3.2 Using ostringstreams
+
+### 使用ostringstream（Using ostringstreams）
+
+对文本文件，进行构造后（修改，判断等操作），最后一起打印时，ostringstream很好用。
+
+```C++
+for (const auto &entry : people)
+{ // for each entry in people
+    ostringstream formatted, badNums;   // objects created on each loop
+    for (const auto &nums : entry.phones)
+    { // for each number
+        if (!valid(nums))
+        {
+            badNums << " " << nums;  // string in badNums
+        }
+        else
+            // ''writes'' to formatted's string
+            formatted << " " << format(nums);
+    }
+
+    if (badNums.str().empty())   // there were no bad numbers
+        os << entry.name << " "  // print the name
+            << formatted.str() << endl;   // and reformatted numbers
+    else  // otherwise, print the name and bad numbers
+        cerr << "input error: " << entry.name
+            << " invalid number(s) " << badNums.str() << endl;
+}
+```
+
+
 
 ### Chapter Summary 
 
-### Defined Terms
+C++使用标准库来处理面向流的输入和输出。
+
+- iostream处理控制台IO
+- fstream处理命名文件IO
+- stringstream处理内存String的IO
+
+fstream 以及stringstream都继承自iostream
 
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+| 中文     | 英文            | 含义                                                         |
+| -------- | --------------- | ------------------------------------------------------------ |
+| 条件状态 | condition state | 可被任何流类使用的一组标志和函数，用来指出给定流是否可用     |
+| 文件流   | file stream     | 用来读写命名文件的流对象。                                   |
+|          | open            | 接受一个string或C风格字符串参数，指定要打开的文件名，它还可以接受一个可选的参数。指明文件打开模式 |
+|          | close           | 关闭流所关联的文件，调用close后才可以调用open打开另一个文件。 |
+|          |                 |                                                              |
+|          |                 |                                                              |
+|          |                 |                                                              |
+|          |                 |                                                              |
 
 
 
