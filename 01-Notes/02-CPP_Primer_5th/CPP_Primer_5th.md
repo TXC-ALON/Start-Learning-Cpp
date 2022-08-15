@@ -6652,9 +6652,13 @@ auto it4 = a.crbegin();  // list<string>::const_reverse_iterator
 
 #### 9.2.4 Defining and Initializing a Container 容器初始化
 
+每个容器都有对应的构造函数，除了array之外，其他容器的默认构造函数都会创建一个指定类的空容器，也可以接受指定容器大小和元素初始值的参数。
+
 容器定义和初始化方式：
 
 ![9-3](CPP_Primer_5th.assets/9-3.png)
+
+##### 将一个容器初始化为另一个容器的拷贝
 
 将一个容器初始化为另一个容器的拷贝时，两个容器的容器类型和元素类型都必须相同。
 
@@ -6671,6 +6675,8 @@ vector<string> words(articles);     // error: element types must match
 forward_list<string> words(articles.begin(), articles.end());
 ```
 
+##### 列表初始化
+
 C++11允许对容器进行列表初始化。
 
 ```c++
@@ -6678,6 +6684,21 @@ C++11允许对容器进行列表初始化。
 list<string> authors = {"Milton", "Shakespeare", "Austen"};
 vector<const char*> articles = {"a", "an", "the"};
 ```
+
+##### 与顺序容器大小相关的构造函数
+
+```c++
+vector<int> ivec(10,-1);
+list<string>svec(10,"hi");
+forward_list<int>ivec(10);	//10个空元素，每个都是0
+deque<string> svec(10);  //10个空元素，都是空string
+```
+
+如果元素没有默认构造参数，除了元素大小外，必须制定一个显式的初始值。
+
+注: 只有顺序容器的构造函数才接受大小参数，关联容器并不支持
+
+##### 标准库array具有固定大小 
 
 定义和使用`array`类型时，需要同时指定元素类型和容器大小。
 
@@ -6694,57 +6715,597 @@ array<int>::size_type j;       // error: array<int> is not a type
 
 #### 9.2.5 Assignment and swap
 
+容器赋值操作：
+
+![9-4](CPP_Primer_5th.assets/9-4.png)
+
+##### 使用assign（仅顺序容器）
+
+赋值运算符两侧的运算对象必须类型相同。`assign`允许用不同但相容的类型赋值，或者用容器的子序列赋值。
+
+```c++
+list<string> names;
+vector<const char*> oldstyle;
+names = oldstyle;   // error: container types don't match
+// ok: can convert from const char*to string
+names.assign(oldstyle.cbegin(), oldstyle.cend());
+```
+
+由于其旧元素被替换，因此传递给`assign`的迭代器不能指向调用`assign`的容器本身。
+
+assign的第二个版本接受一个整型值和一个元素值，它用指定数目且具有相同给定元素替换容器中原有的元素
+
+```c++
+list<string>alist1(1);
+alist1.assign(10,"hello"); // 十个hello
+```
+
+
+
+##### 使用swap
+
+`swap`交换两个相同类型容器的内容。除`array`外，`swap`不对任何元素进行拷贝、删除或插入操作，只交换两个容器的内部数据结构，因此可以保证快速完成。
+
+```c++
+vector<string> svec1(10);   // vector with ten elements
+vector<string> svec2(24);   // vector with 24 elements
+swap(svec1, svec2);
+```
+
+赋值相关运算会导致指向左边容器内部的迭代器、引用和指针失效。而`swap`操作交换容器内容，不会导致迭代器、引用和指针失效（`array`和`string`除外）。
+
+**对于`array`，`swap`会真正交换它们的元素**。因此在`swap`操作后，指针、引用和迭代器所绑定的元素不变，但元素值已经被交换。
+
+> std::array直接将数据保存在对象自身里，并不通过指针来间接访问。被保存的对象不是被管理的资源，而是array类本身的data member，没得“交换指针”。想自己做成交换指针也做不成。
+
+```c++
+array<int, 3> a = { 1, 2, 3 };
+array<int, 3> b = { 4, 5, 6 };
+auto p = a.cbegin(), q = a.cend();
+a.swap(b);
+// 输出交换后的值，即4、5、6
+while (p != q)
+{
+    cout << *p << endl;
+    ++p;
+}
+```
+
+对于其他容器类型（除`string`），指针、引用和迭代器在`swap`操作后仍指向操作前的元素，但这些元素已经属于不同的容器了。
+
+```c++
+vector<int> a = { 1, 2, 3 };
+vector<int> b = { 4, 5, 6 };
+auto p = a.cbegin(), q = a.cend();
+a.swap(b);
+// 输出交换前的值，即1、2、3
+while (p != q)
+{
+    cout << *p << endl;
+    ++p;
+}
+```
+
+`array`不支持`assign`，也不允许用花括号列表进行赋值。
+
+```c++
+array<int, 10> a1 = {0,1,2,3,4,5,6,7,8,9};
+array<int, 10> a2 = {0};    // elements all have value 0
+a1 = a2;    // replaces elements in a1
+a2 = {0};   // error: cannot assign to an array from a braced list
+```
+
+新标准库同时提供了成员和非成员函数版本的`swap`。非成员版本的`swap`在泛型编程中非常重要，建议统一使用非成员版本的`swap`。
+
 #### 9.2.6 Container Size Operations
+
+`size`成员返回容器中元素的数量；`empty`当`size`为0时返回`true`，否则返回`false`；`max_size`返回一个大于或等于该类型容器所能容纳的最大元素数量的值。`forward_list`支持`max_size`和`empty`，但不支持`size`。
 
 #### 9.2.7 Relational Operators
 
+每个容器类型都支持相等运算符（`==`、`!=`）。除无序关联容器外，其他容器都支持关系运算符（`>`、`>=`、`<`、`<=`）。关系运算符两侧的容器类型和保存元素类型都必须相同。
+
+两个容器的比较实际上是元素的逐对比较，其工作方式与`string`的关系运算符类似：
+
+- 如果两个容器大小相同且所有元素对应相等，则这两个容器相等。
+
+- 如果两个容器大小不同，但较小容器中的每个元素都等于较大容器中的对应元素，则较小容器小于较大容器。
+
+- 如果两个容器都不是对方的前缀子序列，则两个容器的比较结果取决于第一个不等元素的比较结果。
+
+```c++
+vector<int> v1 = { 1, 3, 5, 7, 9, 12 };
+vector<int> v2 = { 1, 3, 9 };
+vector<int> v3 = { 1, 3, 5, 7 };
+vector<int> v4 = { 1, 3, 5, 7, 9, 12 };
+v1 < v2     // true; v1 and v2 differ at element [2]: v1[2] is less than v2[2]
+v1 < v3     // false; all elements are equal, but v3 has fewer of them;
+v1 == v4    // true; each element is equal and v1 and v4 have the same size()
+v1 == v2    // false; v2 has fewer elements than v1
+```
+
+容器的相等运算符实际上是使用元素的`==`运算符实现的，而其他关系运算符则是使用元素的`<`运算符。如果元素类型不支持所需运算符，则保存该元素的容器就不能使用相应的关系运算。
+
 ### 9.3 Sequential Container Operations
+
+顺序容器与关联容器的不同之处在于两者组织元素的方式，上一节介绍了所以元素都适用的操作，这一章将介绍顺序容器特有的操作。
 
 #### 9.3.1 Adding Elements to a Sequential Container
 
-#### 9.3.2 Accessing Elements
+除`array`外（因为这些操作会改变容器大小），所有标准库容器都提供灵活的内存管理，在运行时可以动态添加或删除元素。
+
+![9-5](CPP_Primer_5th.assets/9-5.png)
+
+**向一个vector、string、deque插入元素会使所以指向容器的迭代器，引用和指针失效**
+
+根本原因是因为插入元素可能会引起内存空间的重新分配，可能会搬到新的空间去。自然就失效了。
+
+> 向容器添加元素后：
+>
+> 1.对于vector 或者 string
+> 如果存储空间被重新分配，则指向容器的迭代器，指针和引用都会失效。
+> 如果存储空间未重新分配，指向插入位置之前元素的迭代器，指针和引用仍有效，但指向存在的元素的引用和指针不会失效。
+>
+> 2.对于deque
+> 插入到除首尾位置之外的任何位置都会导致迭代器，指针和引用失效。
+> 如果在首尾位置添加元素，迭代器会失效，但指向存在的元素的指针和引用不会失效。
+>
+> 3.对于list和forward_list
+> 指向容器的迭代器（包括尾后迭代器和首前迭代器），指针和引用仍有效。
+>
+> 当我们从一个容器中删除元素后，指向被删除元素的迭代器，指针和引用会失效，这应该不会令人惊讶。毕竟，这些元素都已经被销毁了。当我们删除一个元素后：
+>
+> 1.对于list和forward_list
+> 指向容器其它位置的迭代器，引用和指针仍有效。
+>
+> 2.对于deque
+> 如果在首尾之外的任何位置删除元素，那么指向被删除元素外的其它元素的迭代器，引用和指针都会失效。
+>
+> 如果删除deque的尾元素，则尾后迭代器也会失效，但其它迭代器，指针和引用不受影响；如果删除首元素，这些也不会受影响。
+>
+> 3.对于vector和string
+> 指向被删元素之前的迭代器，引用和指针仍有效。
+>
+> 注意：使用失效的迭代器，指针或引用是严重的运行时错误。因此必须保证每次改变容器的操作之后都正确的重新定位迭代器。这个建议对于vector,string和deque尤为重要。
+> ————————————————
+> 版权声明：本文为CSDN博主「拥抱@」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/tonglin12138/article/details/88359618
+
+##### push_back
+
+`push_back`将一个元素追加到容器尾部，`push_front`将元素插入容器头部。
+
+```c++
+// read from standard input, putting each word onto the end of container
+string word;
+while (cin >> word)
+    container.push_back(word);
+```
+
+##### push_front
+
+list,forward_list,deque容器还支持push_front 插入容器头部。
+
+##### insert 在特定位置添加元素
+
+`insert`将元素插入到迭代器指定的位置之前。一些不支持`push_front`的容器可以使用`insert`将元素插入开始位置。
+
+```c++
+vector<string> svec;
+list<string> slist;
+// equivalent to calling slist.push_front("Hello!");
+slist.insert(slist.begin(), "Hello!");
+// no push_front on vector but we can insert before begin()
+// warning: inserting anywhere but at the end of a vector might be slow
+svec.insert(svec.begin(), "Hello!");
+```
+
+将元素插入到`vector`、`deque`或`string`的任何位置都是合法的，但可能会很耗时。
+
+##### insert 插入范围内元素
+
+insert 还可以接受更多的参数。
+
+- 接受一个元素数目和一个值，将指定数量的元素添加到指定位置之前，且按照给定值初始化。
+- 接受一对迭代器或一个初始化列表的insert，将给定范围中的元素插入到指定位置之前。
+
+```c++
+vector<string> v = {"quasi","simba","Lforl","fas"};
+list<string> slist;
+slist.insert(slist.begin(),v.end()-2,v.end());
+slist.insert(slist.end(),{"a","b","v","d"});
+```
+
+在新标准库中，接受元素个数或范围的`insert`版本返回指向第一个新增元素的迭代器，而旧版本中这些操作返回`void`。如果范围为空，不插入任何元素，`insert`会返回第一个参数。
+
+##### insert 使用insert返回值
+
+```c++
+list<string> 1st;
+auto iter = 1st.begin();
+while (cin >> word)
+    iter = 1st.insert(iter, word);  // same as calling push_front
+```
+
+将读入的新元素插入iter所指向的元素之前的位置，insert返回的迭代器恰好指向这个新元素，如此重复循环。
+
+##### 使用emplace
+
+新标准库增加了三个直接构造而不是拷贝元素的操作：`emplace_front`、`emplace_back`和`emplace`，其分别对应`push_front`、`push_back`和`insert`。当调用`push`或`insert`时，元素对象被拷贝到容器中。而调用`emplace`时，则是将参数传递给元素类型的构造函数，直接在容器的内存空间中构造元素。
+
+```c++
+// construct a Sales_data object at the end of c
+// uses the three-argument Sales_data constructor
+c.emplace_back("978-0590353403", 25, 15.99);
+// error: there is no version of push_back that takes three arguments
+c.push_back("978-0590353403", 25, 15.99);
+// ok: we create a temporary Sales_data object to pass to push_back
+c.push_back(Sales_data("978-0590353403", 25, 15.99));
+```
+
+传递给`emplace`的参数必须与元素类型的构造函数相匹配。
+
+
+
+注：
+
+- `forward_list`有特殊版本的`insert`和`emplace`操作，且不支持`push_back`和`emplace_back`。
+
+- `vector`和`string`不支持`push_front`和`emplace_front`。
+
+#### 9.3.2 Accessing Elements 访问元素
+
+包括`array`在内， 每个顺序容器都有一个`front`成员函数，而除了`forward_list`之外的顺序容器还有一个`back`成员函数。这两个操作分别返回首元素和尾元素的引用。
+
+在调用`front`和`back`之前，要确保容器非空。
+
+顺序容器的元素访问操作：
+
+![9-6](CPP_Primer_5th.assets/9-6.png)
+
+##### 访问成员函数返回的是引用
+
+在容器中访问元素的成员函数都返回引用类型。如果容器是`const`对象，则返回`const`引用，否则返回普通引用。如果希望修改容器内的值，应该使用引用来取。
+
+```c++
+if (!c.empty()) {
+	c.front() = 42; // assigns 42 to the first element in c
+	auto &v = c.back(); // get a reference to the last element
+	v = 1024; // changes the element in c
+	auto v2 = c.back(); // v2 is not a reference; it’s a copy of c.back()
+	v2 = 0; // no change to the element in c
+}
+```
+
+##### 下标访问和安全的随机访问
+
+可以快速随机访问的容器（`string`、`vector`、`deque`和`array`）都提供下标运算符。保证下标有效是程序员的责任。如果希望确保下标合法，可以使用`at`成员函数。
+
+`at`类似下标运算，但如果下标越界，`at`会抛出`out_of_range`异常。
+
+```c++
+vector<string> svec;  // empty vector
+cout << svec[0];      // run-time error: there are no elements in svec!
+cout << svec.at(0);   // throws an out_of_range exception
+```
+
+
 
 #### 9.3.3 Erasing Elements
 
+顺序容器的元素删除操作：
+
+![9-7](CPP_Primer_5th.assets/9-7.png)
+
+删除`deque`中除首尾位置之外的任何元素都会使所有迭代器、引用和指针失效。删除`vector`或`string`的元素后，指向删除点之后位置的迭代器、引用和指针也都会失效。
+
+删除元素前，程序员必须确保目标元素存在。
+
+`pop_front`和`pop_back`函数分别删除首元素和尾元素。`vector`和`string`类型不支持`pop_front`，`forward_list`类型不支持`pop_back`。
+
+`erase`函数删除指定位置的元素。可以删除由一个迭代器指定的单个元素，也可以删除由一对迭代器指定的范围内的所有元素。两种形式的`erase`都返回指向删除元素（最后一个）之后位置的迭代器。
+
+```c++
+// delete the range of elements between two iterators
+// returns an iterator to the element just after the last removed element
+elem1 = slist.erase(elem1, elem2);  // after the call elem1 == elem2
+```
+
+`clear`函数删除容器内的所有元素。
+
 #### 9.3.4 Specialized forward_list Operations
+
+在`forward_list`中添加或删除元素的操作是通过改变给定元素之后的元素来完成的。
+
+![9-8](CPP_Primer_5th.assets/9-8.png)
+
+`forward_list`的插入和删除操作：
+
+![9-9](CPP_Primer_5th.assets/9-9.png)
+
+当在forward_list中添加或删除元素时，我们必须关注两个迭代器--一个指向我们要处理的元素，另一个指向其前驱。
+
+```c++
+forward_list<int> flst = {0,1,2,3,4,5,6,7,8,9};
+auto prev = flst.before_begin(); // denotes element "off the start" of flst
+auto curr = flst.begin(); // denotes the first element in flst
+while (curr != flst.end()) { // while there are still elements to process
+	if (*curr % 2) // if the element is odd
+		curr = flst.erase_after(prev); // erase it and move curr
+	else {
+		prev = curr; // move the iterators to denote the next
+		++curr; // element and one before the next element
+		}
+}
+```
+
+
 
 #### 9.3.5 Resizing a Container
 
+`array` 不支持resize，当前大小大了，截取；当前大小小了，填充新元素。
+
+顺序容器的大小操作：
+
+![9-10](CPP_Primer_5th.assets/9-10.png)
+
+`resize`函数接受一个可选的元素值参数，用来初始化添加到容器中的元素，否则新元素进行值初始化。如果容器保存的是类类型元素，且`resize`向容器添加新元素，则必须提供初始值，或元素类型提供默认构造函数。
+
 #### 9.3.6 Container Operations May Invalidate Iterators
+
+向容器中添加或删除元素可能会使指向容器元素的指针、引用或迭代器失效。失效的指针、引用或迭代器不再表示任何元素，使用它们是一种严重的程序设计错误。
+
+- 向容器中添加元素后：
+
+  - 如果容器是`vector`或`string`类型，且存储空间被重新分配，则指向容器的迭代器、指针和引用都会失效。如果存储空间未重新分配，指向插入位置之前元素的迭代器、指针和引用仍然有效，但指向插入位置之后元素的迭代器、指针和引用都会失效。
+
+  - 如果容器是`deque`类型，添加到除首尾之外的任何位置都会使迭代器、指针和引用失效。如果添加到首尾位置，则迭代器会失效，而指针和引用不会失效。
+
+  - 如果容器是`list`或`forward_list`类型，指向容器的迭代器、指针和引用仍然有效。
+
+- 从容器中删除元素后，指向被删除元素的迭代器、指针和引用失效：
+
+  - 如果容器是`list`或`forward_list`类型，指向容器其他位置的迭代器、指针和引用仍然有效。
+
+  - 如果容器是`deque`类型，删除除首尾之外的任何元素都会使迭代器、指针和引用失效。如果删除尾元素，则尾后迭代器失效，其他迭代器、指针和引用不受影响。如果删除首元素，这些也不会受影响。
+
+  - 如果容器是`vector`或`string`类型，指向删除位置之前元素的迭代器、指针和引用仍然有效。但尾后迭代器总会失效。
+
+**必须保证在每次改变容器后都正确地重新定位迭代器。**
+
+```c++
+vector<int> vi = {0,1,2,3,4,5,6,7,8,9};
+auto iter = vi.begin(); // call begin, not cbegin because we’re changing vi
+while (iter != vi.end()) {
+	if (*iter % 2) {
+		iter = vi.insert(iter, *iter); // duplicate the current element
+		iter += 2; // advance past this element and the one inserted before it
+	} else
+		iter = vi.erase(iter); // remove even elements
+		// don’t advance the iterator; iter denotes the element after the one we erased
+}
+```
+
+这段程序的目的是删除偶数，复制奇数。
+
+那么要注意erase后，迭代器指向序列下一个元素；insert在给定位置前插入新元素，insert后，迭代器指向新插入元素的迭代器，所以要+2，越过这两个，指向下一个未处理的元素。
+
+**不要保存`end`函数返回的迭代器。**
+
+因为很容易混乱。
+
+```c++
+// safer:在每个循环步骤添加/删除元素后都重新计算end
+while (begin != v.end())
+{
+    // do some processing
+    ++begin;    // advance begin because we want to insert after this element
+    begin = v.insert(begin, 42);    // insert the new value
+    ++begin;    // advance begin past the element we just added
+}
+```
+
+
 
 ### 9.4 How a vector Grows
 
+为了快速随机访问,vector 将元素连续存储。
+
+> 所谓“随机存取”，指的是当存储器中的消息被读取或写入时，所需要的时间与这段信息所在的位置无关。相对的，读取或写入顺序访问（SequentialAccess）存储设备中的信息时，其所需要的时间与位置就会有关系（如磁带）。
+
+而为了避免扩容带来的频繁内存移动，`vector`和`string`的实现通常会分配比新空间需求更大的内存空间，容器预留这些空间作为备用，可用来保存更多新元素。
+
+容器大小管理操作：
+
+![9-11](CPP_Primer_5th.assets/9-11.png)
+
+`capacity`函数返回容器在不扩充内存空间的情况下最多可以容纳的元素数量。`reserve`函数告知容器应该准备保存多少元素，它并不改变容器中元素的数量，仅影响容器预先分配的内存空间大小。
+
+![9-12](CPP_Primer_5th.assets/9-12.png)
+
+```c++
+#include <iostream>
+#include<vector>
+using namespace std;
+int main() {
+    vector<int> a = {1,3,4};
+    cout<<a.capacity()<<endl;
+    cout<<a.size();
+    cout<<endl;
+    a.push_back(4);
+    cout<<a.capacity()<<endl;
+    cout<<a.size();
+    cout<<endl;
+    for(int i = 0;i<8;i++){
+        a.push_back(4);
+    }
+    cout<<a.capacity()<<endl;
+    cout<<a.size();
+    cout<<endl;
+    a.push_back(4);
+    cout<<a.capacity()<<endl;
+    cout<<a.size();
+    return 0;
+}
+
+/*
+3
+3
+6
+4
+12
+12
+24
+13
+*/
+```
+
+> 可以看到，当超出容器大小时，vector会扩容一倍
+
+只有当需要的内存空间超过当前容量时，`reserve`才会真正改变容器容量，分配不小于需求大小的内存空间。当需求大小小于当前容量时，`reserve`并不会退回内存空间。因此在调用`reserve`之后，`capacity`会大于或等于传递给`reserve`的参数。
+
+在C++11中可以使用`shrink_to_fit`函数来要求`deque`、`vector`和`string`退回不需要的内存空间（并不保证退回）。
+
 ### 9.5 Additional string Operations
 
-#### 9.5.1 Other Ways to Construct strings
+#### 9.5.1 Other Ways to Construct strings 构建string的其他方法
+
+构造`string`的其他三个构造函数：
+
+![9-13](CPP_Primer_5th.assets/9-13.png)
+
+这些构造函数接受一个string或一个const char* 参数。还接受（可选） 指定拷贝多少个字符的参数。
+
+从另一个`string`对象拷贝字符构造`string`时，如果提供的拷贝开始位置（可选）大于给定`string`的大小，则构造函数会抛出`out_of_range`异常。
+
+子字符串操作：
+
+![9-14](CPP_Primer_5th.assets/9-14.png)
+
+如果传递给`substr`函数的开始位置超过`string`的大小，则函数会抛出`out_of_range`异常。
 
 #### 9.5.2 Other Ways to Change a string
 
+修改`string`的操作：
+
+![9-15](CPP_Primer_5th.assets/9-15.png)
+
+`append`函数是在`string`末尾进行插入操作的简写形式。
+
+```c++
+string s("C++ Primer"), s2 = s;     // initialize s and s2 to "C++ Primer"
+s.insert(s.size(), " 4th Ed.");     // s == "C++ Primer 4th Ed."
+s2.append(" 4th Ed.");     // equivalent: appends " 4th Ed." to s2; s == s2
+```
+
+`replace`函数是调用`erase`和`insert`函数的简写形式。
+
+```c++
+// equivalent way to replace "4th" by "5th"
+s.erase(11, 3);         // s == "C++ Primer Ed."
+s.insert(11, "5th");    // s == "C++ Primer 5th Ed."
+// starting at position 11, erase three characters and then insert "5th"
+s2.replace(11, 3, "5th");   // equivalent: s == s2
+```
+
+##### 改变string的多种重载函数
+
+`append` `assign` `insert` `replace` 都有多个重载版本
+
+- assign 和 append 无需指定要替换string中哪个部分，因为assign总是全部替换string，而append总是在string追加。
+
+-  replace函数提供两种删除元素方式的方法，可以通过一个位置和一个长度来指定范围，也可以通过一个迭代器范围来指定。
+- insert函数允许我们用两个方式指定插入点：用一个下标或一个迭代器。这两种情况下，新元素都会插入到给定下标（或迭代器）之前的位置。
+
+但是insert 不支持下标和初始化列表参数。如果我们希望使用迭代器指定插入点，就不能用字符指针来指定新字符的来源。
+
 #### 9.5.3 string Search Operations
+
+`string`的每个搜索操作都返回一个`string::size_type`值，表示匹配位置的下标。如果搜索失败，则返回一个名为`string::npos`的`static`成员。标准库将`npos`定义为`const string::size_type`类型，并初始化为-1。
+
+不建议用`int`或其他带符号类型来保存`string`搜索函数的返回值。
+
+`string`搜索操作：
+
+![9-16](CPP_Primer_5th.assets/9-16.png)
 
 #### 9.5.4 The compare Functions
 
+`string`类型提供了一组`compare`函数进行字符串比较操作，类似C标准库的`strcmp`函数。
+
+根据s是等于、大于还是小于参数指定的字符串，s.compare 返回0，正数或负数。
+
+`compare`函数的几种参数形式：
+
+![9-17](CPP_Primer_5th.assets/9-17.png)
+
 #### 9.5.5 Numeric Conversions
 
-### 9.6 Container Adaptors
+C++11增加了`string`和数值之间的转换函数：
+
+![9-18](CPP_Primer_5th.assets/9-18.png)
+
+进行数值转换时，`string`参数的第一个非空白字符必须是符号（`+`或`-`）或数字。它可以以`0x`或`0X`开头来表示十六进制数。对于转换目标是浮点值的函数，`string`参数也可以以小数点开头，并可以包含`e`或`E`来表示指数部分。
+
+如果给定的`string`不能转换为一个数值，则转换函数会抛出`invalid_argument`异常。如果转换得到的数值无法用任何类型表示，则抛出`out_of_range`异常。
+
+### 9.6 Container Adaptors 适配器
+
+标准库定义了`stack`、`queue`和`priority_queue`三种容器适配器。容器适配器可以改变已有容器的工作机制。
+
+所有容器适配器都支持的操作和类型：
+
+![9-19](CPP_Primer_5th.assets/9-19.png)
+
+默认情况下，`stack`和`queue`是基于`deque`实现的，`priority_queue`是基于`vector`实现的。可以在创建适配器时将一个命名的顺序容器作为第二个类型参数，来重载默认容器类型。
+
+```c++
+// empty stack implemented on top of vector
+stack<string, vector<string>> str_stk;
+// str_stk2 is implemented on top of vector and initially holds a copy of svec
+stack<string, vector<string>> str_stk2(svec);
+```
+
+所有适配器都要求容器具有添加和删除元素的能力，因此适配器不能构造在`array`上。适配器还要求容器具有添加、删除和访问尾元素的能力，因此也不能用`forward_list`构造适配器。
+
+##### stack
+
+栈适配器`stack`定义在头文件`stack`中，其支持的操作如下：
+
+![9-20](CPP_Primer_5th.assets/9-20.png)
+
+##### queue
+
+队列适配器`queue`和`priority_queue`定义在头文件`queue`中，其支持的操作如下：
+
+![9-21](CPP_Primer_5th.assets/9-21.png)
+
+`queue`使用先进先出（first-in，first-out，FIFO）的存储和访问策略。进入队列的对象被放置到队尾，而离开队列的对象则从队首删除。
 
 ### Chapter Summary  
 
+标准库容器是模板类型，用来保存给定类型的对象，在一个顺序容器中，元素是按顺序操作的。通过为止来访问，
+
+除array外，所有的容器都提供高效的动态内存管理。不用关心元素存储位置。
+
+当我们使用添加和删除元素的容器操作时，必须注意这些操作可能使得容器中的迭代器、指针、引用失效。
+
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+|    中文    |          英文           | 含义                                                         |
+| :--------: | :---------------------: | ------------------------------------------------------------ |
+|   适配器   |         adaptor         | 标准库类型、函数或迭代器，他们接受一个类型、函数或迭代器，使其行为像另外一个类型、函数或迭代器一样。 |
+|  单向列表  |      forward_list       | forward_list的元素只能顺序访问，不支持--，与其他容器不同，插入和删除发生在给定的迭代器之后的位置。因此，除了通常的尾后迭代器外，它还有一个首前迭代器。在添加新元素后，原有的指向forward_list的迭代器仍有效。在删除元素后，只有原来指向被删除元素的迭代器才会失效。 |
+| 左闭合区间 | left-inclusive interval | 值范围，包含首元素，不包括尾元素。                           |
+|            |                         |                                                              |
+|            |                         |                                                              |
+|            |                         |                                                              |
+|            |                         |                                                              |
+|            |                         |                                                              |
 
 
 
-## Chapter 10 Generic Algorithms
+## Chapter 10 Generic Algorithms 泛型算法
 
 ### 10.1 Overview
 
