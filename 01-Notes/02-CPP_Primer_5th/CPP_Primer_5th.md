@@ -7307,17 +7307,209 @@ stack<string, vector<string>> str_stk2(svec);
 
 ## Chapter 10 Generic Algorithms 泛型算法
 
+标准库定义了一组泛型算法，来实现各种有用的操作。
+
+称他们为算法，是因为它们实现了一些经典算法的公共接口，如排序和搜索
+
+称他们为泛型，是因为他们可以用于不同类型的元素和多种容器类型
+
 ### 10.1 Overview
+
+大多数算法都定义在头文件`algorithm`中，此外标准库还在头文件`numeric`中定义了一组数值泛型算法。一般情况下，这些算法并不直接操作容器，而是遍历由两个迭代器指定的元素范围进行操作。
+
+`find`函数将范围中的每个元素与给定值进行比较，返回指向第一个等于给定值的元素的迭代器。如果无匹配元素，则返回其第二个参数来表示搜索失败。
+
+```c++
+int val = 42;   // value we'll look for
+// result will denote the element we want if it's in vec, or vec.cend() if not
+auto result = find(vec.cbegin(), vec.cend(), val);
+// report the result
+cout << "The value " << val
+    << (result == vec.cend() ? " is not present" : " is present") << endl;
+```
+
+另外指针就像内置数组上的迭代器，可以用find在数组中查找值：
+
+```c++
+int ia[] = {27, 210, 12, 47, 109, 83};
+int val = 83;
+int* result = find(begin(ia), end(ia), val);
+//还可以在序列的子范围中查找
+auto result = find(ia+1,ia+4,val);
+```
+
+迭代器参数令算法不依赖于特定容器，但依赖于元素类型操作。比如需要容器提供例如`<` `==`的重载版本。
+
+泛型算法本身不会执行容器操作，它们只会运行于迭代器之上，执行迭代器操作。算法可能改变容器中元素的值，或者在容器内移动元素，但不会改变底层容器的大小（当算法操作插入迭代器`insert`时，迭代器可以向容器中添加元素，但算法自身不会进行这种操作）。
 
 ### 10.2 A First Look at the Algorithms
 
-#### 10.2.1 Read-Only Algorithms
+除了少数例外，标准库算法都对一个范围内的元素进行操作。我们将此元素范围称为“输入范围”。一般用两个迭代器来实现。
 
-#### 10.2.2 Algorithms That Write Container Elements
+了解一个算法，最基本的就是了解它们是否读取元素、改变元素或是重排元素。
 
-#### 10.2.3 Algorithms That Reorder Container Elements
+#### 10.2.1 Read-Only Algorithms 只读算法
+
+一些算法只读取范围内元素，而不进行操作，如`find` `count`。
+
+##### accumulate  求和
+
+`accumulate`函数（定义在头文件`numeric`中）用于计算一个序列的和。它接受三个参数，前两个参数指定需要求和的元素范围，第三个参数是和的初值（第三个参数的类型决定加法运算符和返回值类型）。
+
+```c++
+// sum the elements in vec starting the summation with the value 0
+int sum = accumulate(vec.cbegin(), vec.cend(), 0);
+string sum = accumulate(v.cbegin(), v.cend(), string(""));
+// error: no + on const char* 简单使用空串是不行的，因为这种类型没有定义+运算符。
+string sum = accumulate(v.cbegin(), v.cend(), "");
+```
+
+建议在只读算法中使用`cbegin`和`cend`函数。
+
+##### equal 相等
+
+`equal`函数用于确定两个序列是否保存相同的值。它接受三个迭代器参数，前两个参数指定第一个序列范围，第三个参数指定第二个序列的首元素。
+
+`equal`函数假定第二个序列至少与第一个序列一样长。
+
+```c++
+// roster2 should have at least as many elements as roster1
+equal(roster1.cbegin(), roster1.cend(), roster2.cbegin());
+```
+
+注：只接受单一迭代器表示第二个操作序列的算法都假定**第二个序列至少与第一个序列一样长**
+
+#### 10.2.2 Algorithms That Write Container Elements 写算法
+
+一些算法将新值赋予序列中的元素，这时候要注意，由于算法不会进行容器操作，不会改变容器大小，所以容器大小至少不小于我们要求写入的元素数目。
+
+##### fill 填充
+
+`fill`函数接受两个迭代器参数表示序列范围，还接受一个值作为第三个参数，它将给定值赋予范围内的每个元素。
+
+```c++
+// reset each element to 0
+fill(vec.begin(), vec.end(), 0);
+fill(vec.begin(), vec.begin() + vec.size()/2, 10);
+```
+
+`fill_n`函数接受单个迭代器参数、一个计数值和一个值，它将给定值赋予迭代器指向位置开始的指定个元素。
+
+```c++
+// reset all the elements of vec to 0
+fill_n(vec.begin(), vec.size(), 0);
+```
+
+向目的位置迭代器写入数据的算法都假定目的位置**足够大**，能容纳要写入的元素。
+
+##### 算法不检查写操作
+
+最容易犯的错误就是在空容器上写。
+
+##### back_inserter
+
+插入迭代器（insert iterator）是一种向容器内添加元素的迭代器。通过插入迭代器赋值时，一个与赋值号右侧值相等的元素会被添加到容器中。【10.4.1】会详细介绍迭代器。
+
+`back_inserter`函数（定义在头文件`iterator`中）接受一个指向容器的引用，返回与该容器绑定的插入迭代器。通过此迭代器赋值时，赋值运算符会调用`push_back`将一个具有给定值的元素添加到容器中。
+
+```c++
+vector<int> vec;    // empty vector
+auto it = back_inserter(vec);   // assigning through it adds elements to vec
+*it = 42;   // vec now has one element with value 42
+// ok: back_inserter creates an insert iterator that adds elements to vec
+fill_n(back_inserter(vec), 10, 0);  // appends ten elements to vec
+```
+
+```c++
+#include <iostream>
+#include<vector>
+#include<iterator>
+using namespace std;
+int main() {
+    vector<int> vec;
+    auto it = back_inserter(vec);
+    for(int i = 0;i<10;i++){
+        *it = i;
+    }
+    for(auto it : vec){
+        cout<<it<<" ";
+    }
+    return 0;
+}
+/*
+0 1 2 3 4 5 6 7 8 9
+*/
+```
+
+##### copy 拷贝
+
+`copy`函数接受三个迭代器参数，前两个参数指定输入范围，第三个参数指定目的序列的起始位置。
+
+它将输入序列中的元素拷贝到目的序列中，返回目的位置迭代器（递增后）的值。
+
+```c++
+int a1[] = { 0,1,2,3,4,5,6,7,8,9 };
+int a2[sizeof(a1) / sizeof(*a1)];     // a2 has the same size as a1
+// ret points just past the last element copied into a2
+auto ret = copy(begin(a1), end(a1), a2);    // copy a1 into a2
+```
+
+`copy` 返回的是其目的位置迭代器（递增后）的值。ret恰好指向拷贝到a2的尾元素之后的位置。
+
+##### replace
+
+`replace`函数接受四个参数，前两个迭代器参数指定输入序列，后两个参数指定要搜索的值和替换值。它将序列中所有等于第一个值的元素都替换为第二个值。
+
+```c++
+// replace any element with the value 0 with 42
+replace(ilst.begin(), ilst.end(), 0, 42);
+```
+
+相对于`replace`，`replace_copy`函数可以保留原序列不变。它接受第三个迭代器参数，指定调整后序列的保存位置。
+
+```c++
+// use back_inserter to grow destination as needed
+replace_copy(ilst.cbegin(), ilst.cend(), back_inserter(ivec), 0, 42);
+```
+
+很多算法都提供“copy”版本，这些版本不会将新元素放回输入序列，而是创建一个新序列保存结果。
+
+#### 10.2.3 Algorithms That Reorder Container Elements 重排容器元素的算法.
+
+##### sort
+
+`sort`函数接受两个迭代器参数，指定排序范围。它利用元素类型的`<`运算符重新排列元素。
+
+```c++
+void elimDups(vector<string> &words)
+{
+    // sort words alphabetically so we can find the duplicates
+    sort(words.begin(), words.end());
+    // unique reorders the input range so that each word appears once in the
+    // front portion of the range and returns an iterator one past the unique range
+    auto end_unique = unique(words.begin(), words.end());
+    // erase uses a vector operation to remove the nonunique elements
+    words.erase(end_unique, words.end());
+}
+```
+
+##### unique
+
+`unique`函数重排输入序列，消除相邻的重复项，返回指向不重复值范围末尾的迭代器。
+
+![10-1](CPP_Primer_5th.assets/10-1.png)
+
+重复的元素并没有真的删除，而是通过迭代器限定范围将其屏蔽了。
+
+##### 使用容器操作真正删除元素
+
+本例使用了erase，而且用法比较规范，即使重复单词为空，也不会造成bug。
 
 ### 10.3 Customizing Operations
+
+默认情况下，很多算法会比较序列中的元素，这时候要使用元素类型的`<`或`==`运算符完成操作。
+
+标准库允许我们可以为这些算法提供自定义操作来代替默认运算符。
 
 #### 10.3.1 Passing a Function to an Algorithm
 
