@@ -1388,7 +1388,7 @@ void elimDups(vector<string> &words)
 
 本例使用了erase，而且用法比较规范，即使重复单词为空，也不会造成bug。
 
-### 10.3 Customizing Operations
+### 10.3 Customizing Operations 定制操作
 
 默认情况下，很多算法会比较序列中的元素，这时候要使用元素类型的`<`或`==`运算符完成操作。
 
@@ -1781,23 +1781,402 @@ for_each(words.begin(), words.end(), bind(print, ref(os), _1, ' '));
 > 版权声明：本文为CSDN博主「另寻沧海」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
 > 原文链接：https://blog.csdn.net/weixin_42244181/article/details/123426590
 
-### 10.4 Revisiting Iterators
+
+
+### 10.4 Revisiting Iterators 再探迭代器
+
+除了为每种容器定义的迭代器之外，标准库还在头文件`iterator`中定义了另外几种迭代器。
+
+- 插入迭代器（insert iterator）：该类型迭代器被绑定到容器对象上，可用来向容器中插入元素。
+
+- 流迭代器（stream iterator）：该类型迭代器被绑定到输入或输出流上，可用来遍历所关联的IO流。
+
+- 反向迭代器（reverse iterator）：该类型迭代器向后而不是向前移动。除了`forward_list`之外的标准库容器都有反向迭代器。
+
+- 移动迭代器（move iterator）：该类型迭代器用来移动容器元素。
 
 #### 10.4.1 Insert Iterators
 
+插入器是一种迭代器适配器，它接受一个容器参数，生成一个插入迭代器。通过插入迭代器赋值时，该迭代器调用容器操作向给定容器的指定位置插入一个元素。
+
+插入迭代器操作：
+
+![10-3](CPP_Primer_5th.assets/10-3.png)
+
+插入器有三种类型，区别在于元素插入的位置：
+
+- `back_inserter`：创建一个调用`push_back`操作的迭代器。
+
+- `front_inserter`：创建一个调用`push_front`操作的迭代器。
+
+- `inserter`：创建一个调用`insert`操作的迭代器。此函数接受第二个参数，该参数必须是一个指向给定容器的迭代器，元素会被插入到该参数指向的元素之前。
+
+注：只有在容器支持push_front的情况下，我们才可以使用front_inserter。类似的，只有在容器支持push_back，我们才能使用back_inserter。
+
+> 一开始感觉可能会有些难以理解，但是插入迭代器实际上完成这样一个操作
+>
+> ```c++
+> *it = val;
+> ==
+> it = c.insert(it,val);
+> +it;
+> ```
+
+front_inserter 生成的迭代器和inserter的不一样，它总是插入容器第一个元素之前，
+
+```c++
+list<int> lst = { 1,2,3,4 };
+list<int> lst2, lst3;   // empty lists
+// after copy completes, lst2 contains 4 3 2 1
+copy(lst.cbegin(), lst.cend(), front_inserter(lst2));
+// after copy completes, lst3 contains 1 2 3 4
+copy(lst.cbegin(), lst.cend(), inserter(lst3, lst3.begin()));
+```
+
+
+
 #### 10.4.2 iostream Iterators
+
+`istream_iterator`从输入流读取数据，`ostream_iterator`向输出流写入数据。这些迭代器将流当作特定类型的元素序列处理。
+
+##### istream_iterator操作
+
+创建流迭代器时，必须指定迭代器读写的对象类型。`istream_iterator`使用`>>`来读取流，因此`istream_iterator`要读取的类型必须定义了`>>`运算符。创建`istream_iterator`时，可以将其绑定到一个流。
+
+如果默认初始化，则创建的是尾后迭代器。
+
+```c++
+istream_iterator<int> int_it(cin);  // reads ints from cin
+istream_iterator<int> int_eof;      // end iterator value
+ifstream in("afile");
+istream_iterator<string> str_it(in);   // reads strings from "afile"
+```
+
+对于一个绑定到流的迭代器，一旦其关联的流遇到文件尾或IO错误，迭代器的值就与尾后迭代器相等。
+
+```c++
+istream_iterator<int> in_iter(cin);     // read ints from cin
+istream_iterator<int> eof;      // istream ''end'' iterator
+while (in_iter != eof)      // while there's valid input to read
+    // postfix increment reads the stream and returns the old value of the iterator
+    // we dereference that iterator to get the previous value read from the stream
+    vec.push_back(*in_iter++);
+```
+
+可以直接使用流迭代器构造容器。
+
+```c++
+istream_iterator<int> in_iter(cin), eof;    // read ints from cin
+vector<int> vec(in_iter, eof);      // construct vec from an iterator range
+```
+
+`istream_iterator`操作：
+
+![10-4](CPP_Primer_5th.assets/10-4.png)
+
+##### 使用算法操作流迭代器
+
+因为泛型算法使用迭代器来操作数据，而流迭代器多多少少支持一些迭代器操作，所以流迭代器也支持一些算法。
+
+```c++
+istream_iterator<int> in(cin),eof;
+cout << accumulate(in,eof,0)<<endl;
+```
+
+##### istream_iterator允许使用懒惰求值
+
+将`istream_iterator`绑定到一个流时，标准库并不保证迭代器立即从流读取数据。但可以保证在第一次解引用迭代器之前，从流中读取数据的操作已经完成了。对大多数程序来说，立即读取和推迟读取没有区别，但如果创建的istream_iterator 没有使用就销毁了，或者从两个不同的对象同步读取同一个值，那么何时读取可能就很重要了。
+
+> 惰性求值（Lazy evaluation）是在需要时才进行求值的计算方式。[表达式](https://so.csdn.net/so/search?q=表达式&spm=1001.2101.3001.7020)不在它被绑定到变量之后就立即求值，而是在该值被取用的时候求值。
+>
+> 除可以得到性能的提升（更小的[内存](https://so.csdn.net/so/search?q=内存&spm=1001.2101.3001.7020)占用）外，惰性计算的最重要的好处是它可以构造一个**无限的数据类型**。
+>
+> https://blog.csdn.net/shine19930820/article/details/71001689
+>
+> (虽然讲的是python，但是意思应该一样)
+
+##### ostream_iterator 操作
+
+创建一个ostream_iterator时，我们可以提供（可选）的第二参数，这样每次输出时候都会附带上。这个参数是C风格的字符串（一个字符串常量或者一个指向以空字符结尾的字符数组的指针）
+
+定义`ostream_iterator`对象时，必须将其绑定到一个指定的流。不允许定义空的或者表示尾后位置的`ostream_iterator`。
+
+```c++
+#include <iostream>
+#include<iterator>
+#include<vector>
+using namespace std;
+int main() {
+    vector<int> vec = {1,2,3,4,5};
+    ostream_iterator<int> out_iter(cout,"d");
+    for(auto e:vec){
+        *out_iter++ = e;
+    }
+    cout<<endl;
+    return 0;
+}
+//1d2d3d4d5d
+```
+
+`ostream_iterator`操作：
+
+![10-5](CPP_Primer_5th.assets/10-5.png)
+
+
+
+
+
+`*`和`++`运算符实际上不会对`ostream_iterator`对象做任何操作。但是建议代码写法与其他迭代器保持一致。
+
+> 從概念上講，當寫入範圍時，您希望在寫入一個元素之後移至下一個元素。對於大多數迭代器，例如`std::vector::iterator`，必須明確完成。因此，僅出於一致性考慮，將其包括在內是有意義的。
+>
+> 在`std::ostream_iterator`的特定情況下，它沒有實際效果，因此可以忽略。無論如何，您都不能覆蓋輸出範圍的“元素”，前進是隱式的(並且只有隱式的，即在這種情況下，增量運算子和取消引用都是無操作的)。
+
+> ```c++
+> template <class T>
+> class ostream_iterator {
+> protected:
+>   ostream* stream;                                                          
+>   const char* string;                                                       //可以包含第二个参数，输出对应的数据后，输出此stream
+> public:
+>   typedef output_iterator_tag iterator_category;                            //迭代器类型
+>   typedef void                value_type;
+>   typedef void                difference_type;
+>   typedef void                pointer;
+>   typedef void                reference;
+>  
+>   ostream_iterator(ostream& s) : stream(&s), string(0) {}                 //缺省一个参数的构造函数，默认string为空
+>   ostream_iterator(ostream& s, const char* c) : stream(&s), string(c)  {} //包含string的构造函数
+>   ostream_iterator<T>& operator=(const T& value) {                        //重点！！！重载operator=操作，转换为输出此value
+>     *stream << value;
+>     if (string) *stream << string;
+>     return *this;
+>   }
+>   ostream_iterator<T>& operator*() { return *this; }                       //都返回本身
+>   ostream_iterator<T>& operator++() { return *this; } 
+>   ostream_iterator<T>& operator++(int) { return *this; } 
+> };
+> ————————————————
+> 版权声明：本文为CSDN博主「阿_波_」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+> 原文链接：https://blog.csdn.net/li1615882553/article/details/83716065
+> ```
+
+> [STL中istream_iterator和ostream_iterator的基本用法](https://www.cnblogs.com/VIPler/p/4367308.html)
+>
+> 标准程序库定义有供输入及输出用的iostream iterator类，称为istream_iterator和ostream_iterator，分别支持单一型别的元素读取和写入。使用这两个iteratorclasses之前，先得含入iterator头文件:
+>
+> ```
+> #include<iterator>
+> ```
+>
+> 现在让我们看看如何利用istream_iterator从标准输人装置中读取字符串（即类似cin功能）：
+>
+> 
+>
+> 就像所有的iterators一样我们需要一对iterators：first和last，用来标示元素范围。这里想象一下istream_iterator的起始位置和结束位置分别是什么。
+>
+> 下面这行代码为我们提供了一个firstiterator，它将is定义为一个“连结至标准输人装置（cin）”的istream_iterator。
+>
+> ```
+> istream_iterator<string> is( cin);
+> ```
+>
+> 我们还需要一个lastiterator，表示“欲读取之最后元素的下一位置”。
+>
+> 对标准输入装置而言，end-of-file即代表last。这该如何表示呢？噢，只要在定义istreamiterator时不为它指定istream对象，它便代表了end-of-file。如下所示：
+>
+> ```
+> istream_iterator<string> eof;
+> ```
+>
+> 我们应该如何使用这对iterators呢?下面的例子中，我将它们，以及存储字符串元素的vector一起传给泛型算法。copy()由于不知道要为vector保留多少空间，所以我选用back_inserter：
+>
+> ```
+> copy( is, eof, back_inserter( text ));
+> ```
+>
+> 说明一下：back_inserter 是iterator适配器，它使得元素被插入到作为实参的某种容器的尾部，如vector等
+>
+> 现在我还需要一个ostream_iterator表示字符串元素的输出位置。以下程序代码将os定义为一个“连结至标准输出设备”的ostream_iterator，此标准输出设备供我们输出型别为string的元素。
+>
+> ```
+> ostream_iterator<string> os( cout, " " );
+> ```
+>
+> 上述第二个参数可以是C-Sty1e字符串，也可以是字符串常量。它用来表示各个元素被输出时的分隔符，默认情形下输出的各个元素并无任何分隔符。本例我选择在各输出字符串之间以空白加以分隔。以下便是可能的运用方式：
+>
+> ```
+> copy( text.begin(), text.end(), os );
+> ```
+>
+>
+> copy()会将存储在text中的每个元素一一写到由os所表示的ostream上头，每个元素皆以空格符分隔开来。
+>
+> 完整示例代码如下：
+>
+> ```
+> #include<iostream>
+> #include<string>
+> #include<iterator>
+> #include<algorithm>
+> using namespace std;
+> int main()
+> {
+>     string text;
+>     istream_iterator<int> is(cin);//绑定标准输入装置
+>     istream_iterator<int> eof;//定义输入结束位置
+>     copy(is,eof,back_inserter(text));
+>     sort(text.begin(),text.end());
+> 
+>     ostream_iterator<int> os(cout,", ");//绑定标准输出装置
+>     copy(text.begin(),text.end(),os);
+> }
+> ```
+>
+> 运行结果：
+>
+> https://www.cnblogs.com/VIPler/p/4367308.html
+
+> ostream_iterator::operator*
+>
+> 输出迭代器的要求，`ostream_iterator`即必须满足的要求仅要求表达式 * *ii* = *无效，*并且对表达式或`operator=`本身没有说明任何内容**`operator`**。 此实现中的成员运算符返回 **`\*this`**。
+>
+> ostream_iterator::operator++
+> 一种非功能性递增运算符，可向调用该运算之前所处理的同一对象返回 ostream_iterator。
+>
+> https://docs.microsoft.com/zh-cn/cpp/standard-library/ostream-iterator-class?view=msvc-170
+
+```c++
+ostream_iterator<int> out_iter(cout, " ");
+for (auto e : vec)
+    *out_iter++ = e;    // the assignment writes this element to cout
+// out_iter = e; 其实也行
+cout << endl;
+```
+
+##### 使用流迭代器处理类类型
+
+可以为任何定义了`<<`运算符的类型创建`istream_iterator`对象，为定义了`>>`运算符的类型创建`ostream_iterator`对象。
 
 #### 10.4.3 Reverse Iterators
 
+递增反向迭代器会移动到前一个元素，递减会移动到后一个元素。
+
+```c++
+sort(vec.begin(), vec.end());   // sorts vec in "normal" order
+// sorts in reverse: puts the smallest element at the end of vec
+sort(vec.rbegin(), vec.rend());
+```
+
+![10-6](CPP_Primer_5th.assets/10-6.png)
+
+不能从`forward_list`或流迭代器创建反向迭代器。
+
+调用反向迭代器的`base`函数可以获得其对应的普通迭代器。
+
+```c++
+// find the last element in a comma-separated list
+auto rcomma = find(line.crbegin(), line.crend(), ',');
+// WRONG: will generate the word in reverse order
+cout << string(line.crbegin(), rcomma) << endl;
+// ok: get a forward iterator and read to the end of line
+cout << string(rcomma.base(), line.cend()) << endl;
+```
+
+![10-7](CPP_Primer_5th.assets/10-7.png)
+
+反向迭代器的目的是表示元素范围，而这些范围是不对称的。用普通迭代器初始化反向迭代器，或者给反向迭代器赋值时，结果迭代器与原迭代器指向的并不是相同元素。
+
 ### 10.5 Structure of Generic Algorithms
+
+算法要求的迭代器操作可以分为5个迭代器类别（iterator category）：
+
+![10-8](CPP_Primer_5th.assets/10-8.png)
 
 #### 10.5.1 The Five Iterator Categories
 
+C++标准指定了泛型和数值算法的每个迭代器参数的最小类别。对于迭代器实参来说，其能力必须大于或等于规定的最小类别。向算法传递更低级的迭代器参数会产生错误（大部分编译器不会提示错误）。
+
+迭代器类别：
+
+- 输入迭代器（input iterator）：可以读取序列中的元素，只能用于单遍扫描算法。必须支持以下操作：
+
+  - 用于比较两个迭代器相等性的相等`==`和不等运算符`!=`。
+
+  - 用于推进迭代器位置的前置和后置递增运算符`++`。
+
+  - 用于读取元素的解引用运算符`*`；解引用只能出现在赋值运算符右侧。
+
+  - 用于读取元素的箭头运算符`->`。
+
+- 输出迭代器（output iterator）：可以读写序列中的元素，只能用于单遍扫描算法，通常指向目的位置。必须支持以下操作：
+
+  - 用于推进迭代器位置的前置和后置递增运算符`++`。
+
+  - 用于读取元素的解引用运算符`*`；解引用只能出现在赋值运算符左侧（向已经解引用的输出迭代器赋值，等价于将值写入其指向的元素）。
+
+- 前向迭代器（forward iterator）：可以读写序列中的元素。只能在序列中沿一个方向移动。支持所有输入和输出迭代器的操作，而且可以多次读写同一个元素。因此可以使用前向迭代器对序列进行多遍扫描。
+
+- 双向迭代器（bidirectional iterator）：可以正向/反向读写序列中的元素。除了支持所有前向迭代器的操作之外，还支持前置和后置递减运算符`--`。除`forward_list`之外的其他标准库容器都提供符合双向迭代器要求的迭代器。
+
+- 随机访问迭代器（random-access iterator）：可以在常量时间内访问序列中的任何元素。除了支持所有双向迭代器的操作之外，还必须支持以下操作：
+
+  - 用于比较两个迭代器相对位置的关系运算符`<`、`<=`、`>`、`>=`。
+
+  - 迭代器和一个整数值的加减法运算`+`、`+=`、`-`、`-=`，计算结果是迭代器在序列中前进或后退给定整数个元素后的位置。
+
+  - 用于两个迭代器上的减法运算符`-`，计算得到两个迭代器的距离。
+
+  - 下标运算符`[]`。
+
 #### 10.5.2 Algorithm Parameter Patterns
+
+大多数算法的形参模式是以下四种形式之一：
+
+```c++
+alg(beg, end, other args);
+alg(beg, end, dest, other args);
+alg(beg, end, beg2, other args);
+alg(beg, end, beg2, end2, other args);
+```
+
+其中`alg`是算法名称，`beg`和`end`表示算法所操作的输入范围。几乎所有算法都接受一个输入范围，是否有其他参数依赖于算法操作。`dest`表示输出范围，`beg2`和`end2`表示第二个输入范围。
+
+向输出迭代器写入数据的算法都假定目标空间足够容纳要写入的数据。
+
+接受单独一个迭代器参数表示第二个输入范围的算法都假定从迭代器参数开始的序列至少与第一个输入范围一样大。
 
 #### 10.5.3 Algorithm Naming Conventions
 
+接受谓词参数的算法都有附加的`_if`后缀。
+
+```c++
+find(beg, end, val);       // find the first instance of val in the input range
+find_if(beg, end, pred);   // find the first instance for which pred is true
+```
+
+将执行结果写入额外目的空间的算法都有`_copy`后缀。
+
+```c++
+reverse(beg, end);              // reverse the elements in the input range
+reverse_copy(beg, end, dest);   // copy elements in reverse order into dest
+```
+
+一些算法同时提供`_copy`和`_if`版本。
+
 ### 10.6 Container-Specific Algorithms
+
+对于`list`和`forward_list`类型，应该优先使用成员函数版本的算法，而非通用算法。
+
+`list`和`forward_list`成员函数版本的算法：
+
+![10-9](CPP_Primer_5th.assets/10-9.png)
+
+`list`和`forward_list`的`splice`函数可以进行容器合并，其参数如下：
+
+![10-10](CPP_Primer_5th.assets/10-10.png)
+
+链表特有版本的算法操作会改变底层容器。
 
 ### Chapter Summary  
 
