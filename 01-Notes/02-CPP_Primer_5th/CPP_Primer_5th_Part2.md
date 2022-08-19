@@ -2058,9 +2058,11 @@ cout << endl;
 
 可以为任何定义了`<<`运算符的类型创建`istream_iterator`对象，为定义了`>>`运算符的类型创建`ostream_iterator`对象。
 
-#### 10.4.3 Reverse Iterators
+#### 10.4.3 Reverse Iterators 反向迭代器
 
 递增反向迭代器会移动到前一个元素，递减会移动到后一个元素。
+
+除了forward_list，其他容器都支持反向迭代器。
 
 ```c++
 sort(vec.begin(), vec.end());   // sorts vec in "normal" order
@@ -2068,24 +2070,47 @@ sort(vec.begin(), vec.end());   // sorts vec in "normal" order
 sort(vec.rbegin(), vec.rend());
 ```
 
+下图是一个名为vec的vector上的4种迭代器。
+
 ![10-6](CPP_Primer_5th.assets/10-6.png)
 
-不能从`forward_list`或流迭代器创建反向迭代器。
+不能从`forward_list`或流迭代器创建反向迭代器。因为不可能在流中反向移动
 
-调用反向迭代器的`base`函数可以获得其对应的普通迭代器。
+**调用反向迭代器的`base`函数可以获得其对应的普通迭代器。**
 
 ```c++
-// find the last element in a comma-separated list
-auto rcomma = find(line.crbegin(), line.crend(), ',');
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+using namespace std;
+int main() {
+    // find the last element in a comma-separated list
+    string line = "hello world, yes minister";
+    auto comma = find(line.cbegin(), line.cend(), ',');
+    cout << string(line.cbegin(), comma) << endl;
+    auto rcomma = find(line.crbegin(), line.crend(), ',');
 // WRONG: will generate the word in reverse order
-cout << string(line.crbegin(), rcomma) << endl;
+    cout << string(line.crbegin(), rcomma) << endl;
 // ok: get a forward iterator and read to the end of line
-cout << string(rcomma.base(), line.cend()) << endl;
+    cout << string(rcomma.base(), line.cend()) << endl;
+    return 0;
+}
+/*
+hello world
+retsinim sey
+ yes minister
+*/
 ```
 
 ![10-7](CPP_Primer_5th.assets/10-7.png)
 
-反向迭代器的目的是表示元素范围，而这些范围是不对称的。用普通迭代器初始化反向迭代器，或者给反向迭代器赋值时，结果迭代器与原迭代器指向的并不是相同元素。
+反向迭代器的目的是表示元素范围，而这些范围是不对称的。
+
+因为要使[line.crbegin(),rcomma]和[rcomma.base,line.cend]指向相同的元素，所有rcomma.base 和 rcomma生成在相邻位置而不是相同位置。
+
+用普通迭代器初始化反向迭代器，或者给反向迭代器赋值时，结果迭代器与原迭代器指向的并不是相同元素。
 
 ### 10.5 Structure of Generic Algorithms
 
