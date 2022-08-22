@@ -2114,15 +2114,25 @@ retsinim sey
 
 ### 10.5 Structure of Generic Algorithms
 
-算法要求的迭代器操作可以分为5个迭代器类别（iterator category）：
+任何算法的最基本的特性是它要求其迭代器提供哪些操作。算法要求的迭代器操作可以分为5个迭代器类别（iterator category）：
 
 ![10-8](CPP_Primer_5th.assets/10-8.png)
 
+每个算法都会对它的每个迭代器参数指明需要提供哪些迭代器。
+
+另一种算法分类的形式是按照是否读、写或是重排序列中的元素来分类。
+
+算法还共享一组参数传递规范和一组命名规范。
+
 #### 10.5.1 The Five Iterator Categories
 
-C++标准指定了泛型和数值算法的每个迭代器参数的最小类别。对于迭代器实参来说，其能力必须大于或等于规定的最小类别。向算法传递更低级的迭代器参数会产生错误（大部分编译器不会提示错误）。
+迭代器是按它们所提供的操作来分类的，而这种分类形成了一种层次。除了输出迭代器，一个高层类别的迭代器支持低层类别迭代器的所有操作。
 
-迭代器类别：
+C++标准指定了泛型和数值算法的每个迭代器参数的最小类别。对于迭代器实参来说，其能力必须大于或等于规定的最小类别。
+
+向算法传递更低级的迭代器参数会产生错误（大部分编译器不会提示错误）。
+
+##### 迭代器类别：
 
 - 输入迭代器（input iterator）：可以读取序列中的元素，只能用于单遍扫描算法。必须支持以下操作：
 
@@ -2165,11 +2175,11 @@ alg(beg, end, beg2, other args);
 alg(beg, end, beg2, end2, other args);
 ```
 
-其中`alg`是算法名称，`beg`和`end`表示算法所操作的输入范围。几乎所有算法都接受一个输入范围，是否有其他参数依赖于算法操作。`dest`表示输出范围，`beg2`和`end2`表示第二个输入范围。
+其中`alg`是算法名称，`beg`和`end`表示算法所操作的输入范围。几乎所有算法都接受一个输入范围，是否有其他参数依赖于算法操作。`beg`和`end2`表示表示输出范围，`beg2`和`end2`表示第二个输入范围。 `dest`表示指定目的位置。
 
 向输出迭代器写入数据的算法都假定目标空间足够容纳要写入的数据。
 
-接受单独一个迭代器参数表示第二个输入范围的算法都假定从迭代器参数开始的序列至少与第一个输入范围一样大。
+接受单独一个`beg2`表示第二个输入范围的算法都假定从迭代器参数开始的序列至少与第一个输入范围一样大。
 
 #### 10.5.3 Algorithm Naming Conventions
 
@@ -2191,7 +2201,7 @@ reverse_copy(beg, end, dest);   // copy elements in reverse order into dest
 
 ### 10.6 Container-Specific Algorithms
 
-对于`list`和`forward_list`类型，应该优先使用成员函数版本的算法，而非通用算法。
+对于`list`和`forward_list`类型，它们定义了独有的函数，因为通用的版本需要交换元素，而对于链表来说，这样做成本代价太高。所有应该优先使用成员函数版本的算法，而非通用算法。
 
 `list`和`forward_list`成员函数版本的算法：
 
@@ -2201,21 +2211,53 @@ reverse_copy(beg, end, dest);   // copy elements in reverse order into dest
 
 ![10-10](CPP_Primer_5th.assets/10-10.png)
 
-链表特有版本的算法操作会改变底层容器。
+> list::[splice](https://so.csdn.net/so/search?q=splice&spm=1001.2101.3001.7020)实现list拼接的功能。将源list的内容部分或全部元素删除，拼插入到目的list。
+>
+> 函数有以下三种声明：
+>
+> 一：void splice ( [iterator](https://so.csdn.net/so/search?q=iterator&spm=1001.2101.3001.7020) position, list<T,Allocator>& x );
+>
+> 二：void splice ( iterator position, list<T,Allocator>& x, iterator it );
+>
+> 三：void splice ( iterator position, list<T,Allocator>& x, iterator first, iterator last );
+>
+> 解释：
+>
+> position 是要操作的list对象的迭代器
+>
+> list&x 被剪的对象
+>
+> 对于一：会在position后把list&x所有的元素到剪接到要操作的list对象
+> 对于二：只会把it的值剪接到要操作的list对象中
+> 对于三：把first 到 last 剪接到要操作的list对象中
+
+
+
+##### 链表特有版本的算法操作会改变底层容器。
+
+比如`merge` `splice`会销毁其参数。
 
 ### Chapter Summary  
 
+序列可以是标准库容器类型中的元素、一个内置数组或是通过读写流来生成的。
+
+标准库定义了约100个与类型无关的对序列进行操作的算法。算法通过迭代器对容器进行操作。
+
+算法从不直接改变它们所操作的序列的大小。
+
+
+
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+| 中文       | 英文                    | 含义                                                         |
+| ---------- | ----------------------- | ------------------------------------------------------------ |
+|            | back_inserter           | 这是一个迭代器适配器，接受一个指向容器的引用，生成一个插入迭代器，该插入迭代器使用push_back添加元素 |
+| 双向迭代器 | biodirectional iterator | 支持前向迭代器的所有操作，还具有用--在序列中反向移动的能力。 |
+|            | istream_iterator        | 读取输入流的流迭代器                                         |
+| 迭代器类别 | iterator category       | 根据支持的操作对迭代器进行的分类组织。迭代器类别形成一个层次，高级别的类别支持更弱级别的所有操作。只要迭代器达到所要求的最小类别，他就可以用于算法。 |
+| 谓词       | predicate               | 返回可以转换为bool类型的值的函数。泛型算法常用来检测元素，标准库的谓词分为一元`unary`和二元的。 |
+|            |                         |                                                              |
+|            |                         |                                                              |
 
 ## Chapter 11 Associative Containers
 
