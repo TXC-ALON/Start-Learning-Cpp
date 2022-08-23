@@ -2261,15 +2261,109 @@ reverse_copy(beg, end, dest);   // copy elements in reverse order into dest
 
 ## Chapter 11 Associative Containers
 
+关联容器中的元素是按关键字来保存和访问的。与之相对，顺序容器中的元素是按他们在容器中的位置来顺序保存和访问的。
+
+两个主要的关联容器 Associative Containers 类型是`map` `set`。
+
+- map 中的元素是一些键值对 --  字典。
+
+- set中每个元素只包含一个关键字，支持高效的关键字查询操作。 --  集合
+
+
+
+标准库提供了8个关联容器，它们之间的不同体现在三个方面：
+
+- 是`map`还是`set`类型。
+
+- 是否允许保存重复的关键字。
+
+- 是否按顺序保存元素。
+
+允许重复保存关键字的容器名字都包含单词`multi`；无序保存元素的容器名字都以单词`unordered`开头。
+
+![11-1](CPP_Primer_5th_Part2.assets/11-1.png)
+
+`map`和`multimap`类型定义在头文件`map`中；`set`和`multiset`类型定义在头文件`set`中；无序容器定义在头文件`unordered_map`和`unordered_set`中。
+
 ### 11.1 Using an Associative Container
+
+##### 使用map
+
+`map`类型通常被称为关联数组（associative array）。
+
+从`map`中提取一个元素时，会得到一个`pair`类型的对象。`pair`【11.2.3】是一个模板类型，保存两个名为`first`和`second`的公有数据成员。`map`所使用的`pair`用`first`成员保存关键字，用`second`成员保存对应的值。
+
+**下例是一个经典的统计单词在输入中出现的次数**
+
+```c++
+// count the number of times each word occurs in the input
+map<string, size_t> word_count;     // empty map from string to size_t
+string word;
+while (cin >> word)
+    ++word_count[word];     // fetch and increment the counter for word
+for (const auto &w : word_count)    // for each element in the map
+    // print the results
+    cout << w.first << " occurs " << w.second
+        << ((w.second > 1) ? " times" : " time") << endl;
+```
+
+##### 
+
+##### 使用set
+
+`set`类型的`find`成员返回一个迭代器。如果给定关键字在`set`中，则迭代器指向该关键字，否则返回的是尾后迭代器。
 
 ### 11.2 Overview of the Associative Containers
 
+关联容器都支持【9.2】介绍的普通容器操作。
+
+关联容器不支持顺序容器的位置相关的操作。例如push_front/push_back。因为关联容器按照关键字存储，位置对其没有意义。
+
+另外关联容器不支持构造函数或插入操作这些接受一个元素值和一个数量值的操作。
+
+关联容器的迭代器都是双向的。
+
 #### 11.2.1 Defining an Associative Container
 
-#### 11.2.2 Requirements on Key Type
+定义`map`时，必须指定关键字类型和值类型；定义`set`时，只需指定关键字类型。
 
-#### 11.2.3 The pair Type
+初始化`map`时，提供的每个键值对用花括号`{}`包围。
+
+```C++
+map<string, size_t> word_count;   // empty
+// list initialization
+set<string> exclude = { "the", "but", "and" };
+// three elements; authors maps last name to first
+map<string, string> authors =
+{
+    {"Joyce", "James"},
+    {"Austen", "Jane"},
+    {"Dickens", "Charles"}
+};
+```
+
+`map`和`set`中的关键字必须唯一，`multimap`和`multiset`没有此限制。
+
+#### 11.2.2 Requirements on Key Type 关键字类型的要求
+
+对于无序容器，会在【11.4】介绍。
+
+对于有序容器——`map`、`multimap`、`set`和`multiset`，关键字类型必须定义元素比较的方法。默认情况下，标准库使用关键字类型的`<`运算符来进行比较操作。
+
+用来组织容器元素的操作的类型也是该容器类型的一部分。如果需要使用自定义的比较操作，则必须在定义关联容器类型时提供此操作的类型。操作类型在尖括号中紧跟着元素类型给出。
+
+```c++
+bool compareIsbn(const Sales_data &lhs, const Sales_data &rhs)
+{
+    return lhs.isbn() < rhs.isbn();
+}
+
+// bookstore can have several transactions with the same ISBN
+// elements in bookstore will be in ISBN order
+multiset<Sales_data, decltype(compareIsbn)*> bookstore(compareIsbn);
+```
+
+
 
 ### 11.3 Operations on Associative Containers
 
