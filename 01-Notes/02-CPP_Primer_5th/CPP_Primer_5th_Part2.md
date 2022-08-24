@@ -2535,6 +2535,8 @@ while (cin >> word) {
 
 ![11-5](CPP_Primer_5th.assets/11-5.png)
 
+后两个版本的erase与对应的顺序容器操作类似，都是删除指定（范围）的元素，函数返回void。
+
 与顺序容器不同，关联容器提供了一个额外的`erase`操作。它接受一个`key_type`参数，删除所有匹配给定关键字的元素（如果存在），返回实际删除的元素数量。对于不包含重复关键字的容器，`erase`的返回值总是1或0。若返回值为0，则表示想要删除的元素并不在容器中。
 
 #### 11.3.4 Subscripting a map map的下标操作
@@ -2547,13 +2549,19 @@ while (cin >> word) {
 
 ![11-6](CPP_Primer_5th.assets/11-6.png)
 
-对`map`进行下标操作时，返回的是`mapped_type`类型的对象；解引用`map`迭代器时，返回的是`value_type`类型的对象。
+**建议使用at来取，find来找**
 
-#### 11.3.5 Accessing Elements
+对`map`进行下标操作时，返回的是`mapped_type`类型的对象；解引用`map`迭代器时，返回的是`value_type`类型（pair类型）的对象。
+
+#### 11.3.5 Accessing Elements 访问元素
 
 关联容器的查找操作：
 
 ![11-7](CPP_Primer_5th.assets/11-7.png)
+
+##### 在multimap或multiset中查找元素.
+
+这类容器是一对多的映射关系，那么查找就比一对一麻烦一些。
 
 如果`multimap`或`multiset`中有多个元素具有相同关键字，则这些元素在容器中会相邻存储。
 
@@ -2576,7 +2584,9 @@ while(entries)
 }
 ```
 
-`lower_bound`和`upper_bound`操作都接受一个关键字，返回一个迭代器。如果关键字在容器中，`lower_bound`返回的迭代器会指向第一个匹配给定关键字的元素，而`upper_bound`返回的迭代器则指向最后一个匹配元素之后的位置。如果关键字不在`multimap`中，则`lower_bound`和`upper_bound`会返回相等的迭代器，指向一个不影响排序的关键字插入位置。因此用相同的关键字调用`lower_bound`和`upper_bound`会得到一个迭代器范围，表示所有具有该关键字的元素范围。
+##### 另外一种不同的，面向迭代器的解决方法
+
+`lower_bound`和`upper_bound`操作都接受一个关键字，返回一个迭代器。如果关键字在容器中，`lower_bound`返回的迭代器会指向第一个匹配给定关键字的元素，而`upper_bound`返回的迭代器则指向最后一个匹配元素之后的位置。如果关键字不在`multimap`中，则`lower_bound`和`upper_bound`会返回相等的迭代器，指向一个不影响排序的关键字插入位置。因此**用相同的关键字调用`lower_bound`和`upper_bound`会得到一个迭代器范围，表示所有具有该关键字的元素范围。**
 
 ```c++
 // definitions of authors and search_item as above
@@ -2589,7 +2599,15 @@ for (auto beg = authors.lower_bound(search_item),
 
 `lower_bound`和`upper_bound`有可能返回尾后迭代器。如果查找的元素具有容器中最大的关键字，则`upper_bound`返回尾后迭代器。如果关键字不存在，且大于容器中任何关键字，则`lower_bound`也返回尾后迭代器。
 
-`equal_range`操作接受一个关键字，返回一个迭代器`pair`。若关键字存在，则第一个迭代器指向第一个匹配关键字的元素，第二个迭代器指向最后一个匹配元素之后的位置。若关键字不存在，则两个迭代器都指向一个不影响排序的关键字插入位置。
+简单记一下，就是这个就表示可用范围，如果没有对应的，那么这两个返回相同的迭代器，指向一个安全插入点
+
+##### equal_range 函数
+
+这种方式最为直接
+
+`equal_range`操作接受一个关键字，返回一个迭代器`pair`。
+
+若关键字存在，则第一个迭代器指向第一个匹配关键字的元素，第二个迭代器指向最后一个匹配元素之后的位置。若关键字不存在，则两个迭代器都指向一个不影响排序的关键字插入位置。
 
 ```c++
 // definitions of authors and search_item as above
@@ -2613,21 +2631,54 @@ for (auto pos = authors.equal_range(search_item);
 
 ![11-8](CPP_Primer_5th.assets/11-8.png)
 
-默认情况下，无序容器使用关键字类型的`==`运算符比较元素，还使用一个`hash<key_type>`类型的对象来生成每个元素的哈希值。标准库为内置类型和一些标准库类型提供了hash模板。因此可以直接定义关键字是这些类型的无序容器，而不能直接定义关键字类型为自定义类类型的无序容器，必须先提供对应的hash模板版本。
+##### 无序容器对关键字类型的要求
+
+默认情况下，无序容器使用关键字类型的`==`运算符比较元素，还使用一个`hash<key_type>`类型的对象来生成每个元素的哈希值。标准库为内置类型和一些标准库类型提供了hash模板。因此可以直接定义关键字是这些类型的无序容器，而不能直接定义关键字类型为自定义类类型的无序容器，必须先提供对应的hash模板版本。【16.5】会讲怎么为自定义类型设计hash模板。
+
+不能用默认的hash，我们可以使用重载的方式。来提供 ==  和hash函数。
+
+```c++
+size_t hasher(const Sales_data &sd)
+{
+ 	return hash<string>()(sd.isbn());
+}
+bool eqOp(const Sales_data &lhs, const Sales_data &rhs)
+{
+ 	return lhs.isbn() == rhs.isbn();
+}
+using SD_multiset = unordered_multiset<Sales_data, decltype(hasher)*, decltype(eqOp)*>;
+// arguments are the bucket size and pointers to the hash function and equality operator
+SD_multiset bookstore(42, hasher, eqOp);
+
+
+```
+
+如果类里已经重载了==，则可以只重载哈希函数
+
+```c++
+// use FooHash to generate the hash code; Foo must have an == operator
+unordered_set<Foo, decltype(FooHash)*> fooSet(10, FooHash);
+```
 
 ### Chapter Summary  
 
+关联容器通过关键字高效查找和提取元素。
+
+允许重复关键字的容器的名字都包含multi；而使用哈希技术的容器的名字都以unordered开头。
+
+无论是在有序容器还是在无序容器中，具有相同关键字的元素都是相邻存储的。
+
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+| 中文     | 英文                  | 含义                                                 |
+| -------- | --------------------- | ---------------------------------------------------- |
+| 关联容器 | associative container | 类型，保存对象的集合，支持通过关键字的高效查找       |
+|          | mapped_type           | 映射类型定义的类型，即映射中关键字关联的值的类型     |
+|          | value_type            | 容器中元素的类型。                                   |
+| *运算符  | 解引用运算符          | 生成一个value_type， 对map类型，value_type是一个pair |
+| []运算符 | 下标运算符            | 接受一个key_type值，生成一个mapped_type值。          |
+|          |                       |                                                      |
+|          |                       |                                                      |
 
 
 
