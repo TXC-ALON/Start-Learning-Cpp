@@ -2684,7 +2684,17 @@ unordered_set<Foo, decltype(FooHash)*> fooSet(10, FooHash);
 
 ## Chapter 12 Dynamic Memory
 
-程序用堆（heap）来存储动态分配（dynamically allocate）的对象。动态对象的生存期由程序控制。
+截止这章之前，我们程序中的对象都有严格的生存周期
+
+- 全局对象在程序启动时分配，在程序结束时销毁。
+- 局部自动对象，当我们进入其定义所在的程序块是被创建，离开块时销毁。
+- 局部static对象在第一次使用前分配，在程序结束时销毁。
+
+除此之外，C++还支持动态分配对象。动态分配的对象的生存期与它们在哪里创造无关，只有显式地被释放时，这些对象才会被销毁。
+
+
+
+程序用堆（heap）（或者称为自由空间 free store）来存储动态分配（dynamically allocate）的对象。动态对象的生存期由程序控制。
 
 ### 12.1 Dynamic Memory and Smart Pointers
 
@@ -2709,6 +2719,10 @@ shared_ptr<list<int>> p2;   // shared_ptr that can point at a list of ints
 
 ![12-2](CPP_Primer_5th.assets/12-2.png)
 
+##### make_shared
+
+最安全的分配和使用动态内存的方法是调用一个名为make_shared的标准库函数。
+
 `make_shared`函数（定义在头文件`memory`中）在动态内存中分配一个对象并初始化它，返回指向此对象的`shared_ptr`。
 
 ```c++
@@ -2720,6 +2734,15 @@ shared_ptr<string> p4 = make_shared<string>(10, '9');
 shared_ptr<int> p5 = make_shared<int>();
 ```
 
+当然用auto来保存make_shared 的结果比较简单方便，就是阅读性可能会稍差。
+
+```c++
+auto p6 = make_shared<vector<string>>();
+//p6指向一个动态分配的空vector<string>
+```
+
+##### shared_ptr的拷贝和赋值
+
 进行拷贝或赋值操作时，每个`shared_ptr`会记录有多少个其他`shared_ptr`与其指向相同的对象。
 
 ```c++
@@ -2728,7 +2751,7 @@ auto q(p);  // p and q point to the same object
             // object to which p and q point has two users
 ```
 
-每个`shared_ptr`都有一个与之关联的计数器，通常称为引用计数（reference count）。拷贝`shared_ptr`时引用计数会递增。例如使用一个`shared_ptr`初始化另一个`shared_ptr`，或将它作为参数传递给函数以及作为函数的返回值返回。给`shared_ptr`赋予新值或`shared_ptr`被销毁时引用计数会递减。例如一个局部`shared_ptr`离开其作用域。一旦一个`shared_ptr`的引用计数变为0，它就会自动释放其所管理的对象。
+每个`shared_ptr`都有一个与之关联的计数器，通常称为**引用计数（reference count）**。拷贝`shared_ptr`时引用计数会递增。例如使用一个`shared_ptr`初始化另一个`shared_ptr`，或将它作为参数传递给函数以及作为函数的返回值返回。给`shared_ptr`赋予新值或`shared_ptr`被销毁时引用计数会递减。例如一个局部`shared_ptr`离开其作用域。一旦一个`shared_ptr`的引用计数变为0，它就会自动释放其所管理的对象。
 
 ```c++
 auto r = make_shared<int>(42);  // int to which r points has one user
@@ -2738,15 +2761,19 @@ r = q;  // assign to r, making it point to a different address
         // the object r had pointed to has no users; that object is automatically freed
 ```
 
+##### shared_ptr 自动销毁所管理的对象并自动释放相关联的内存
+
 `shared_ptr`的析构函数会递减它所指向对象的引用计数。如果引用计数变为0，`shared_ptr`的析构函数会销毁对象并释放空间。
 
-如果将`shared_ptr`存放于容器中，而后不再需要全部元素，而只使用其中一部分，应该用`erase`删除不再需要的元素。
+由于在最后一个shared_ptr销毁前内存都不会释放，因此保证shared_ptr在无用之后就不再保留十分有必要。比如将`shared_ptr`存放于容器中，而后不再需要全部元素，而只使用其中一部分，应该用`erase`删除不再需要的元素。
+
+##### 使用了动态生存期的资源的类
 
 程序使用动态内存通常出于以下三种原因之一：
 
 - 不确定需要使用多少对象。
 
-- 不确定所需对象的准确类型。
+- 不确定所需对象的准确类型。【15】
 
 - 需要在多个对象间共享数据。
 
