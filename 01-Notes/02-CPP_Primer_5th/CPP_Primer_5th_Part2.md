@@ -2777,9 +2777,13 @@ r = q;  // assign to r, making it point to a different address
 
 - 需要在多个对象间共享数据。
 
-#### 12.1.2 Managing Memory Directly
+#### 12.1.2 Managing Memory Directly 直接管理内存
 
 相对于智能指针，使用`new`和`delete`管理内存很容易出错。
+
+##### 使用new动态分配和初始化对象
+
+在自由空间分配的内存是无名的，因此new无法为其分配的对象命名，而是返回一个指向该对象的指针。
 
 默认情况下，动态分配的对象是默认初始化的。所以内置类型或组合类型的对象的值将是未定义的，而类类型对象将用默认构造函数进行初始化。
 
@@ -2809,7 +2813,13 @@ auto p1 = new auto(obj);    // p points to an object of the type of obj
 auto p2 = new auto{a,b,c};  // error: must use parentheses for the initializer
 ```
 
+##### 动态分配的const对象
+
 可以用`new`分配`const`对象，返回指向`const`类型的指针。动态分配的`const`对象必须初始化。
+
+对于一个定义了默认构造函数的类类型，其const动态对象可以隐式初始化，而其他类型的对象就必须显示初始化。由于分配的对象是const的，new返回的指针是一个指向const的指针。
+
+##### 内存耗尽
 
 默认情况下，如果`new`不能分配所要求的内存空间，会抛出`bad_alloc`异常。使用定位`new`（placement new）可以阻止其抛出异常。定位`new`表达式允许程序向`new`传递额外参数。如果将`nothrow`传递给`new`，则`new`在分配失败后会返回空指针。`bad_alloc`和`nothrow`都定义在头文件`new`中。
 
@@ -2819,26 +2829,42 @@ int *p1 = new int;            // if allocation fails, new throws std::bad_alloc
 int *p2 = new (nothrow) int;  // if allocation fails, new returns a null pointer
 ```
 
-使用`delete`释放一块并非`new`分配的内存，或者将相同的指针值释放多次的行为是未定义的。
+##### 释放动态内存
+
+delete表达式执行两个动作：销毁给定的指针指向的对象；释放对应的内存。
+
+传递给delete的指针必须指向动态分配的内存，或者是一个空指针。
+
+使用`delete`释放一块并非`new`分配的内存，或者将相同的指针值释放多次的行为是未定义的。有的编译器往往会通过这个语句，尽管是错误的。
+
+尽管const对象的值不能被改变，但是它本身是可以被销毁的。
+
+##### 动态对象的生存期直到被释放时位置
 
 由内置指针管理的动态对象在被显式释放前一直存在。
 
-`delete`一个指针后，指针值就无效了（空悬指针，dangling pointer）。为了防止后续的错误访问，应该在`delete`之后将指针值置空。
+`delete`一个指针后，指针值就无效了（空悬指针，dangling pointer）。为了防止后续的错误访问，应该在`delete`之后将指针值置空`nullptr`。
+
+但这也只是提供了有限的保护而言，譬如多个指针指向同一块内存，delete内存后重置指针的方法只对这个指针有效。对于其他任何仍指向（已释放）内存你的指针是没有作用的，这些指针都是空悬的。
 
 #### 12.1.3 Using shared_ptrs with new
 
 可以用`new`返回的指针初始化智能指针。该构造函数是`explicit`的，因此必须使用直接初始化形式。
 
 ```c++
-shared_ptr<int> p1 = new int(1024);    // error: must use direct initialization
+shared_ptr<int> p1 = new int(1024);    // error: must use direct initialization 不支持隐式转换
 shared_ptr<int> p2(new int(1024));     // ok: uses direct initialization
 ```
 
-默认情况下，用来初始化智能指针的内置指针必须指向动态内存，因为智能指针默认使用`delete`释放它所管理的对象。如果要将智能指针绑定到一个指向其他类型资源的指针上，就必须提供自定义操作来代替`delete`。
+默认情况下，用来初始化智能指针的内置指针必须指向动态内存，因为智能指针默认使用`delete`释放它所管理的对象。
+
+如果要将智能指针绑定到一个指向其他类型资源的指针上，就必须提供自定义操作来代替`delete`。【12.1.4】
 
 ![12-3](CPP_Primer_5th.assets/12-3.png)
 
-不要混合使用内置指针和智能指针。当将`shared_ptr`绑定到内置指针后，资源管理就应该交由`shared_ptr`负责。不应该再使用内置指针访问`shared_ptr`指向的内存。
+##### 不要混合使用内置指针和智能指针
+
+当将`shared_ptr`绑定到内置指针后，资源管理就应该交由`shared_ptr`负责。不应该再使用内置指针访问`shared_ptr`指向的内存。
 
 ```c++
 // ptr is created and initialized when process is called
