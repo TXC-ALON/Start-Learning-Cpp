@@ -2849,11 +2849,11 @@ delete表达式执行两个动作：销毁给定的指针指向的对象；释�
 
 #### 12.1.3 Using shared_ptrs with new
 
-可以用`new`返回的指针初始化智能指针。该构造函数是`explicit`的，因此必须使用直接初始化形式。
+可以用`new`返回的指针初始化智能指针。该构造函数是`explicit`的，因此必须使用**直接初始化**形式。
 
 ```c++
 shared_ptr<int> p1 = new int(1024);    // error: must use direct initialization 不支持隐式转换
-shared_ptr<int> p2(new int(1024));     // ok: uses direct initialization
+shared_ptr<int> p2(new int(1024));     // ok: uses direct initialization 必须显式
 ```
 
 默认情况下，用来初始化智能指针的内置指针必须指向动态内存，因为智能指针默认使用`delete`释放它所管理的对象。
@@ -2864,7 +2864,14 @@ shared_ptr<int> p2(new int(1024));     // ok: uses direct initialization
 
 ##### 不要混合使用内置指针和智能指针
 
-当将`shared_ptr`绑定到内置指针后，资源管理就应该交由`shared_ptr`负责。不应该再使用内置指针访问`shared_ptr`指向的内存。
+A shared_ptr can coordinate destruction only with other shared_ptrs that are copies of itself. Indeed, this fact is one of the reasons we recommend using
+make_shared rather than new.
+
+shared_ptr 可以协调统一别的拷贝自它的指针的析构。这也是我们推荐使用make_shared而不是new的原因。这样我们就可以在分配对象的同时将share_ptr 与之绑定。从而避免无意中将同一块内存绑定到多个独立创建的share_ptr上。
+
+
+
+当将`shared_ptr`绑定到内置指针后，资源管理就应该交由`shared_ptr`负责。不应该再使用内置指针访问`shared_ptr`指向的内存。这很危险，因为你不知道智能指针指向的对象何时被销毁。
 
 ```c++
 // ptr is created and initialized when process is called
@@ -2873,19 +2880,19 @@ void process(shared_ptr<int> ptr)
     // use ptr
 }   // ptr goes out of scope and is destroyed
 
+shared_ptr<int> p(new int(42));   // reference count is 1
+process(p);     // copying p increments its count; in process the reference count is 2
+int i = *p;     // ok: reference count is 1
+
 int *x(new int(1024));   // dangerous: x is a plain pointer, not a smart pointer
 process(x);     // error: cannot convert int* to shared_ptr<int>
 process(shared_ptr<int>(x));    // legal, but the memory will be deleted!
 int j = *x;     // undefined: x is a dangling pointer!
-
-shared_ptr<int> p(new int(42));   // reference count is 1
-process(p);     // copying p increments its count; in process the reference count is 2
-int i = *p;     // ok: reference count is 1
 ```
 
-智能指针的`get`函数返回一个内置指针，指向智能指针管理的对象。主要用于向不能使用智能指针的代码传递内置指针。使用`get`返回指针的代码不能`delete`此指针。
+##### 也不要用get初始化另一个智能指针或位智能指针赋值
 
-不要使用`get`初始化另一个智能指针或为智能指针赋值。
+智能指针的`get`函数返回一个内置指针，指向智能指针管理的对象。主要用于向不能使用智能指针的代码传递内置指针。使用`get`返回指针的代码不能`delete`此指针。 
 
 ```c++
 shared_ptr<int> p(new int(42));    // reference count is 1
@@ -2897,7 +2904,409 @@ int *q = p.get();   // ok: but don't use q in any way that might delete its poin
 int foo = *p;   // undefined; the memory to which p points was freed
 ```
 
+get用来将指针的访问权限传递给代码，你只有在确定代码不会delete指针的情况下，才能使用get。特别是，永远不要使用get初始化另一个智能指针或为另一个智能指针赋值。
+
+```c++
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+#include<memory>
+using namespace std;
+
+int main() {
+    shared_ptr<int> p (new int (42));
+    cout<<"1P: "<<p<<" "<<*p<<endl;
+    int *q = p.get();
+    cout<<"2Q: "<<q<<" "<<*q<<endl;
+    {
+        cout<<"3Q: "<<q<<" ** "<<*q<<endl;
+        shared_ptr<int>(q);
+        //cout<<"4Q: "<<q<<" ** "<<*q<<endl;
+    }
+    int foo = *p;
+    cout<<"5P: "<<p<<" "<<*p<<endl;
+    cout<<"6P: "<<q<<" "<<*q<<endl;
+
+    return 0;
+}
+
+/*
+1P: 0x1cfc6302700 42
+2Q: 0x1cfc6302700 42
+3Q: 0x1cfc6302700 ** 42
+//如果4Q会因为调用空指针指向的数据而中断。
+5P: 0x1cfc6302700 42
+6P: 0x1cfc6302700 42
+*/
+//不知道为什么q没有销毁p指向的空间
+```
+
+更新
+
+```c++
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+#include<memory>
+using namespace std;
+
+int main() {
+    shared_ptr<int> p (new int (42));
+    cout<<"p usecount "<<p.use_count()<<endl;
+    cout<<"1P: "<<p<<" "<<*p<<endl;
+    int *q = p.get();
+    cout<<"p usecount "<<p.use_count()<<endl;
+    cout<<"2Q: "<<q<<" "<<*q<<endl;
+    {
+        cout<<"3Q: "<<q<<" ** "<<*q<<endl;
+        //shared_ptr<int>temp (q) ;
+        shared_ptr<int>{q} ;
+        cout<<"p usecount "<<p.use_count()<<endl;
+        //cout<<"temp usecount "<<temp.use_count()<<endl;
+        //cout<<"4Q: "<<q<<" ** "<<*q<<endl;
+    }
+    cout<<"p usecount "<<p.use_count()<<endl;
+    int foo = *p;
+    cout<<"5P: "<<p<<" "<<*p<<endl;
+    cout<<"6P: "<<q<<" "<<*q<<endl;
+    cout<<"p usecount "<<p.use_count()<<endl;
+
+
+    return 0;
+}
+
+/*
+p usecount 1
+1P: 0x208189129e0 42
+p usecount 1
+2Q: 0x208189129e0 42
+3Q: 0x208189129e0 ** 42
+p usecount 1
+p usecount 1
+5P: 0x208189129e0 412167504
+6P: 0x208189129e0 412167504
+p usecount 1
+*/
+
+
+```
+
+这里想要做出那种结果有两种方式，第一是用{}，另一种是用temp
+
+> 可以参考这个
+>
+> https://www.zhihu.com/question/51071372
+>
+> 作者：origin
+> 链接：https://www.zhihu.com/question/51071372/answer/124454469
+> 来源：知乎
+> 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+>
+> 
+>
+> 根据C++标准 (5.2.3)，shared_ptr<int>(q)属于function style casting，而不是直接call constructor构造一个匿名对象 
+>
+> > A simple-type-specifier (7.1.6.2 ) or typename-specifier (14.6 ) followed by a parenthesized expression-list constructs a value of the specified type given the expression list. **If the expression list is a single expression, the type conversion expression is equivalent (in definedness, and if defined in meaning) to the corresponding cast expression (5.4 ).** If the type specified is a class type, the class type shall be complete. If the expression list specifies more than a single value, the type shall be a class with a suitably declared constructor (8.5 , 12.1 ), and the expression T(x1, x2, ...) is equivalent in effect to the declaration T t(x1, x2, ...); for some invented temporary variable t , with the result being the value of t as a prvalue.
+>
+> 然后由于shared_ptr<int>(q)这句放在一对花括号里，所以它属于expression-statement，根据标准 (6.8)
+>
+> > There is an ambiguity in the grammar involving expression-statement s and declarations: An expression-statement with a function-style explicit type conversion (5.2.3 ) as its leftmost [subexpression](https://www.zhihu.com/search?q=subexpression&search_source=Entity&hybrid_search_source=Entity&hybrid_search_extra={"sourceType"%3A"answer"%2C"sourceId"%3A124454469}) can be indistinguishable from a declaration where the first declarator starts with a ( . **In those cases the statement is a declaration.**
+>
+> ```text
+> {
+> shared_ptr<int>(q);
+> }
+> ```
+>
+> 这一句是一个declaration，相当于
+>
+> ```text
+> {
+> shared_ptr<int> q;
+> }
+> ```
+>
+> 声明了一个名字为q的空shared_ptr
+>
+> 综上，C++ Primer确实有问题，改成
+>
+> ```text
+> {
+> shared_ptr<int>{q};
+> }
+> ```
+>
+> 就可以了
+>
+> 关于function style casting
+>
+> [casting - What exactly is or was the purpose of C++ function-style casts?](https://link.zhihu.com/?target=http%3A//stackoverflow.com/questions/4474933/what-exactly-is-or-was-the-purpose-of-c-function-style-casts)[c++ - Function style casting vs calling constructor](https://link.zhihu.com/?target=http%3A//stackoverflow.com/questions/37255200/function-style-casting-vs-calling-constructor)
+
+后来我看题主题目的更新，但是其实还是不对
+
+```c++
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+#include<memory>
+using namespace std;
+class myclass{
+public:
+    
+    myclass(int m):mem(m){cout<<"constructor"<<endl;}
+    ~myclass(){cout<<name<<" destructor"<<endl;}
+
+    int mem;
+    string name;
+public:
+    void print(){cout<<"print "<<mem<<" and "<<name<<endl;}
+    void changename(string newstr){this->name = newstr;}
+};
+int main() {
+    shared_ptr<myclass>p(new myclass(42));
+    p->changename("ptr_p");
+    p->print();
+    myclass *q = p.get();
+    q->changename("ptr_q");
+    {
+        shared_ptr<myclass>(q);
+        //q->print();
+    }
+    p->print();
+    cout<<1<<endl;
+    myclass foo = *p;
+    foo.changename("foo");
+    p->print();
+    cout<<2<<endl;
+    foo.print();
+    return 0;
+}
+/*
+constructor
+print 42 and ptr_p
+print 42 and ptr_q
+1
+print 42 and ptr_q
+2
+print 42 and foo
+foo destructor
+ptr_q destructor
+*/
+```
+
+这里自己写个类还是只是创造了一个空的智能指针，与p其实没有关联，并不是真正把q变成智能指针。想达到理想效果非得列表初始化{}或者temp不可。
+
+```c++
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+#include<memory>
+using namespace std;
+class myclass{
+public:
+    myclass(int m):mem(m){cout<<"constructor"<<endl;}
+    ~myclass(){cout<<name<<" destructor"<<endl;}
+
+    int mem;
+    string name;
+public:
+    void print(){cout<<"print "<<mem<<" and "<<name<<endl;}
+    void changename(string newstr){this->name = newstr;}
+};
+int main() {
+    shared_ptr<myclass>p(new myclass(42));
+    p->changename("ptr_p");
+    p->print();
+    myclass *q = p.get();
+    q->changename("ptr_q");
+    {
+        shared_ptr<myclass>{q};
+        //q->print();
+    }
+    p->print();
+    cout<<1<<endl;
+    myclass foo = *p;
+    cout<<2<<endl;
+    return 0;
+}
+
+/*
+g++
+constructor
+print 42 and ptr_p
+ptr_q destructor
+print 7369456 and (p餽p?p墾艉晭s3i0(p?++P?饌?挟-??@0p€Pp p0@(pPgp€8嗟F(€[K?(鮇?<€8咝唉c?餖p狆d?CC0???c€8€颋L?
+
+
+?T?
+
+
+?tf?X?
+
+
+?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+?癜F鷇?0鷇?`鷇?慂d?历d?瘊d? 鹍?P鹍?€鹍?胞d?帑d?黡?@黡?p黡?狘d?悬d?齞?0齞?`齞?慅d?
+*/
+#include <iostream>
+#include<iterator>
+#include<vector>
+#include<string>
+#include <algorithm>
+#include<memory>
+using namespace std;
+class myclass{
+public:
+    myclass(){cout<<"default constructor"<<endl;}
+    myclass(int m):mem(m){cout<<"constructor"<<endl;}
+    ~myclass(){cout<<name<<" destructor"<<endl;}
+
+    int mem;
+    string name;
+public:
+    void print(){cout<<"print "<<mem<<" and "<<name<<endl;}
+    void changename(string newstr){this->name = newstr;}
+};
+int main() {
+    shared_ptr<myclass>p(new myclass(42));
+    p->changename("ptr_p");
+    p->print();
+    myclass *q = p.get();
+    q->changename("ptr_q");
+    {
+        shared_ptr<myclass>{q};
+        //q->print();
+    }
+    p->print();
+    cout<<1<<endl;
+    myclass a;
+    myclass foo = *p;
+    foo.changename("foo");
+    p->print();
+    cout<<2<<endl;
+    foo.print();
+    return 0;
+}
+
+
+/*
+constructor
+print 42 and ptr_p
+ptr_q destructor
+print -1888997040 and  'h廡
+1
+default constructor
+print -1888997040 and  'h廡
+2
+print -1888997040 and foo
+foo destructor
+ destructor
+ 'h廡 destructor
+*/
+```
+
+注：我在调试的时候出现过，clion第一报错符合预期，修改一下（大括号变成小括号-编译-再变成大括号）。结果还是小括号的输出，但是重启一个新项目把代码拷过去，又符合大括号的情况。感觉cmake的问题，vstudio和g++ 没出现类似情况。
+
+看来不同编译器对这种问题的处理还是有区别。
+
+##### 其他shared_ptr操作
+
 可以用`reset`函数将新的指针赋予`shared_ptr`。与赋值类似，`reset`会更新引用计数，如果需要的话，还会释放内存空间。`reset`经常与`unique`一起使用，来控制多个`shared_ptr`共享的对象。
+
+在改变底层对象之前，我们检查自己是否是当前对象仅有的用户，如果不是，在改变之前要制作一份新的拷贝。 
 
 ```c++
 if (!p.unique())
@@ -2905,7 +3314,7 @@ if (!p.unique())
 *p += newVal;   // now that we know we're the only pointer, okay to change this object
 ```
 
-### 
+
 
 #### 12.1.4 Smart Pointers and Exceptions
 
