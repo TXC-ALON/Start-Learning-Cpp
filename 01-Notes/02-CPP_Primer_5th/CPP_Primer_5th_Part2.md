@@ -3320,6 +3320,8 @@ if (!p.unique())
 
 如果使用智能指针，即使程序块过早结束，智能指针类也能确保在内存不再需要时将其释放。
 
+与之相对的，当发现异常时，我们直接管理的内存是不会自动释放的。如果使用内置指针管理内存，且在new之后在对应的delete之前发生了异常，则内存不会被释放。而一般也没有别的指针指向这块内存，这块内存就永远不会被释放。
+
 ```c++
 void f()
 {
@@ -3335,7 +3337,11 @@ void f()
 } // shared_ptr freed automatically when the function ends
 ```
 
-默认情况下`shared_ptr`假定其指向动态内存，使用`delete`释放对象。创建`shared_ptr`时可以传递一个（可选）指向删除函数的指针参数，用来代替`delete`。
+##### 智能指针和哑类--使用自己的释放操作。
+
+并不是所有类都良好定义了析构函数。有的为C/C++定义的类，通常要求用户显式地释放所使用的任何资源。
+
+默认情况下`shared_ptr`假定其指向动态内存，使用`delete`释放对象。创建`shared_ptr`时可以传递一个（可选）指向删除函数的指针参数，我们首先定义一个能够完成对shared_ptr中保存指针进行释放操作的deleter，用来代替`delete`。
 
 ```c++
 struct destination;    // represents what we are connecting to
@@ -3350,7 +3356,7 @@ void end_connection(connection *p)
 void f(destination &d /* other parameters */)
 {
     connection c = connect(&d);
-    shared_ptr<connection> p(&c, end_connection);
+    shared_ptr<connection> p(&c, end_connection);//如果没有这句话，那么如果在f退出当前忘记调用disconnect，那么就无法关闭c了。
     // use the connection
     // when f exits, even if by an exception, the connection will be properly closed
 }
@@ -3370,7 +3376,11 @@ void f(destination &d /* other parameters */)
 
 #### 12.1.5 unique_ptr
 
-与`shared_ptr`不同，同一时刻只能有一个`unique_ptr`指向给定的对象。当`unique_ptr`被销毁时，它指向的对象也会被销毁。
+与`shared_ptr`不同，同一时刻只能有一个`unique_ptr`指向给定的对象。
+
+换句话说unique_ptr**拥有**它所指向的对象。
+
+当`unique_ptr`被销毁时，它指向的对象也会被销毁。
 
 `make_unique`函数（C++14新增，定义在头文件`memory`中）在动态内存中分配一个对象并初始化它，返回指向此对象的`unique_ptr`。
 
@@ -3386,9 +3396,11 @@ unique_ptr<int> p2 = make_unique<int>(42);
 
 ![12-4](CPP_Primer_5th.assets/12-4.png)
 
-`release`函数返回`unique_ptr`当前保存的指针并将其置为空。
+虽然我们不能拷贝或赋值unique_ptr，但可以通过调用release或reset，将指针的所有权从一个（非const） unique_ptr转移给另一个unique_ptr。 
 
-`reset`函数成员接受一个可选的指针参数，重新设置`unique_ptr`保存的指针。如果`unique_ptr`不为空，则它原来指向的对象会被释放。
+- `release`函数返回`unique_ptr`当前保存的指针并将其置为空。
+
+- `reset`函数成员接受一个可选的指针参数，重新设置`unique_ptr`保存的指针。如果`unique_ptr`不为空，则它原来指向的对象会被释放。
 
 ```c++
 // transfers ownership from p1 (which points to the string Stegosaurus) to p2
@@ -3405,7 +3417,9 @@ p2.release();   // WRONG: p2 won't free the memory and we've lost the pointer
 auto p = p2.release();   // ok, but we must remember to delete(p)
 ```
 
-不能拷贝`unique_ptr`的规则有一个例外：可以拷贝或赋值一个即将被销毁的`unique_ptr`（移动构造、移动赋值）。
+**所以release并不是真的release，并没有释放内存，而是切断了u对内存类的联系。打个比方，如果说reset就是复原游戏存档，release就是把存档从游戏文件夹踢出去，然后返回他的路径，但是如果你不保存这个路径，这个存档你也找不到了，而存档不在文件夹内，你在游戏里也读不到这个数据**
+
+不能拷贝`unique_ptr`的规则有一个例外：可以拷贝或赋值一个即将被销毁的`unique_ptr`（移动构造、移动赋值）。【13.6.2】
 
 ```c++
 unique_ptr<int> clone(int p)
@@ -3418,7 +3432,11 @@ unique_ptr<int> clone(int p)
 
 老版本的标准库包含了一个名为`auto_ptr`的类，
 
-类似`shared_ptr`，默认情况下`unique_ptr`用`delete`释放其指向的对象。`unique_ptr`的删除器同样可以重载，但`unique_ptr`管理删除器的方式与`shared_ptr`不同。定义`unique_ptr`时必须在尖括号中提供删除器类型。创建或`reset`这种`unique_ptr`类型的对象时，必须提供一个指定类型的可调用对象（删除器）。
+##### 向unique_ptr传递删除器·
+
+类似`shared_ptr`，默认情况下`unique_ptr`用`delete`释放其指向的对象。`unique_ptr`的删除器同样可以重载，但`unique_ptr`管理删除器的方式与`shared_ptr`不同。【16.1.6】
+
+定义`unique_ptr`时必须在尖括号中提供删除器类型。创建或`reset`这种`unique_ptr`类型的对象时，必须提供一个指定类型的可调用对象（删除器）。
 
 ```c++
 // p points to an object of type objT and uses an object of type delT to free that object
@@ -3443,14 +3461,14 @@ void f(destination &d /* other needed parameters */)
 
 ![12-5](CPP_Primer_5th.assets/12-5.png)
 
-创建一个`weak_ptr`时，需要使用`shared_ptr`来初始化它。
+创建一个`weak_ptr`时，**需要使用`shared_ptr`来初始化它。**
 
 ```c++
 auto p = make_shared<int>(42);
 weak_ptr<int> wp(p);    // wp weakly shares with p; use count in p is unchanged
 ```
 
-使用`weak_ptr`访问对象时，必须先调用`lock`函数。该函数检查`weak_ptr`指向的对象是否仍然存在。如果存在，则返回指向共享对象的`shared_ptr`，否则返回空指针。
+因为weak_ptr指向的对象可能不存在，使用`weak_ptr`访问对象时，必须先调用`lock`函数。该函数检查`weak_ptr`指向的对象是否仍然存在。如果存在，则返回指向共享对象的`shared_ptr`，否则返回空指针。
 
 ```c++
 if (shared_ptr<int> np = wp.lock())
@@ -3460,7 +3478,11 @@ if (shared_ptr<int> np = wp.lock())
 }
 ```
 
-
+> 关于弱引用的作用，这个举二叉树的例子讲的很好，
+>
+> 总之`shared_ptr`在环形引用中，带来了循环引用的弊端，所以，需要将其中一个设置为弱引用。 0
+>
+> https://blog.csdn.net/xiangbaohui/article/details/103628485
 
 ### 12.2 Dynamic Arrays
 
