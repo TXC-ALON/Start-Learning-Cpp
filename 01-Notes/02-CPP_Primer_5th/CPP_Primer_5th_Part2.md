@@ -3486,20 +3486,33 @@ if (shared_ptr<int> np = wp.lock())
 
 ### 12.2 Dynamic Arrays
 
-使用`allocator`类可以将内存分配和初始化过程分离，这通常会提供更好的性能和更灵活的内存管理能力。
+new和delete一次分配和释放一个对象，但是某些应用需要**一次为很多对象分配内存**的功能。
+
+为此，C++语言和标准库提供了两种一次分配一个对象数组的方法。
+
+- C++语言提供另一种new表达式语法。可以分配并初始化一个对象数组。
+- 标准库包含一个`allocator`类，可以将内存分配和初始化过程分离，这通常会提供更好的性能和更灵活的内存管理能力。【12.2.2】
+
+正常想要用可变长数组还是使用vector。【13.6】会介绍vector的诸多优势。
 
 #### 12.2.1 new and Arrays
 
-使用`new`分配对象数组时需要在类型名之后跟一对方括号，在其中指明要分配的对象数量（必须是整型，但不必是常量）。`new`返回指向第一个对象的指针（元素类型）。
+使用`new`分配对象数组时需要在类型名之后跟一对方括号，在其中指明要分配的对象数量（必须是整型，但不必是常量）。
+
+`new`返回指向第一个对象的指针（元素类型）。
 
 ```c++
 // call get_size to determine how many ints to allocate
 int *pia = new int[get_size()];   // pia points to the first of these ints
 ```
 
-由于`new`分配的内存并不是数组类型，因此不能对动态数组调用`begin`和`end`，也不能用范围`for`语句处理其中的元素。
+由于`new`分配的内存并不是数组类型，我们得到的是一个数组元素类型的指针，因此不能对动态数组调用`begin`和`end`，也不能用范围`for`语句处理其中的元素。
 
-默认情况下，`new`分配的对象是默认初始化的。可以对数组中的元素进行值初始化，方法是在大小后面跟一对空括号`()`。在新标准中，还可以提供一个元素初始化器的花括号列表。如果初始化器数量大于元素数量，则`new`表达式失败，不会分配任何内存，并抛出`bad_array_new_length`异常。
+**记住，动态数组并不是数组类型**
+
+##### 初始化动态分配对象的数组
+
+默认情况下，`new`分配的对象是默认初始化的。可以对数组中的元素进行值初始化，方法是在大小后面跟一对空括号`()`。在新标准中，还可以提供一个元素初始化器的花括号列表。**如果初始化器数量大于元素数量，则`new`表达式失败，不会分配任何内存，并抛出`bad_array_new_length`异常**。
 
 ```c++
 int *pia = new int[10];     // block of ten uninitialized ints
@@ -3515,6 +3528,10 @@ string *psa3 = new string[10] { "a", "an", "the", string(3,'x') };
 
 虽然可以使用空括号对`new`分配的数组元素进行值初始化，但不能在括号中指定初始化器。这意味着不能用`auto`分配数组。
 
+> 关于初始化器
+>
+> https://blog.csdn.net/zhizhengguan/article/details/112305541
+
 动态分配一个空数组是合法的，此时`new`会返回一个合法的非空指针。对于零长度的数组来说，该指针类似尾后指针，不能解引用。
 
 使用`delete[]`释放动态数组。
@@ -3526,6 +3543,8 @@ delete [] pa;   // pa must point to a dynamically allocated array or be null
 
 如果在`delete`数组指针时忘记添加方括号，或者在`delete`单一对象时使用了方括号，编译器很可能不会给出任何警告，程序可能会在执行过程中行为异常。
 
+##### 智能指针和动态数组
+
 `unique_ptr`可以直接管理动态数组，定义时需要在对象类型后添加一对空方括号`[]`。
 
 ```c++
@@ -3536,6 +3555,8 @@ up.release();   // automatically uses delete[] to destroy its pointer
 
 指向数组的`unique_ptr`：
 
+指向数组的`unique_ptr`不支持成员访问运算符（`.` 和  `->`）
+
 ![12-6](CPP_Primer_5th.assets/12-6.png)
 
 与`unique_ptr`不同，`shared_ptr`不直接支持动态数组管理。如果想用`shared_ptr`管理动态数组，必须提供自定义的删除器。
@@ -3543,7 +3564,7 @@ up.release();   // automatically uses delete[] to destroy its pointer
 ```c++
 // to use a shared_ptr we must supply a deleter
 shared_ptr<int> sp(new int[10], [](int *p) { delete[] p; });
-sp.reset();    // uses the lambda we supplied that uses delete[] to free the array
+sp.reset();    // uses the lambda【10.3.2】 we supplied that uses delete[] to free the array
 ```
 
 `shared_ptr`未定义下标运算符，智能指针类型也不支持指针算术运算。因此如果想访问`shared_ptr`管理的数组元素，必须先用`get`获取内置指针，再用内置指针进行访问。
