@@ -3579,6 +3579,16 @@ for (size_t i = 0; i != 10; ++i)
 
 #### 12.2.2 The allocator Class
 
+new有一些灵活性上的局限，其中一方面表现在它将内存分配和对象构造组合在一起。但当我们分配一大块内存时，通常计划在这块内存上按需构造对象，这时候我们希望将内存分配和对象构造分离，这样只在真正需要时才真正执行对象创建操作。
+
+最典型的就是数组初始化，一开始定义的数组大小可能用不到那么多。这里的数组元素会经过两次赋值，即默认初始化以及赋值时。
+
+而且更重要的是一些没有默认构造函数的类就不能动态分配数组了，
+
+##### allocator类
+
+allocator提供一种类型感知的内存分配方法，它分配的内存是原始的，未构造的。
+
 `allocator`类是一个模板，定义时必须指定其可以分配的对象类型。
 
 ```c++
@@ -3590,7 +3600,13 @@ auto const p = alloc.allocate(n);   // allocate n unconstructed strings
 
 ![12-7](CPP_Primer_5th.assets/12-7.png)
 
-`allocator`分配的内存是未构造的，程序需要在此内存中构造对象。新标准库的`construct`函数接受一个指针和零或多个额外参数，在给定位置构造一个元素。额外参数用来初始化构造的对象，必须与对象类型相匹配。
+##### `allocator`分配未构造的内存
+
+`allocator`分配的内存是未构造的，程序需要在此内存中构造对象。
+
+> In earlier versions of the library, construct took only two arguments: the pointer at which to construct an object and a value of the element type. As a result, we could only copy an element into unconstructed space, we could not use any other constructor for the element type.
+
+新标准库的`construct`函数接受一个指针和零或多个额外参数，在给定位置构造一个元素。额外参数用来初始化构造的对象，必须与对象类型相匹配。
 
 ```c++
 auto q = p;     // q will point to one past the last constructed element
@@ -3614,13 +3630,17 @@ while (q != p)
 alloc.deallocate(p, n);
 ```
 
+##### 拷贝和填充未初始化内存的算法
+
+标准库为allocator定义了两个伴随算法，可以在未初始化内存中创建对象。
+
 `allocator`算法：
 
 ![12-8](CPP_Primer_5th.assets/12-8.png)
 
 传递给`uninitialized_copy`的目的位置迭代器必须指向未构造的内存，它直接在给定位置构造元素。返回（递增后的）目的位置迭代器。
 
-### 12.3 Using the Library: A Text-Query Program
+### 12.3 Using the Library: A Text-Query Program 使用标准库 文本查询程序
 
 #### 12.3.1 Design of the Query Program
 
@@ -3628,15 +3648,21 @@ alloc.deallocate(p, n);
 
 ### Chapter Summary  
 
+在C++中，内存是通过new来分配，delete表达式释放的。
+
+标准库还定义了一个allocator来分配动态内存块。
+
+内存的释放是一个大难题，现代c++编程建议使用智能指针。
+
 ### Defined Terms
 
-| 中文 | 英文 | 含义 |
-| ---- | ---- | ---- |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
-|      |      |      |
+| 中文     | 英文             | 含义                                                         |
+| -------- | ---------------- | ------------------------------------------------------------ |
+| 空悬指针 | dangling pointer | 一个指针，指向曾经保存一个对象但现在已释放的内存。           |
+| 定位new  | placement new    | 一种new表达式形式，接受一些额外的参数，在new关键字后面的括号中给出，例如new(nothrow)告诉new不要抛出异常 |
+| 智能指针 | shared_ptr       | 提供所有权共享的智能指针：对共享指针来说，当最后一个指向它的shared_ptr被销毁是会被释放 |
+|          | unique_ptr       | 提供独享所有权的智能指针：当unique_ptr被销毁时，他指向的对象被释放。unique_ptr不能直接拷贝或复制。可以通过调用release或reset，将指针的所有权从一个（非const） unique_ptr转移给另一个unique_ptr。 |
+|          | weak_ptr         | 一种智能指针，指向由shared_ptr管理的对象，在确定是否释放对象时，shared_ptr不将其考虑在内。 |
+|          |                  |                                                              |
+|          |                  |                                                              |
 
