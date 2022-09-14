@@ -10454,15 +10454,360 @@ HasPtr& HasPtr::operator=(HasPtr rhs)
 
 这种方式交换rhs和*this中的数据成员，赋值运算符结束时，rhs被销毁，HasPtr的析构函数将执行。此析构函数delete rhs现在指向的内存，即原来左值运算对象指向的内存。
 
-### 13.4 A Copy-Control Example
+### 13.4 A Copy-Control Example 
+
+资源管理并不是一个类需要定义自己拷贝控制成员的唯一原因。一些类也需要拷贝控制成员的帮助来进行簿记工作或其他操作。 
+
+```c++
+#ifndef MESSAGE_H_
+#define MESSAGE_H_
+
+#include <string>
+#include <set>
+
+class Folder;
+
+class Message
+{
+	friend class Folder;
+	friend void swap(Message&, Message&);
+public:
+	explicit Message(const std::string &str = "") : contents(str) { };
+	Message(const Message&); //拷贝构造函数
+	Message& operator=(const Message&);//拷贝赋值运算符
+	~Message();//析构函数
+	void save(Folder&);
+	void remove(Folder&);
+private:
+	std::string contents; // 实际消息文本
+	std::set<Folder*> folders; // 包含本message的folder
+	void add_to_Folders(const Message&); // 将本message加入folder
+	void remove_from_Folders();//从每个folder删除message
+	void addFldr(Folder *f) { folders.insert(f); }
+	void remFldr(Folder *f) { folders.erase(f); }
+};
+
+class Folder
+{
+	friend void swap(Folder&, Folder&);
+	friend class Message;
+public:
+	Folder() = default;
+	Folder(const Folder &);
+	Folder& operator=(const Folder&);
+	~Folder();
+private:
+	std::set<Message*> msgs;
+	void add_to_Message(const Folder&);
+	void remove_from_Message();
+	void addMsg(Message *m) { msgs.insert(m); }
+	void remMsg(Message *m) { msgs.erase(m); }
+};
+
+void Message::save(Folder &f)
+{
+	folders.insert(&f);
+	f.addMsg(this);//folder那边要提供的操作
+}
+
+void Message::remove(Folder &f)
+{
+	folders.erase(&f);
+	f.remMsg(this);
+}
+
+void Message::add_to_Folders(const Message &m)
+{
+	for(auto f : m.folders)
+		f->addMsg(this);
+}
+
+Message::Message(const Message & m) : contents(m.contents), folders(m.folders)//拷贝构造函数
+{
+	add_to_Folders(m);
+}
+
+void Message::remove_from_Folders()                    
+{
+	for(auto f : folders)
+		f->remMsg(this);
+}
+
+Message::~Message()
+{
+	remove_from_Folders();
+}
+
+Message& Message::operator=(const Message &rhs)
+{
+	remove_from_Folders();
+	contents = rhs.contents;
+	folders = rhs.folders;
+	add_to_Folders(rhs);
+	return *this;
+}
+
+ void swap(Message &lhs, Message &rhs)
+ {
+ 	using std::swap;
+ 	for(auto f : lhs.folders)
+ 		f->remMsg(&lhs);
+ 	for(auto f : rhs.folders)
+ 		f->remMsg(&rhs);//将msg从它们各自的folder删除
+ 	swap(lhs.folders, rhs.folders);
+ 	swap(lhs.contents, rhs.contents);//交换他们的contents和folder指针set
+ 	for(auto f : lhs.folders)
+ 		f->addMsg(&lhs);
+ 	for(auto f : rhs.folders)//再将交换后的message插入folder
+ 		f->addMsg(&rhs);
+ }
+
+void Folder::add_to_Message(const Folder &f)
+{
+	for(auto m : f.msgs)
+		m->addFldr(this);
+}
+
+Folder::Folder(const Folder &f) : msgs(f.msgs)
+{
+	add_to_Message(f);
+}
+
+void Folder::remove_from_Message()
+{
+	for(auto m : msgs)
+		m->remFldr(this);
+}
+
+Folder::~Folder()
+{
+	remove_from_Message();
+}
+
+Folder &Folder::operator=(const Folder &rhs)
+{
+	remove_from_Message();
+	msgs = rhs.msgs;
+	add_to_Message(rhs);
+	return *this;
+}
+
+#endif
+```
+
+
 
 拷贝赋值运算符通常结合了拷贝构造函数和析构函数的工作。在这种情况下，公共部分应该放在`private`的工具函数中完成。
 
 ### 13.5 Classes That Manage Dynamic Memory
 
-移动构造函数通常是将资源从给定对象“移动”而不是拷贝到正在创建的对象中。
+一般在运行时分配可变大小的内存，应该使用标准库容器来保存他们的数据。
 
-### 13.6 Moving Objects
+但某些类需要自己进行内存分配，这些类一般必须定义自己的拷贝控制成员来管理所分配的内存。
+
+#### 例子 设计一个简易`vector<string>`类`StrVec`
+
+StrVec类的设计
+
+* 使用allocator来获得原始内存
+* 使用allocator的construct元素在分配的原始内中创建对象
+* 使用destroy成员来销毁元素
+
+每个StrVec有三个指针成员指向其元素所使用的内存
+
+- elements，指向分配的内存中的首元素
+- first_free，指向最后一个实际元素之后的位置
+- cap，指向分配的内存末尾之后的位置
+
+![image-20220914140807300](CPP_Primer_5th.assets/13-2.png)
+
+除了这些指针外，StrVec还有一个名为alloc的静态成员，其类型为`allocator<string>`。alloc成员会分配StrVec使用的内存。
+
+该类还有四个成员函数：
+
+- allo_n_copy 分配内存，并拷贝一个给定范围中的元素
+- free会销毁构造的元素并释放内存
+- chk_n_alloc保证StrVec至少有容纳一个新元素的空间，如果没有空间添加新元素，那么调用reallocate来分配更多内存。
+- reallocate在内存用完时为StrVec分配新内存。
+
+```c++
+#ifndef STRVEC_H_
+#define STRVEC_H_
+
+#include <string>
+#include <utility>
+#include <memory>
+#include <initializer_list>
+
+class StrVec
+{
+public:
+	StrVec() : elements(nullptr), first_free(nullptr), cap(nullptr) { }//allocator成员进行默认初始化
+	StrVec(const StrVec&);
+	StrVec &operator=(const StrVec&);
+	~StrVec();
+    
+	void push_back(const std::string&);//拷贝元素
+	size_t size() const { return first_free - elements; }
+	size_t capacity() const { return cap - elements; }
+	std::string *begin() const { return elements; }
+	std::string *end() const { return first_free; }
+	void reserve(size_t n);
+	void resize(size_t n);
+	void resize(size_t n, const std::string &s);
+private:
+	std::allocator<std::string> alloc;//分配元素
+	void chk_n_alloc() { if(size() == capacity()) reallocate(); }
+	std::pair<std::string*, std::string*> alloc_n_copy(const std::string*, const std::string*);
+	void free();
+	void reallocate();
+	std::string *elements;
+	std::string *first_free;
+	std::string *cap;
+};
+
+void StrVec::push_back(const std::string &s)
+{
+	chk_n_alloc();//确保有空间容纳新元素
+	alloc.construct(first_free++, s);
+}
+
+std::pair<std::string*,std::string*> StrVec::alloc_n_copy(const std::string *b, const std::string *e)
+{
+    //返回一个指针的pair，分别指向新科技的开始位置和拷贝的尾后位置。
+	auto data = alloc.allocate(e-b);
+	return {data, uninitialized_copy(b, e, data)};//【12.2】从迭代器b、e指出的输入范围中拷贝元素到data指定的未构造的原始内存中。data指向的空间必须足够大，可以容纳拷贝元素。
+}
+
+void StrVec::free()
+{
+	if(elements)//不能传递给destroy一个空指针
+	{
+		for(auto p = first_free; p != elements; )
+			alloc.destroy(--p);//逆序删除旧元素
+		alloc.deallocate(elements, cap-elements);
+	}
+}
+
+StrVec::StrVec(const StrVec &s)
+{
+	auto newdata = alloc_n_copy(s.begin(), s.end());
+	elements = newdata.first;
+	first_free = cap = newdata.second;
+}
+
+StrVec::~StrVec()
+{
+	free();
+}
+
+void StrVec::reserve(size_t n)
+{
+	if(n <= capacity()) return;
+	auto newdata = alloc.allocate(n);
+	auto dest = newdata;
+	auto elem = elements;
+	for(size_t i = 0; i != size(); ++i)
+		alloc.construct(dest++, std::move(*elem++));
+	free();
+	elements = newdata;
+	first_free = dest;
+	cap = elements + n;
+}
+
+void StrVec::resize(size_t n)
+{
+	resize(n,std::string());
+}
+
+void StrVec::resize(size_t n, const std::string &s)
+{
+	if(n < size())
+	{
+		while(n < size())
+			alloc.destroy(--first_free);
+	}else if(n > size())
+	{
+		while(n > size())
+			push_back(s);
+			// alloc.construct(first_free, s);
+	}
+}
+
+StrVec &StrVec::operator=(const StrVec &rhs)
+{
+	auto data = alloc_n_copy(rhs.begin(), rhs.end());
+	free();
+	elements = data.first;
+	first_free = cap = data.second;
+	return *this;
+}
+
+void StrVec::reallocate()
+{
+	auto newcapacity = size() ? 2 * size() : 1;
+	auto newdata = alloc.allocate(newcapacity);
+	auto dest = newdata;
+	auto elem = elements;
+	for(size_t i = 0; i != size(); ++i)
+		alloc.construct(dest++, std::move(*elem++));
+	free();
+	elements = newdata;
+	first_free = dest;
+	cap = elements + newcapacity;
+}
+
+#endif
+```
+
+##### 编写reallocate
+
+###### 在重新分配内存的过程中移动而不是拷贝元素
+
+reallocate应该做到
+
+- 为一个新的，更大的string数组分配内存。
+- 在内存空间的前一部分构造对象，保存现有元素
+- 销毁原内存空间中的元素，并释放这块内存
+
+这里我们看到，为一个StrVec出现分配空间会引起从旧内存空间到新内存空间逐个拷贝string。由于string具有类值行为，所以拷贝一个string时，新旧string是互相独立的， 每个string会有两个使用者，而如果是reallocate拷贝，每个string只有一个使用者。
+
+所以实际上拷贝这个步骤是多余的。我们应避免分配和释放string的额外开销。
+
+###### 移动构造函数和std::move
+
+通过新标准库引入的两种机制，可以避免string的拷贝。
+
+- 一些标准库类，都支持“移动构造函数”，并保证移后源依然保持一个有效的、可析构的状态。
+
+- std::move ，定义在`utility`头文件里。
+  - 当reallocate在新内存构造string时，他必须调用move来表示希望使用string 的移动构造函数【13.6.1】。如果漏掉，那么会使用String的拷贝构造函数。
+  - 我们通常不会为move提供一个using声明，原因【18.2.3】，我们会直接使用std::move
+  - 
+
+```c++
+void StrVec::reallocate()
+{
+	auto newcapacity = size() ? 2 * size() : 1;//分配当前大小两倍的空间，如果为空，就分配容纳一个元素的空间
+	auto newdata = alloc.allocate(newcapacity);//分配新内存
+    //准备移动数据
+	auto dest = newdata;//指向新数组中下一个空闲位置
+	auto elem = elements;//指向旧数组中下一个元素
+	for(size_t i = 0; i != size(); ++i)
+		alloc.construct(dest++, std::move(*elem++));
+	free();//一旦移动完元素，就释放旧内存空间
+    //更新数据结构
+	elements = newdata;
+	first_free = dest;
+	cap = elements + newcapacity;
+}
+```
+
+
+
+
+
+### 13.6 Moving Objects.
 
 某些情况下，一个对象拷贝后就立即被销毁了，此时移动而非拷贝对象会大幅度提高性能。
 
