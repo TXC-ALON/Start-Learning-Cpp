@@ -10807,9 +10807,11 @@ void StrVec::reallocate()
 
 
 
-### 13.6 Moving Objects.
+### 13.6 Moving Objects
 
-某些情况下，一个对象拷贝后就立即被销毁了，此时移动而非拷贝对象会大幅度提高性能。
+新标准的一个最主要的特性是可以移动而非拷贝的能力。
+
+如【13.1.1】所见，很多情况下都会发生对象拷贝。某些情况下，一个对象拷贝后就立即被销毁了，此时移动而非拷贝对象会大幅度提高性能。
 
 在旧版本的标准库中，容器所能保存的类型必须是可拷贝的。但在新标准中，可以用容器保存不可拷贝，但可移动的类型。
 
@@ -10818,6 +10820,15 @@ void StrVec::reallocate()
 #### 13.6.1 Rvalue References
 
 为了支持移动操作，C++11引入了右值引用类型。右值引用就是必须绑定到右值的引用。可以通过`&&`来获得右值引用。
+
+复习一下，【4.1.1】，一般而言，一个左值表达式表达的是一个对象的身份，而一个右值表达式表示的是对象的值。
+
+常规的引用（左值引用），我们不能将其绑定到要求转换的表达式、字面值常量或是返回右值的表达式。
+
+右值引用与其恰恰相反，我们可以将一个右值引用绑定到这类表达式上，但是不能将它直接绑定到左值上。
+
+- 返回左值引用的函数，连同赋值、下标、解引用和前置递增/递减运算符，都是返回左值 的表达式的例子。我们可以将一个左值引用绑定到这类表达式的结果上。
+- 返回非引用类型的函数，连同算术、关系、位以及后置递增/递减运算符，都生成右值。我们不能将左值引用绑定在这类表达式上，但我们可以将一个const的左值引用或者一个右值引用绑定在这类表达式上。
 
 ```c++
 int i = 42;
@@ -10828,7 +10839,13 @@ const int &r3 = i * 42;    // ok: we can bind a reference to const to an rvalue
 int &&rr2 = i * 42;        // ok: bind rr2 to the result of the multiplication
 ```
 
+##### 左值持久、右值短暂
+
+右值要么是字面常量，要么是在表达式求值过程中创建的临时变量。
+
 右值引用只能绑定到即将被销毁，并且没有其他用户的临时对象上。使用右值引用的代码可以自由地接管所引用对象的资源。
+
+##### 变量是左值
 
 变量表达式都是左值，所以不能将一个右值引用直接绑定到一个变量上，即使这个变量的类型是右值引用也不行。
 
@@ -10837,23 +10854,48 @@ int &&rr1 = 42;     // ok: literals are rvalues
 int &&rr2 = rr1;    // error: the expression rr1 is an lvalue!
 ```
 
-调用`move`函数可以获得绑定在左值上的右值引用，此函数定义在头文件`utility`中。
+##### 标准库move函数
+
+虽然不能直接将一个右值引用直接绑定在一个左值上，但我们可以显式地将一个左值转换为对应的右值引用类型。
+
+通过调用`move`函数可以获得绑定在左值上的右值引用，此函数定义在头文件`utility`中。
 
 ```c++
 int &&rr3 = std::move(rr1);
 ```
 
+调用move后就意味着承诺：除了对rr1进行赋值或销毁它外，我们将不再使用它。调用move之后，我们不能对原对象的值做任何假设。
+
+> After a call to move, we cannot make any assumptions about the value of the moved-from object
+
 调用`move`函数的代码应该使用`std::move`而非`move`，这样做可以避免潜在的名字冲突。
 
-#### 13.6.2 Move Constructor and Move Assignment
+#### 13.6.2 Move Constructor and Move Assignment 移动构造函数和移动赋值运算符
 
-移动构造函数的第一个参数是该类类型的右值引用，其他任何额外参数都必须有默认值。
+为了我们自己的类型也支持移动操作，需要为其定义移动构造函数和移动赋值运算符。
 
-除了完成资源移动，移动构造函数还必须确保移后源对象是可以安全销毁的。
+移动构造函数的第一个参数是该类类型的右值引用，其他任何额外参数都必须有默认实参。
+
+除了完成资源移动，移动构造函数还必须确保移后源对象是可以安全销毁的。特别是一旦资源完成移动，源对象必须不再指向被移动的资源--这些资源的所有权已经归属新创建的对象。
+
+```c++
+StrVec::StrVec(StrVec &&s) noexcept // move won't throw any
+exceptions
+ // member initializers take over the resources in s
+	 : elements(s.elements), first_free(s.first_free),cap(s.cap)
+{
+ // leave s in a state in which it is safe to run the destructor
+ 	s.elements = s.first_free = s.cap = nullptr;//析构安全
+}
+```
+
+
+
+##### 移动操作、标准库容器和异常
 
 在函数的形参列表后面添加关键字`noexcept`可以指明该函数不会抛出任何异常。
 
-对于构造函数，`noexcept`位于形参列表和初始化列表开头的冒号之间。在类的头文件声明和定义中（如果定义在类外）都应该指定`noexcept`。
+对于构造函数，`noexcept`位于形参列表和初始化列表开头的冒号之间。**在类的头文件声明和定义中（如果定义在类外）都应该指定`noexcept`。**
 
 ```c++
 class StrVec
@@ -10867,11 +10909,79 @@ StrVec::StrVec(StrVec &&s) noexcept : /* member initializers */
 { /* constructor body */ }
 ```
 
-标准库容器能对异常发生时其自身的行为提供保障。虽然移动操作通常不抛出异常，但抛出异常也是允许的。为了安全起见，除非容器确定元素类型的移动操作不会抛出异常，否则在重新分配内存的过程中，它就必须使用拷贝而非移动操作。
+标准库容器能对异常发生时其自身的行为提供保障。虽然移动操作通常不抛出异常，但抛出异常也是允许的。
 
-不抛出异常的移动构造函数和移动赋值运算符必须标记为`noexcept`。
+为了安全起见，除非容器确定元素类型的移动操作不会抛出异常，否则在重新分配内存的过程中，它就必须使用拷贝而非移动操作。
 
-在移动操作之后，移后源对象必须保持有效的、可销毁的状态，但是用户不能使用它的值。
+所以为了让编译器明确使用什么，不抛出异常的移动构造函数和移动赋值运算符必须标记为`noexcept`。
+
+```c++
+//https://blog.csdn.net/weixin_40179091/article/details/109481274
+/*================================================================
+*   Copyright (C) 2022 baichao All rights reserved.
+*
+*   文件名称：noexcept.cpp
+*   创 建 者：baichao
+*   创建日期：2022年05月14日
+*   描    述：
+*
+================================================================*/
+
+#include <iostream>
+#include <utility>
+#include <vector>
+
+void may_throw();
+void no_throw() noexcept;
+auto lmay_throw = [] {};
+auto lno_throw = []() noexcept {};
+class T
+{
+public:
+    ~T() {} // 因为显式声明了析构函数，所以不会隐式提供移动构造函数，从右值构造的时候会使用复制构造函数
+            // 复制构造函数为 noexcept
+};
+class U
+{
+public:
+    ~U() {} // 因为显式声明了析构函数，所以不会隐式提供移动构造函数，从右值构造的时候会使用复制构造函数
+            // 复制构造函数为 noexcept(false),因为std::vector<int> v的存在
+    std::vector<int> v;
+};
+class V
+{
+public:
+    std::vector<int> v;
+};
+
+int main()
+{
+    T t;
+    U u;
+    V v;
+
+    std::cout << std::boolalpha
+              << "Is may_throw() noexcept? " << noexcept(may_throw()) << '\n'     // false
+              << "Is no_throw() noexcept? " << noexcept(no_throw()) << '\n'       // true
+              << "Is lmay_throw() noexcept? " << noexcept(lmay_throw()) << '\n'   // false
+              << "Is lno_throw() noexcept? " << noexcept(lno_throw()) << '\n'     // true
+              << "Is ~T() noexcept? " << noexcept(std::declval<T>().~T()) << '\n' //从c++11起析构函数默认带有noexcept属性
+              // 注：以下各项测试也默认 ~T() 为 noexcept
+              // 因为 noexccept 中的表达式构造并销毁了临时量
+              << "Is T(rvalue T) noexcept? " << noexcept(T(std::declval<T>())) << '\n' //移动构造被显式析构阻挡，但是复制构造依旧为noexcept
+              << "Is T(lvalue T) noexcept? " << noexcept(T(t)) << '\n'                 //复制构造为noexcept
+              << "Is U(rvalue U) noexcept? " << noexcept(U(std::declval<U>())) << '\n' //移动构造被显式析构阻挡，复制构造为noexcept(false),因为std::vector<int> v的存在
+              << "Is U(lvalue U) noexcept? " << noexcept(U(u)) << '\n'                 //复制构造为noexcept(false),因为std::vector<int> v的存在
+              << "Is V(rvalue V) noexcept? " << noexcept(V(std::declval<V>())) << '\n' //移动构造隐式存在，且为noexcept
+              << "Is V(lvalue V) noexcept? " << noexcept(V(v)) << '\n';                //复制构造为noexcept(false),因为std::vector<int> v的存在
+}
+
+
+```
+
+##### 移动赋值运算符
+
+别玩了检查自赋值
 
 ```c++
 StrVec &StrVec::operator=(StrVec &&rhs) noexcept
@@ -10890,7 +11000,17 @@ StrVec &StrVec::operator=(StrVec &&rhs) noexcept
 }
 ```
 
-只有当一个类没有定义任何拷贝控制成员，且类的每个非`static`数据成员都可以移动时，编译器才会为类合成移动构造函数和移动赋值运算符。编译器可以移动内置类型的成员。如果一个成员是类类型，且该类有对应的移动操作，则编译器也能移动该成员。
+
+
+##### 移后源对象必须可析构
+
+在移动操作之后，移后源对象必须保持有效的、可销毁的状态，但是用户不能使用它的值。
+
+##### 合成的移动操作
+
+**只有当一个类没有定义任何拷贝控制成员，且类的每个非`static`数据成员都可以移动时，编译器才会为类合成移动构造函数和移动赋值运算符。**
+
+编译器可以移动内置类型的成员。如果一个成员是类类型，且该类有对应的移动操作，则编译器也能移动该成员。
 
 ```c++
 // the compiler will synthesize the move operations for X and hasX
@@ -10909,9 +11029,22 @@ X x, x2 = std::move(x);         // uses the synthesized move constructor
 hasX hx, hx2 = std::move(hx);   // uses the synthesized move constructor
 ```
 
-与拷贝操作不同，移动操作永远不会被隐式定义为删除的函数。但如果显式地要求编译器生成`=default`的移动操作，且编译器不能移动全部成员，则移动操作会被定义为删除的函数。
+与拷贝操作不同，**移动操作永远不会被隐式定义为删除的函数**。但如果显式地要求编译器生成`=default`的移动操作，且编译器不能移动全部成员，则移动操作会被定义为删除的函数。
+
+> Unlike the copy operations, a move operation is never implicitly defined as a deleted function. However, if we explicitly ask the compiler to generate a move operation by using = default (§ 7.1.4, p. 264), and the compiler is unable to move all the members, then the move operation will be defined as deleted. With one important exception, the rules for when a synthesized move operation is defined as deleted are analogous to those for the copy operations (§ 13.1.6, p. 508):
+
+此外【为了理解这个此外，废了我老大劲，翻译是除了一个重要例外，，，】，什么时候将合成的移动操作定义为删除的函数，遵循类似“将合成的拷贝构造函数定义删除”的原则
+
+- 与拷贝构造函数不同：移动构造函数被定义为删除的函数的条件是：有类成员定义了自己的拷贝构造函数且未定义移动构造函数；或者有类成员未定义自己的拷贝构造函数且编译器不能为其合成移动构造函数。移动赋值运算符的情况类似。【有拷贝或者没法生成移动】
+- 如果有类成员的移动构造函数或移动赋值运算符被定义为删除的或是不可访问的，则类的移动构造函数或移动赋值运算符被定义为删除的【类成员露馅】
+- 类似拷贝构造函数，如果类的析构函数被定义为删除的或不可访问的，则类的移动构造函数被定义为删除的。
+- 类似拷贝赋值运算符，如果有类成员是const的或是引用，则类的移动赋值运算符被定义为删除的。
+
+移动操作和合成的拷贝控制成员还有最后一个相互关系：**如果类定义了一个移动构造函数和/或一个移动赋值运算符，则该类的合成拷贝构造函数和拷贝赋值运算符会被定义为删除的**
 
 定义了移动构造函数或移动赋值运算符的类必须也定义自己的拷贝操作，否则这些成员会被默认地定义为删除的函数。
+
+##### 移动右值，拷贝左值，但如果没有移动构造函数，右值也被拷贝
 
 如果一个类有可用的拷贝构造函数而没有移动构造函数，则其对象是通过拷贝构造函数来“移动”的，即使调用`move`函数时也是如此。拷贝赋值运算符和移动赋值运算符的情况类似。
 
@@ -10929,31 +11062,109 @@ Foo y(x);   // copy constructor; x is an lvalue
 Foo z(std::move(x));    // copy constructor, because there is no move constructor
 ```
 
+move(x)，返回一个绑定到x的Foo&&。Foo的拷贝沟站函数可以，所以将Foo&&转为一个const Foo&，z将使用Foo的拷贝构造函数。
+
+todo，关于为什么右值可以自动转化为const Foo&，还是不太理解，我知道const左引可以绑定右值。
+
+> 关于左右值引用
+>
+> http://c.biancheng.net/view/7829.html.
+>
+> https://blog.csdn.net/nihao_2014/article/details/118275110?spm=1001.2101.3001.6650.7&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-7-118275110-blog-117920924.pc_relevant_default&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-7-118275110-blog-117920924.pc_relevant_default&utm_relevant_index=8
+>
+> 这两个关于右值引用以及折叠引用的还有意思
+>
+> https://docs.microsoft.com/zh-cn/cpp/cpp/rvalue-reference-declarator-amp-amp?view=msvc-170
+>
+> 如果函数参数是右值，则编译器将参数推导为右值引用。 例如，假设将 rvalue 引用（针对 `X` 类型的对象）传递给采用类型 `T&&` 作为其参数的模板函数。 模板参数推导推断 `T` 为 `X`，因此该参数具有类型 `X&&`。 如果函数参数是 lvalue 或 **`const`** lvalue，则编译器将其类型推导为该类型的 lvalue 引用或 **`const`** lvalue 引用。
+>
+> https://www.zhihu.com/question/40346748
+
+##### 拷贝并交换赋值运算符和移动操作
+
 使用非引用参数的单一赋值运算符可以实现拷贝赋值和移动赋值两种功能。依赖于实参的类型，左值被拷贝，右值被移动。
 
 ```c++
-// assignment operator is both the move- and copy-assignment operator
-HasPtr& operator=(HasPtr rhs)
+#include <iostream>
+#include <string>
+using namespace std;
+class HasPtr {
+public:
+    friend void swap(HasPtr&, HasPtr&);
+    HasPtr(const std::string &s = std::string()):
+            ps(new std::string(s)), i(0) {cout<<"default build by s"<<endl;}
+    HasPtr(const HasPtr &p):ps(p.ps), i(p.i){cout<<"this is a copy constructor"<<endl;}
+    //HasPtr& operator=(const HasPtr&);
+    HasPtr(HasPtr &&p) noexcept : ps(p.ps), i(p.i) {cout<<"this is a move constructor"<<endl;p.ps = 0;}
+    ~HasPtr(){delete ps;};
+    // assignment operator is both the move- and copy-assignment operator
+    HasPtr& operator=(HasPtr rhs) { swap(*this, rhs); cout<<"this is both move and assignment"<<endl;return *this; }
+    // other members as in § 13.2.1 (p. 511)
+private:
+    std::string *ps;
+    int i;
+};
+inline void swap(HasPtr &lhs, HasPtr &rhs)
 {
-    swap(*this, rhs);
-    return *this;
+    using std::swap;
+    swap(lhs.ps, rhs.ps);   // swap the pointers, not the string data
+    swap(lhs.i, rhs.i);     // swap the int members
 }
 
-hp = hp2;   // hp2 is an lvalue; copy constructor used to copy hp2
-hp = std::move(hp2);    // move constructor moves hp2
+int main()
+{
+    HasPtr hp,hp2;
+    cout<<"-----"<<endl;
+    hp = hp2;
+    hp = std::move(hp2);
+    return 0;
+}
+/*
+default build by s
+default build by s
+-----
+this is a copy constructor
+this is both move and assignment
+this is a move constructor
+this is both move and assignment
+*/
 ```
 
-建议将五个拷贝控制成员当成一个整体来对待。如果一个类需要任何一个拷贝操作，它就应该定义所有五个操作。
+
+
+**建议**将五个拷贝控制成员当成一个整体来对待。如果一个类需要任何一个拷贝操作，它就应该定义所有五个操作。在有些拷贝不必要的情况下，定义移动构造函数和移动赋值运算符可以表面
 
 移动赋值运算符可以直接检查自赋值情况。
 
-C++11标准库定义了移动迭代器（move iterator）适配器。一个移动迭代器通过改变给定迭代器的解引用运算符的行为来适配此迭代器。移动迭代器的解引用运算符返回一个右值引用。
+```c++
+Message& Message::operator=(Message &&rhs)
+{
+ if (this != &rhs) { // direct check for self-assignment
+ 	remove_from_Folders();
+ 	contents = std::move(rhs.contents); // move assignment
+ 	move_Folders(&rhs); // reset the Folders to point to this Message
+ } 
+    return *this;
+}
+```
+
+与任何赋值运算符引用，移动赋值运算符必须销毁左侧运算对象的旧状态。
+
+##### 移动迭代器
+
+C++11标准库定义了移动迭代器（move iterator）适配器。一个移动迭代器通过改变给定迭代器的解引用运算符的行为来适配此迭代器。
+
+**移动迭代器的解引用运算符返回一个右值引用。**
 
 调用`make_move_iterator`函数能将一个普通迭代器转换成移动迭代器。原迭代器的所有其他操作在移动迭代器中都照常工作。
 
-最好不要在移动构造函数和移动赋值运算符这些类实现代码之外的地方随意使用`move`操作。
+由于移动一个对象可能销毁原对象，因此你只有在确信算法在为一个元素赋值或将其传递给一个用户定义的函数后不再访问它时，才能将移动迭代器传递给算法。
 
-#### 13.6.3 Rvalue References and Member Functions
+最好不要在移动构造函数和移动赋值运算符这些类实现代码之外的地方随意使用`move`操作。谨慎使用move。
+
+#### 13.6.3 Rvalue References and Member Functions 右值引用和成员函数
+
+一个成员函数同时提供拷贝和移动版本，也能从中受益。
 
 区分移动和拷贝的重载函数通常有一个版本接受一个`const T&`参数，另一个版本接受一个`T&&`参数（`T`为类型）。
 
@@ -10971,7 +11182,7 @@ s1 + s2 = "wow!";
 
 在旧标准中，没有办法阻止这种使用方式。为了维持向下兼容性，新标准库仍然允许向右值赋值。但是可以在自己的类中阻止这种行为，规定左侧运算对象（即`this`指向的对象）必须是一个左值。
 
-在非`static`成员函数的形参列表后面添加引用限定符（reference qualifier）可以指定`this`的左值/右值属性。引用限定符可以是`&`或者`&&`，分别表示`this`可以指向一个左值或右值对象。引用限定符必须同时出现在函数的声明和定义中。
+在非`static`成员函数的形参列表后面添加**引用限定符**（reference qualifier）可以指定`this`的左值/右值属性。引用限定符可以是`&`或者`&&`，分别表示`this`可以指向一个左值或右值对象。引用限定符必须同时出现在函数的声明和定义中。
 
 ```c++
 class Foo
@@ -10999,6 +11210,8 @@ public:
 };
 ```
 
+##### 重载和引用函数
+
 引用限定符也可以区分成员函数的重载版本。
 
 ```c++
@@ -11008,6 +11221,16 @@ public:
     Foo sorted() &&;        // may run on modifiable rvalues
     Foo sorted() const &;   // may run on any kind of Foo
 };
+Foo Foo::sorted() &&
+{
+ sort(data.begin(), data.end()); return *this;
+}
+// this object is either const or it is an lvalue; either way we can't sort in place
+Foo Foo::sorted() const & {
+ Foo ret(*this); // 因为const不能直接改变元素，得先拷贝一份
+ sort(ret.data.begin(), ret.data.end()); // sort the copy
+ return ret; // return the copy
+}
 
 retVal().sorted();   // retVal() is an rvalue, calls Foo::sorted() &&
 retFoo().sorted();   // retFoo() is an lvalue, calls Foo::sorted() const &
@@ -11028,7 +11251,7 @@ public:
 };
 ```
 
-x
+
 
 ### Chapter Summary  
 
