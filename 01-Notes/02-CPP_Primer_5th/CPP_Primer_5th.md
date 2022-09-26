@@ -11409,7 +11409,7 @@ istream &operator>>(istream &is, Sales_data &item)
 
 如果输入的数据不符合规定的格式，即使从技术上看IO操作是成功的，输入运算符也应该设置流的条件状态以标示出失败信息。通常情况下，输入运算符只设置`failbit`状态。`eofbit`、`badbit`等错误最好由IO标准库自己标示。
 
-### 14.3 Arithmetic and Relational Operators
+### 14.3 Arithmetic and Relational Operators 算术和运算符
 
 通常情况下，算术和关系运算符应该定义为非成员函数，以便两侧的运算对象进行转换。其次，由于这些运算符一般不会改变运算对象的状态，所以形参都是**常量引用**。
 
@@ -11469,9 +11469,11 @@ Sales_data operator+(const Sales_data &lhs, const Sales_data &rhs)
 
 如果类包含`==`，那么当且仅当`<`的定义和`==`产生的结果一致时才定义`<`运算符。
 
-### 14.4 Assignment Operators
+### 14.4 Assignment Operators 赋值运算符
 
 赋值运算符必须定义为成员函数，复合赋值运算符通常也是如此。这两类运算符都应该返回其左侧运算对象的引用。
+
+类似拷贝赋值和移动赋值，其他的重载运算符也必须先释放当前内存空间，再创建一片新的空间。
 
 ```c++
 StrVec &StrVec::operator=(initializer_list<string> il)
@@ -11497,7 +11499,7 @@ Sales_data& Sales_data::operator+=(const Sales_data &rhs)
 
 
 
-### 14.5 Subscript Operator
+### 14.5 Subscript Operator [] 下标运算符
 
 下标运算符必须定义为成员函数。
 
@@ -11521,6 +11523,8 @@ private:
 
 ### 14.6 Increment and Decrement Operators
 
+在迭代器类中通常会实现递增运算符和递减运算符，这两种运算符使得类可以在元素的序列中前后移动。
+
 定义递增和递减运算符的类应该同时定义前置和后置版本，这些运算符通常定义为成员函数。
 
 为了与内置操作保持一致，前置递增或递减运算符应该返回运算后对象的引用。
@@ -11533,6 +11537,8 @@ StrBlobPtr& StrBlobPtr::operator++()
     return *this;
 }
 ```
+
+##### 区分前知和后置运算符
 
 后置递增或递减运算符接受一个额外的（不被使用）`int`类型形参，该形参的唯一作用就是区分运算符的前置和后置版本。
 
@@ -11559,6 +11565,8 @@ StrBlobPtr StrBlobPtr::operator++(int)
 }
 ```
 
+##### 显式地调用后置运算符
+
 如果想通过函数调用的方式使用后置递增或递减运算符，则必须为它的整型参数传递一个值。
 
 ```c++
@@ -11569,9 +11577,9 @@ p.operator++();     // call prefix operator++
 
 
 
-### 14.7 Member Access Operators
+### 14.7 Member Access Operators 成员访问运算符
 
-箭头运算符必须定义为成员函数，解引用运算符通常也是如此。
+箭头运算符`->`必须定义为成员函数，解引用运算符`*`通常也是如此。
 
 重载的箭头运算符必须返回类的指针或者自定义了箭头运算符的类的对象。
 
