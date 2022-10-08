@@ -11616,6 +11616,8 @@ public:
 
 函数调用运算符必须定义为成员函数。一个类可以定义多个不同版本的调用运算符，相互之间必须在参数数量或类型上有所区别。
 
+#####  含有状态的函数对象类
+
 ```c++
 class PrintString
 {
@@ -11631,18 +11633,16 @@ private:
     ostream &os;   // stream on which to write
     char sep;      // character to print after each output
 };
-
+string s = "false answer";
 PrintString printer;  // uses the defaults; prints to cout
 printer(s);     // prints s followed by a space on cout
 ```
 
-如果类定义了调用运算符，则该类的对象被称作函数对象（function object），函数对象常常作为泛型算法的实参。
+函数对象常常作为泛型算法的实参，如果类定义了调用运算符，则该类的对象被称作函数对象（function object），
 
 ```c++
 for_each(vs.begin(), vs.end(), PrintString(cerr, '\n'));
 ```
-
-
 
 #### 14.8.1 Lambdas Are Function Objects
 
@@ -11666,7 +11666,11 @@ public:
 
 `lambda`默认不能改变它捕获的变量。因此在默认情况下，由`lambda`产生的类中的函数调用运算符是一个`const`成员函数。如果`lambda`被声明为可变的，则调用运算符就不再是`const`函数了。
 
-`lambda`通过引用捕获变量时，由程序负责确保`lambda`执行时该引用所绑定的对象确实存在。因此编译器可以直接使用该引用而无须在`lambda`产生的类中将其存储为数据成员。相反，通过值捕获的变量被拷贝到`lambda`中，此时`lambda`产生的类必须为每个值捕获的变量建立对应的数据成员，并创建构造函数，用捕获变量的值来初始化数据成员。
+##### 表示lambda及相应捕获行为的类
+
+`lambda`通过引用捕获变量时，由程序负责确保`lambda`执行时该引用所绑定的对象确实存在。因此编译器可以直接使用该引用而无须在`lambda`产生的类中将其存储为数据成员。
+
+相反，通过值捕获的变量被拷贝到`lambda`中，此时`lambda`产生的类必须为每个值捕获的变量建立对应的数据成员，并创建构造函数，用捕获变量的值来初始化数据成员。
 
 ```c++
 // get an iterator to the first element whose size() is >= sz
@@ -11691,7 +11695,7 @@ private:
 
 `lambda`产生的类不包含默认构造函数、赋值运算符和默认析构函数，它是否包含默认拷贝/移动构造函数则通常要视捕获的变量类型而定。
 
-#### 14.8.2 Library-Defined Function Objects
+#### 14.8.2 Library-Defined Function Objects 标准库定义的函数对象
 
 标准库在头文件`functional`中定义了一组表示算术运算符、关系运算符和逻辑运算符的类，每个类分别定义了一个执行命名操作的调用运算符。这些类都被定义为模板的形式，可以为其指定具体的应用类型（即调用运算符的形参类型）。
 
@@ -11708,7 +11712,7 @@ sort(nameTable.begin(), nameTable.end(),
 sort(nameTable.begin(), nameTable.end(), less<string*>());
 ```
 
-
+关联容器使用less<key_type>对元素排序，因此我们可以定义一个指针的set或者在map中使用指针作为关键值而无需直接声明less。
 
 #### 14.8.3 Callable Objects and function
 
