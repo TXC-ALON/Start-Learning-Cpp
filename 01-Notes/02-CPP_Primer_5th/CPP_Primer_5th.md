@@ -11969,15 +11969,15 @@ int i = s3 + 0;    // error: ambiguous
 
 ### Defined Terms
 
-| 中文     | 英文           | 含义                                                         |
-| -------- | -------------- | ------------------------------------------------------------ |
-| 调用形式 | call signature | 表示一个可调用的接口。在调用形式中包括返回类型以及一个实参类型列表，该列表在一对圆括号内，实参类型之间以逗号分隔。 |
-|          |                |                                                              |
-|          |                |                                                              |
-|          |                |                                                              |
-|          |                |                                                              |
-|          |                |                                                              |
-|          |                |                                                              |
+| 中文           | 英文                  | 含义                                                         |
+| -------------- | --------------------- | ------------------------------------------------------------ |
+| 调用形式       | call signature        | 表示一个可调用的接口。在调用形式中包括返回类型以及一个实参类型列表，该列表在一对圆括号内，实参类型之间以逗号分隔。 |
+| 类类型转换     | class-type conversion | Conversions to or from class types are defined by constructors and conversion operators, respectively. Non-explicit constructors that take a single argument define a conversion from the argument type to the class type. Conversion operators define conversions from the class type to the specified type.<br/>包括从构造函数定义的从其他类型到类类型的转换，以及由类型转换运算符定义的从类类型到其他类型的转换。只接受单独一个实参的非显式构造定义了从实参类型到类类型的转换。而类型转换 |
+| 类型转换运算符 | conversion operator   | 类的成员函数，定义了从类类型到其他类型的转换。类型转换运算符必须是它要转换的类的成员，并且通常被定义为常量成员。<br/>这类运算符既没有返回类型，也不接受参数，他们返回一个可变为转换运算符类型的值。 |
+|                |                       |                                                              |
+|                |                       |                                                              |
+|                |                       |                                                              |
+|                |                       |                                                              |
 
 
 
