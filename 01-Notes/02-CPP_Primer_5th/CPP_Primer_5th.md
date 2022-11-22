@@ -12130,13 +12130,21 @@ class Bad2 : Last { /* */ };        // error: Last is final
 
 #### 15.2.3 Conversions and Inheritance
 
+一般来说，将引用或指针绑定在一个对象上，则引用或指针的类型应与对象类型一致。或者对象的类型含有一个可接受的const类型转换规则。
+
 和内置指针一样，智能指针类也支持派生类到基类的类型转换，所以可以将一个派生类对象的指针存储在一个基类的智能指针内。
+
+##### 静态类型与动态类型
 
 表达式的静态类型（static type）在编译时总是已知的，它是变量声明时的类型或表达式生成的类型；动态类型（dynamic type）则是变量或表达式表示的内存中对象的类型，只有运行时才可知。
 
+> 在输出商品价格的时候就很明显，可以根据商品类型不同，可能输出浮点型或者是整型。这种类型只有在运行时才得知。
+
 如果表达式既不是引用也不是指针，则它的动态类型永远与静态类型一致。
 
-不存在从基类到派生类的隐式类型转换，即使一个基类指针或引用绑定在一个派生类对象上也不行，因为编译器只能通过检查指针或引用的静态类型来判断转换是否合法。
+##### 不存在从基类到派生类的隐式类型转换
+
+即使一个基类指针或引用绑定在一个派生类对象上也不行，因为编译器只能通过检查指针或引用的静态类型来判断转换是否合法。
 
 ```c++
 Quote base;
@@ -12148,9 +12156,13 @@ Bulk_quote& bulkRef = base;  // error: can't convert base to derived
 
 如果已知某个基类到派生类的转换是安全的，可以使用`static_cast`强制覆盖掉编译器的检查工作。
 
+##### 在对象之间不存在类型转换
+
 派生类到基类的自动类型转换只对指针或引用有效，在派生类类型和基类类型之间不存在这种转换。
 
-派生类到基类的转换允许我们给基类的拷贝/移动操作传递一个派生类的对象，这些操作是基类定义的，只会处理基类自己的成员，派生类的部分被切掉（sliced down）了。
+> 要深刻的认识到一点，就是对类类型的对象进行初始化或赋值时，本质上是在调用函数，而这些成员接受一个参数类型为类类型的const版本的引用。
+
+派生类到基类的转换允许我们给基类的拷贝/移动操作传递一个派生类的对象，这些操作是基类定义的，只会处理基类自己的成员，派生类的部分被**切掉**（sliced down）了。
 
 ```c++
 Bulk_quote bulk;    // object of derived type
@@ -12160,17 +12172,36 @@ item = bulk;        // calls Quote::operator=(const Quote&)
 
 用一个派生类对象为一个基类对象初始化或赋值时，只有该对象中的基类部分会被拷贝、移动或赋值，它的派生类部分会被忽略掉。
 
-### 15.3 Virtual Functions
+### 15.3 Virtual Functions  虚函数
 
-当且仅当通过指针或引用调用虚函数时，才会在运行过程解析该调用，也只有在这种情况下对象的动态类型有可能与静态类型不同。
+动态绑定当且仅当通过指针或引用调用虚函数时，才会在运行过程解析该调用，也只有在这种情况下对象的动态类型有可能与静态类型不同。
+
+> OOP 的核心思想是多态性。polymorphism。即多种形式。
+>
+> 我们把具有继承关系的多种类型称为多态类型。
+>
+> 引用或指针的静态类型与动态类型不同这一事实正是C++语言支持多态性的根本所在。
+>
+> When we call a function defined in a base class through a reference or pointer to the base class, we do not know the type of the object on which that member is executed. The object can be a base-class object or an object of a derived class. If the function is virtual, then the decision as to which function to run is delayed until run time. The version of the virtual function that is run is the one defined by the type of the object to which the reference is bound or to which the pointer points.
+> On the other hand, calls to nonvirtual functions are bound at compile time. Similarly, calls to any function (virtual or not) on an object are also bound at
+> compile time. The type of an object is fixed and unvarying—there is nothing we can do to make the dynamic type of an object differ from its static type.
+> Therefore, calls made on an object are bound at compile time to the version defined by the type of the object.
+>
+> https://segmentfault.com/a/1190000012372372
+
+##### 派生类中的虚函数
 
 在派生类中覆盖某个虚函数时，可以再次使用`virtual`关键字说明函数性质，但这并非强制要求。因为一旦某个函数被声明为虚函数，则在所有派生类中它都是虚函数。
 
-在派生类中覆盖某个虚函数时，该函数在基类中的形参必须与派生类中的形参严格匹配。
+在派生类中覆盖某个虚函数时，该函数在基类中的形参必须与派生类中的形参严格匹配。.
+
+##### final 和 override说明符
 
 派生类可以定义一个与基类中的虚函数名字相同但形参列表不同的函数，但编译器会认为该函数与基类中原有的函数是相互独立的，此时派生类的函数并没有覆盖掉基类中的版本。
 
 C++11允许派生类使用`override`关键字显式地注明虚函数。如果`override`标记了某个函数，但该函数并没有覆盖已存在的虚函数，编译器将报告错误。`override`位于函数参数列表之后。
+
+override，首先是要是虚函数，第二要求形参列表完全匹配。
 
 ```c++
 struct B
@@ -12201,9 +12232,13 @@ struct D2 : B
 
 `final`和`override`关键字出现在形参列表（包括任何`const`或引用修饰符）以及尾置返回类型之后。
 
+##### 虚函数与默认实参
+
 虚函数也可以有默认实参，每次函数调用的默认实参值由本次调用的静态类型决定。如果通过基类的指针或引用调用函数，则使用基类中定义的默认实参，即使实际运行的是派生类中的函数版本也是如此。
 
 如果虚函数使用默认实参，则基类和派生类中定义的默认实参值最好一致。
+
+##### 回避虚函数的机制
 
 使用作用域运算符`::`可以强制执行虚函数的某个版本，不进行动态绑定。
 
@@ -12216,7 +12251,7 @@ double undiscounted = baseP->Quote::net_price(42);
 
 如果一个派生类虚函数需要调用它的基类版本，但没有使用作用域运算符，则在运行时该调用会被解析为对派生类版本自身的调用，从而导致无限递归。
 
-### 15.4 Abstract Base Classes
+### 15.4 Abstract Base Classes 抽象基类
 
 在类内部虚函数声明语句的分号前添加`=0`可以将一个虚函数声明为纯虚（pure virtual）函数。一个纯虚函数无须定义。
 
@@ -12230,15 +12265,138 @@ double net_price(std::size_t) const = 0;
 
 不能创建抽象基类的对象。
 
-派生类构造函数只初始化它的直接基类。
+派生类构造函数只初始化它的直接基类。（只照顾自己父母，爷奶由父母照顾，一辈管一辈）
 
-重构（refactoring）负责重新设计类的体系以便将操作或数据从一个类移动到另一个类中。
+> 重构（refactoring）负责重新设计类的体系以便将操作或数据从一个类移动到另一个类中。
 
-### 15.5 Access Control and Inheritance
+### 15.5 Access Control and Inheritance 访问控制与继承
 
-一个类可以使用`protected`关键字来声明外部代码无法访问，但是派生类对象可以访问的成员。
+每个类控制自己的成员初始化过程， 也控制着自己的成员对于派生类来说是否可用访问。
 
-派生类的成员或友元只能通过派生类对象来访问基类的`protected`成员。派生类对于一个基类对象中的`protected`成员没有任何访问权限。
+Protected
+
+- 类似private ， protected成员对于类的用户来说是不可访问的
+- 类似public  ,  protected成员对于派生类和友元是可以访问的
+- 派生类的成员或友元只能通过派生类对象来访问基类的`protected`成员。派生类对于一个基类对象中的`protected`成员没有任何访问权限。
+
+> 第三句话我花了很多功夫去理解，英文原文是这样的。
+>
+> In addition, protected has another important property:
+> • A derived class member or friend may access the protected members of the base class only through a derived object. The derived class has no special access to the protected members of base-class objects.
+>
+> > 先看前一句：派生类对象或许可以（比如派生类的成员或友员函数就可以）访问基类的protected成员，但也只能通过派生类对象去访问。
+> >
+> > 这句话换个说法就是：派生类的成员或友员函数只能通过派生类对象去访问基类的protected成员。注：重点是通过**派生类**对象访问，可以理解为访问的是派生类的成员（由基类继承而来）。重要的事情说三遍，派生类，派生类，派生类。
+> >
+> > 再看后一句：派生类是无法访问**基类**中的protected成员的。注：重点是基类中的protected成员，重要的事情说三遍，基类，基类，基类。
+> >
+> > ```c++
+> > #include <iostream>
+> > using namespace std;
+> > 
+> > class Base
+> > {
+> > public:
+> >         Base(){};
+> >         Base(int pm):protected_member(pm){};
+> > protected:
+> >         int protected_member;
+> > };
+> > 
+> > class Derived:public Base
+> > {
+> > public:
+> >         Derived(){};
+> >         Derived(int pm):Base(pm){};
+> > 
+> >         friend void test(Derived &d);
+> >         friend void test(Base &b);
+> > };
+> > 
+> > //形参为派生类对象的test友员函数
+> > void test(Derived &d)
+> > {
+> >         d.protected_member = 12;
+> >         cout << "protected_member = " << d.protected_member << endl;
+> > }
+> > 
+> > //形参为基类对象的test友员函数
+> > //编译不通过，派生类无法访问基类的protected成员
+> > /*void test(Base &b)
+> > {
+> >         b.protected_member = 12;
+> >         cout << "protected_member = " << b.protected_member << endl;
+> > }*/
+> > 
+> > int main()
+> > {
+> >         Derived d(5);   //protected成员初始值为5
+> >         test(d);        //改变protected成员的值(通过派生类对象)
+> > 
+> >         //test(Base&)函数无法编译通过
+> >         //Base b(5);
+> >         //test(b);
+> > 
+> >         return 0;
+> > }
+> > ```
+> >
+> > ```c++
+> > #include <iostream>
+> > using namespace std;
+> > 
+> > class Base
+> > {
+> > public:
+> >         Base(){};
+> > protected:
+> >         int protected_member;
+> > };
+> > 
+> > class Derived:public Base
+> > {
+> > public:
+> >         Derived(){};
+> >         Base b;
+> >         //test()为成员函数
+> >         void test(){
+> >                 protected_member = 12;
+> >                 cout << "protected_member of Derived : " << protected_member << endl;
+> > 
+> >                 //该句无法编译通过，派生类对法访问基类的protected成员
+> >                 //b.protected_member = 12;
+> >                 //cout << "protected_member of Base: " << b.protected_member << endl;
+> >         }
+> > };
+> > 
+> > int main()
+> > {
+> >         Derived d;
+> >         d.test();
+> > 
+> >         return 0;
+> > }
+> > ```
+> >
+> > 
+> >
+> > https://dulishu.top/cpp-protected/
+>
+> 我个人看到的比较好的理解是这个
+>
+> > 对此，我是这么理解的，protected成员是可以继承下来，继承下来了后，他的获取权限是属于这个派生类了，再也不属于基类了，就可套用private规则，只适用于本类，其它的类（包括基类）都不能直接操作。
+> >
+> > https://blog.codingnow.com/2010/03/cpp_protected.html
+> >
+> > 有个大佬就不喜欢用Protected，
+> >
+> > > protected数据成员本身就是一个不好的习惯（在我编写的《C++编程规范》里是明令禁止的），会导致基类与派生类的高度耦合。推荐的做法是private数据成员，再protected/public给出getter/setter（protected还是public取决于接口抽象）
+> > >
+> > > 举个例子：基类几个数据成员之间是要保证一致的（如String类的const char* _str和size_t _len）如果声明为protected，则编写派生类的程序员很可能改了_str而没改_len，或者给_str传了个非法值如NULL等。
+> > >
+> > > proected方法成员有个很重要的用处是作callback。比如说你写个Parser，则你可以把分析到某个terminal的on_xxx()方法声明为protected virtual method。这些方法显然不适宜声明为poublic
+>
+> 多学习多看吧。目前就先这样理解。
 
 ```c++
 class Base
@@ -12260,6 +12418,38 @@ void clobber(Sneaky &s) { s.j = s.prot_mem = 0; }
 void clobber(Base &b) { b.prot_mem = 0; }
 ```
 
+```c++
+class CBase {
+    private: int nPrivate;   //私有成员
+    public:  int nPublic;    //公有成员
+    protected: int nProtected;   // 保护成员
+};
+class CDerived :public CBase
+{
+    void AccessBase ()
+    {
+        nPublic = 1;      // OK
+        nPrivate = 1;    // 错，不能访问基类私有成员
+        nProtected = 1;  // OK，访问从基类继承的protected成员
+        CBase f;
+        f.nProtected = 1; //错，f不是函数所作用的对象
+    }
+};
+int main()
+{
+    CBase b;
+    CDerived d;
+    int n = b.nProtected ;  //错，不在派生类成员函数内，不能访问基类保护成员
+    n = d.nPrivate;          //错，此处不能访问d的私有成员
+    int m = d.nPublic;      //OK
+    return 0;
+}
+```
+
+
+
+##### 公有、私有和受保护继承
+
 基类中成员的访问说明符和派生列表中的访问说明符都会影响某个类对其继承成员的访问权限。
 
 派生访问说明符对于派生类的成员及友元能否访问其直接基类的成员没有影响，对基类成员的访问权限只与基类中的访问说明符有关。
@@ -12280,7 +12470,9 @@ void clobber(Base &b) { b.prot_mem = 0; }
 
 - 如果`D`继承`B`的方式是公有的或者受保护的，则`D`的派生类的成员函数和友元可以使用`D`到`B`的类型转换；反之，如果`D`继承`B`的方式是私有的，则不能使用。
 
-对于代码中的某个给定节点来说，如果基类的公有成员是可访问的，则派生类到基类的类型转换也是可访问的。
+对于代码中的某个给定节点来说，如果基类的公有成员是可访问的，则派生类到基类的类型转换也是可访问的。反之不可。
+
+##### 友元和继承
 
 友元对基类的访问权限由基类自身控制，即使对于派生类中的基类部分也是如此。
 
@@ -12302,6 +12494,19 @@ public:
 ```
 
 友元关系不能继承，每个类负责控制各自成员的访问权限。
+
+当一个类将另一个类声明为友元是，这种友元关系只对做出声明的类有效。对于原来的那个类来说，其友元的基类或者派生类不具有特殊的访问能力。
+
+```c++
+// D2 has no access to protected or private members in Base
+class D2 : public Pal {
+public:
+ int mem(Base b)
+ { return b.prot_mem; } // error: friendship doesn't inherit
+};
+```
+
+##### 改变个别成员的可访问性
 
 使用`using`声明可以改变派生类继承的某个名字的访问级别。新的访问级别由该`using`声明之前的访问说明符决定。
 
@@ -12325,6 +12530,8 @@ protected:
 ```
 
 派生类只能为那些它可以访问的名字提供`using`声明。
+
+##### 默认的继承保护级别
 
 默认情况下，使用`class`关键字定义的派生类是私有继承的，而使用`struct`关键字定义的派生类是公有继承的。
 
