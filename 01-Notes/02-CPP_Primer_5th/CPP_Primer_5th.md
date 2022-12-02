@@ -12537,11 +12537,22 @@ protected:
 
 建议显式地声明派生类的继承方式，不要仅仅依赖于默认设置。
 
-### 15.6 Class Scope under Inheritance
+### 15.6 Class Scope under Inheritance 继承中的类作用域
 
 当存在继承关系时，派生类的作用域嵌套在其基类的作用域之内。
 
+如果一个名字在派生类的作用域内无法正确解析，则编译器将继续在外层的基类作用域中寻找该名字的定义。
+
+> Each class defines its own scope (§7.4, p. 282) within which its members are defined.
+> Under inheritance, the scope of a derived class is nested (§2.2.4, p. 48) inside the scope of its base classes. If a name is unresolved within the scope of the derived class, the enclosing base-class scopes are searched for a definition of that name.
+>
+> 这个enclosing迷惑我了一会。
+
+##### 编译时按照名字查找
+
 一个对象、引用或指针的静态类型决定了该对象的哪些成员是可见的。
+
+##### 名字冲突与继承
 
 派生类定义的成员会隐藏同名的基类成员。
 
@@ -12560,6 +12571,8 @@ protected:
 };
 ```
 
+##### 使用作用域运算符来使用隐藏的成员
+
 可以通过作用域运算符`::`来使用被隐藏的基类成员。
 
 ```c++
@@ -12570,7 +12583,1131 @@ struct Derived : Base
 };
 ```
 
-除了覆盖继承而来的虚函数之外，派生类最好不要重用其他定义在基类中的名字。
+注：除了覆盖继承而来的虚函数之外，派生类最好不要重用其他定义在基类中的名字。
+
+> ### 名字查找与继承
+>
+> ###### ![image-20221202111945551](CPP_Primer_5th.assets/image-20221202111945551.png)
+
+#####  名字查找先于类型检查
+
+派生类的成员与基类某个成员同名，则派生类在其作用域内隐藏该基类成员。
+
+即使派生类成员和基类成员的形参列表不一致，基类依旧会被隐藏掉。
+
+##### :star:虚函数与作用域
+
+（这部分我觉得还是有必要说清楚的）
+
+如果基类与派生类的虚函数接受的实参不同，则我们就无法通过基类的引用或指针调用派生类的虚函数。
+
+一篇好文（https://www.cnblogs.com/zhjblogs/p/15421003.html）
+
+> ## 静态多态、动态多态
+>
+> `静态多态`：程序在`编译阶段`就可以确定调用哪个函数。这种情况叫做静态多态。比如重载，编译器根据传递给函数的参数和函数名决定具体要使用哪一个函数。
+> `动态多态`：在`运行期间`才可以确定最终调用的函数。需要通过虚函数+封装+继承实现。
+>
+> ## 虚函数
+>
+> - 虚函数都必须有定义
+> - 虚函数一般用在`继承`中。多个子类继承同一基类，若在某种行为上不同的派生类有着自己的实现方式。这种情况我们就会用到`多态`。采用在基类中将此函数定义成虚函数，派生类中定义这个函数的不同实现。当我们使用基类的引用或指针调用一个虚成员函数时会执行动态绑定。因为直到运行的时候才能知道到底调用了哪个版本的虚函数，判断依据是根据引用或指针所绑定的对象的真实类型。
+> - 若子类中重写了父类的方法，但是父类中此方法并没有设置为虚函数。那么通过指向子类的指针或引用调用此方法的时候，调用的是父类的方法。
+> - 基类中某个函数一旦被声明为虚函数，则在所有派生类中它都是虚函数，不需要在派生类中再一次通过virtual关键字指出该函数的性质。
+> - 当且仅当通过指针或引用调用虚函数时，才会在运行时解析该调用。
+>
+> ### 哪些函数类型不可以被定义成虚函数？
+>
+> - `内联函数`
+> - `构造函数`
+> - `静态成员函数`：static成员函数是属于类的。不属于任何对象。
+> - `友元函数`：不支持继承，没有实现为虚函数的必要
+> - `赋值运算符`：赋值运算符要求形参类型与本身类型相同，基类中赋值操作符形参为基类类型，即使声明成虚函数，也不能作为子类的赋值操作符
+>
+> **内联函数为什么不能被定义成虚函数？**
+> 内联函数是为了在代码中直接展开，减少函数调用花费的代价。
+> inline 函数是在`编译`时确定的，而 virtual 属性是在`运行`时确定的，因此这个两个属性是不可能同时定义的。
+> 即使`虚函数被声明为内联函数`，编译器遇到这种情况根本`不会把这样的函数内联展开`，而是当作`普通函数`来处理。
+>
+> **构造函数为什么不能被定义成虚函数？**
+> 如下：
+> 1：`继承`情况下，构造函数的执行顺序时：A() B()，`先执行父类`的构造函数，`在执行子类`的构造函数
+>
+> 2：如果A的构造函数是虚函数，B类也定义了构造函数（即也为虚函数），则`只会执行子类的构造函数`。即只会执行B类的构造函数，不会再执行A类的构造函数，这样的话`父类A就不能构造了`。
+>
+> 这样的话1和2就发生了矛盾。并且 virtual 函数是在不同类型的`对象`产生不同的动作，现在对象还没产生，是不存在通过virtual实现不同动作的想法的。
+>
+> 
+>
+> ```c++
+> class A
+> {
+>     A() {}
+> };
+> 
+> class B : public A
+> {
+>     B() : A() {}
+> };
+> 
+> int main()
+> {
+>     B b;
+>     B * pb = &b;
+> }
+> ```
+>
+> ### 虚函数的访问方式
+>
+> - **对象名：** 通过`对象名访问虚函数`的时候，此时采用的是`静态联编`。调用哪个类的函数取决于定义`对象名的类型`。对象类型是基类时，就调用基类的函数；对象类型是子类时，就调用子类的函数。
+> - **指针：** 通过`指针访问虚函数`的时候，编译器根据`指针所指对象的类型`来决定要调用哪个函数（`动态联编`），而与指针本身的类型无关
+> - **引用：** 与`指针访问虚函数类似`。不同之处在于，引用`一经声明后，引用变量本身无论如何改变，其调用的函数就不会在改变`，始终指向其开始定义时的函数。引用在一定程度上提高了代码的安全性，可以将引用理解为一种“受限制的指针”。
+>
+> ### 析构函数中的虚函数
+>
+> 如 B：A，A是基类，B是子类
+> `构造`子类对象时，`先运行基类构造函数`初始化基类部分，`再执行子类的构造函数`初始化子类部分。在执行基类构造函数时，派生部分还是未初始化的。实际上，此时对象还不是一个派生类对象。即先 A 后 B
+> `撤销`子类对象时，首`先撤销子类`部分，然后按照`与构造顺序的逆序撤销它的基类`部分。即先B 后 A
+>
+> 下面看一个例子：
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> class Father
+> {
+>     public:
+>         Father()
+>         {
+>             cout << "Father Constructor" << endl;
+>         }
+>         void calcMethod()
+>         {
+>             cout << "Father calcMethod()" << endl;
+>         }
+>         virtual void virtualMethod()
+>         {
+>             cout << "Father virtualMethod()" << endl;
+>         }
+>         virtual void virtualCommon()
+>         {
+>             cout << "Father virtualCommon()" << endl;
+>         }
+>         ~Father()
+>         {
+>             cout << "Father disConstruct" << endl;
+>         }
+> };
+> 
+> class Son:public Father
+> {
+>     public:
+>         Son()
+>         {
+>             cout << "Son Constructor" << endl;
+>         }
+>         void calcMethod()
+>         {
+>             cout << "Son calcMethod()" << endl;
+>         }
+>         void virtualMethod()
+>         {
+>             cout << "Son virtualMethod()" << endl;
+>         }
+>         ~Son()
+>         {
+>             cout << "Son disConstruct" << endl;
+>         }
+> };
+> 
+> 
+> int main()
+> {
+>     Father *f = new Son();          //先执行father构造函数，在执行son构造函数
+>     f->calcMethod();                //Father calcMethod()。父，子--->父。如果父类中的方法有自己的实现，则会去调用父类的方法。  见上述第3条。
+>     f->virtualMethod();             //Son virtualMethod()。父虚，子虚--->子。若把父类中的方法定义成虚函数，子类中有自己的实现，则会去调用指向的子类中对应的方法。  见上述第2条。
+>     f->virtualCommon();                //Father virtualCommon()。父虚，子无--->父。若把父类中的方法定义成虚函数，子类中有没有覆盖这个虚函数，则会直接调用父类的虚函数。
+>     
+>     delete f;
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```
+> Father Constructor
+> Son Constructor
+> Father calcMethod()
+> Son virtualMethod()
+> Father disConstruct
+> ```
+>
+> 可以发现调用 delete 的时候只执行了父类的析构函数，没有执行子类的析构函数。因为父类的析构函数不是虚函数，这不是造成了`内存泄漏`？怎么解决这个问题呢？
+>
+> **虚析构函数**
+>
+> delete后面跟`父类指针`，则`只会执行父类`的析构函数。
+> delete后面跟`子类指针`，那么`即会执行子类`的析构函数，`也会执行父类`的析构函数。
+>
+> 可以通过在`基类中把析构函数定义成虚函数`来解决这个问题。因为若不定义成虚函数，通过指向子类的指针或引用调用delete的时候会默认执行父类的析构函数(可参考上述虚函数介绍的第3条)，而不会去执行子类的析构函数。
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> class Father
+> {
+>     public:
+>         Father()
+>         {
+>             cout << "Father Constructor" << endl;
+>         }
+>         virtual ~Father()
+>         {
+>             cout << "Father Destruct" << endl;
+>         }
+> };
+> 
+> class Son:public Father
+> {
+>     public:
+>         Son()
+>         {
+>             cout << "Son Constructor" << endl;
+>         }
+>         ~Son()
+>         {
+>             cout << "Son Destruct" << endl;
+>         }
+>     
+> };
+> 
+> 
+> int main()
+> {
+>     Father *f = new Son();            
+>     delete f;
+>     
+>     cout << "--------------" << endl;
+>     
+>     Son *s = new Son();
+>     delete s;
+>     
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```c++
+> Father Constructor
+> Son Constructor
+> Son Destruct
+> Father Destruct
+> --------------
+> Father Constructor
+> Son Constructor
+> Son Destruct
+> Father Destruct
+> ```
+>
+> ### 虚函数表指针 vptr
+>
+> 
+>
+> ```c++
+> class Base
+> {
+>     public:
+>         virtual void f() 
+>         {
+>             cout << "Base::f" << endl;
+>         }
+>         
+>         virtual void g() 
+>         {
+>             cout << "Base::g" << endl;
+>         }
+>             
+>         virtual void h() 
+>         {
+>             cout << "Base::h" << endl;
+>         }        
+> };
+> 
+> 
+> int main()
+> {
+>     // 函数指针
+>     typedef void (*Func) (void);
+>     
+>     Base b;
+>     
+>     cout << sizeof(b) << endl;                // B 函数只有一个虚函数表指针，即 4 
+>     cout << "虚函数表地址:" << (int*)(&b) << endl; 
+>     cout << "虚函数表-第一个函数地址：" << (int *)*(int *)(&b) << endl;
+>     
+>     Func pFunc = NULL;
+>     pFunc = (Func)*((int*)*(int*)(&b));            // 通过 Func * 把 int*强制转换成函数指针 
+>     pFunc();
+>     
+>     return 0;
+> }
+> ```
+>
+> [![img](CPP_Primer_5th.assets/1959382-20211018160737320-78296787-1669964881908-32.png)](https://img2020.cnblogs.com/blog/1959382/202110/1959382-20211018160737320-78296787.png)
+>
+> ### 多继承下的虚函数表
+>
+> 
+>
+> ```c++
+> class A
+> {
+>     public:
+>         virtual void a() { cout << "a() in A" << endl; }    
+>         virtual void b() { cout << "b() in A" << endl; }    
+>         virtual void c() { cout << "c() in A" << endl; }    
+>         virtual void d() { cout << "d() in A" << endl; }    
+> };
+>  
+> class B : public A
+> {
+>     public:
+>         virtual void a() { cout << "a() in B" << endl; }    
+>         virtual void b() { cout << "b() in B" << endl; }    
+> };
+> 
+> class C : public A
+> {
+>     public:
+>         virtual void a() { cout << "a() in C" << endl; }    
+>         virtual void b() { cout << "b() in C" << endl; }    
+> };
+> 
+> class D : public B, public C
+> {
+>     public:
+>         virtual void a() { cout << "a() in D" << endl; }    
+>         virtual void d() { cout << "d() in D" << endl; }    
+> };
+> ```
+>
+> 每个类的`虚函数表`结构如下：
+> [![img](CPP_Primer_5th.assets/20200213204559992-1669964879224-29.png)](https://img-blog.csdnimg.cn/20200213204559992.png)
+>
+> `B ：public A` 重写了 `a() b()`
+> [![img](CPP_Primer_5th.assets/20200213204614259-1669964877298-26.png)](https://img-blog.csdnimg.cn/20200213204614259.png)
+>
+> `C ：public A` 重写了 `a() b()`
+> [![img](CPP_Primer_5th.assets/20200213204636600-1669964874883-23.png)](https://img-blog.csdnimg.cn/20200213204636600.png)
+>
+> `D ：public B , public C` 重写了 `a() d()`
+> [![img](CPP_Primer_5th.assets/20200213204655777-1669964872480-20.png)](https://img-blog.csdnimg.cn/20200213204655777.png)
+>
+> 可见，`多继承时，有几个基类就有几个vptr`。D类中的函数 a与d 覆盖了B类中的同名函数
+>
+> ### 虚基类表指针 bptr
+>
+> 菱形继承即如下图继承方式：B、C `虚拟`继承A，D`普通`继承B，C
+>
+> 
+>
+> ```c++
+> B : virtual public A
+> C : virtual public A
+> D : public B, public C
+> ```
+>
+> [![img](CPP_Primer_5th.assets/1959382-20211018160942739-831472974-1669964868982-17.png)](https://img2020.cnblogs.com/blog/1959382/202110/1959382-20211018160942739-831472974.png)
+>
+>  
+>
+>  
+>
+>  在`虚拟继承`情况下，基类不管在继承串链中被派生多少次，永远`只会存在一个实体`。
+>
+> 在虚拟继承基类的子类中，`子类会增加某种形式的指针`，指向虚基类子对象或指向相关表格（表格中存放的不是虚基类子对象的地址，就是其偏移量），此指针被称为 `bptr`
+>
+> 菱形继承时的对象布局：
+> [![img](CPP_Primer_5th.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM2NzQ4Mjc4,size_16,color_FFFFFF,t_70.png)](https://img-blog.csdnimg.cn/20200213213409544.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM2NzQ4Mjc4,size_16,color_FFFFFF,t_70)
+>
+> 
+>
+> ```c++
+> // 菱形继承
+> class A {};
+>  
+> class B : virtual public A {};
+> class C : virtual public A {};
+> 
+> class D : public B, public C {};
+> 
+> 
+> int main()
+> {
+>     cout << "sizeof(A) : " << sizeof(A) << endl;    // 1 空类，编译器会为空类安插一个字节
+>     cout << "sizeof(B) : " << sizeof(B) << endl;    // 4 bptr指针
+>     cout << "sizeof(C) : " << sizeof(C) << endl;    // 4 bptr指针
+>     cout << "sizeof(D) : " << sizeof(D) << endl;    // 8 一个虚基类子对象只会在继承类中存在一份实体，即A占用1B（现在编译器做了优化，可以为0），0 + 4 + 4 = 8
+> }
+> ```
+>
+> ## 纯虚函数
+>
+> 纯虚函数相当于定义了一个接口，不同的子类必须定义自己的实现。
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> //抽象类
+> class Father
+> {
+>     public:
+>         virtual void calcMem() = 0;         //=0表示这是个纯虚函数。纯虚函数不需要定义，没有方法体。
+>         virtual void anotherMethod() = 0;    //纯虚函数，也可以定义。
+> };
+> 
+> void Father::anotherMethod()
+> {
+>     cout << "Father anotherMethod" << endl;
+> }
+> 
+> class Son:public Father
+> {
+>     public:
+>         virtual void calcMem()                //这里的virtual也可以不显示声明。
+>         {
+>             cout << "son calcMem" << endl;
+>         }
+>         
+>         void anotherMethod()
+>         {
+>             cout << "Son anotherMethod" << endl;
+>         }
+> };
+> 
+> int main()
+> {
+>     Son *s = new Son();
+>     s->calcMem();                //son calcMem
+>     s->anotherMethod();            //Son anotherMethod
+> 
+>     Father *f = new Son();
+>     f->calcMem();                //son calcMem
+>     f->anotherMethod();            //Son anotherMethod
+>     f->Father::anotherMethod();    //Father anotherMethod。也可以显示的调用父类的方法
+> 
+>    
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```c++
+> son calcMem
+> Son anotherMethod
+> son calcMem
+> Son anotherMethod
+> Father anotherMethod
+> ```
+>
+> ### 抽象类
+>
+> `抽象类`不能声明对象，`只是作为基类的派生类服务`。
+> `抽象类`不能定义对象，但是可以`作为指针或者引用类型使用`。
+>
+> 1：`含有纯虚函数的类`成为抽象类。
+>    除非派生类中完全`实现基类中所有的纯虚函数`，否则，派生类也是抽象类，不能实例化对象。
+>
+> 2：`只定义了protected型构造函数`的类也是抽象类。因为无论是在外部还是派生类中都不能创建该对象。但是可以由其派生出新的类。
+>
+> 这种能派生出新类，但是不能创建自己对象的类时另一种形式的抽象类。
+>
+> **抽象类为什么不能实例化？**
+> 因为抽象类中的纯虚函数没有具体的实现，所以没办法实例化。
+>
+> ## 虚函数和纯虚函数的比较
+>
+> （1）如果基类中定义了虚函数AF，派生类中对于这个虚函数可以覆盖也可以不覆盖。
+> 派生类中如果覆盖了这个虚函数AZ，则通过指向子类的指针或引用调用的就是派生类中AZ
+> 如果派生类中没有对这个AF进行覆盖，那么通过指向子类的指针或引用调用的就是基类中AF
+>
+> （2）如果基类中定义了纯虚函数AAF，相当于是个接口。那么在派生类中就**必须覆盖**基类的这个纯虚函数。
+>
+> 转自：https://blog.csdn.net/qq_36748278/article/details/80433777
+>
+> **内联函数为什么不能被定义成虚函数？**
+> 内联函数是为了在代码中直接展开，减少函数调用花费的代价。
+> inline 函数是在`编译`时确定的，而 virtual 属性是在`运行`时确定的，因此这个两个属性是不可能同时定义的。静态多态、动态多态
+>
+> `静态多态`：程序在`编译阶段`就可以确定调用哪个函数。这种情况叫做静态多态。比如重载，编译器根据传递给函数的参数和函数名决定具体要使用哪一个函数。
+> `动态多态`：在`运行期间`才可以确定最终调用的函数。需要通过虚函数+封装+继承实现。
+>
+> ## 虚函数
+>
+> - 虚函数都必须有定义
+> - 虚函数一般用在`继承`中。多个子类继承同一基类，若在某种行为上不同的派生类有着自己的实现方式。这种情况我们就会用到`多态`。采用在基类中将此函数定义成虚函数，派生类中定义这个函数的不同实现。当我们使用基类的引用或指针调用一个虚成员函数时会执行动态绑定。因为直到运行的时候才能知道到底调用了哪个版本的虚函数，判断依据是根据引用或指针所绑定的对象的真实类型。
+> - 若子类中重写了父类的方法，但是父类中此方法并没有设置为虚函数。那么通过指向子类的指针或引用调用此方法的时候，调用的是父类的方法。
+> - 基类中某个函数一旦被声明为虚函数，则在所有派生类中它都是虚函数，不需要在派生类中再一次通过virtual关键字指出该函数的性质。
+> - 当且仅当通过指针或引用调用虚函数时，才会在运行时解析该调用。
+>
+> ### 哪些函数类型不可以被定义成虚函数？
+>
+> - `内联函数`
+> - `构造函数`
+> - `静态成员函数`：static成员函数是属于类的。不属于任何对象。
+> - `友元函数`：不支持继承，没有实现为虚函数的必要
+> - `赋值运算符`：赋值运算符要求形参类型与本身类型相同，基类中赋值操作符形参为基类类型，即使声明成虚函数，也不能作为子类的赋值操作符
+>
+> **内联函数为什么不能被定义成虚函数？**
+> 内联函数是为了在代码中直接展开，减少函数调用花费的代价。
+> inline 函数是在`编译`时确定的，而 virtual 属性是在`运行`时确定的，因此这个两个属性是不可能同时定义的。
+> 即使`虚函数被声明为内联函数`，编译器遇到这种情况根本`不会把这样的函数内联展开`，而是当作`普通函数`来处理。
+>
+> **构造函数为什么不能被定义成虚函数？**
+> 如下：
+> 1：`继承`情况下，构造函数的执行顺序时：A() B()，`先执行父类`的构造函数，`在执行子类`的构造函数
+>
+> 2：如果A的构造函数是虚函数，B类也定义了构造函数（即也为虚函数），则`只会执行子类的构造函数`。即只会执行B类的构造函数，不会再执行A类的构造函数，这样的话`父类A就不能构造了`。
+>
+> 这样的话1和2就发生了矛盾。并且 virtual 函数是在不同类型的`对象`产生不同的动作，现在对象还没产生，是不存在通过virtual实现不同动作的想法的。
+>
+> 
+>
+> ```c++
+> class A
+> {
+>     A() {}
+> };
+> 
+> class B : public A
+> {
+>     B() : A() {}
+> };
+> 
+> int main()
+> {
+>     B b;
+>     B * pb = &b;
+> }
+> ```
+>
+> ### 虚函数的访问方式
+>
+> - **对象名：** 通过`对象名访问虚函数`的时候，此时采用的是`静态联编`。调用哪个类的函数取决于定义`对象名的类型`。对象类型是基类时，就调用基类的函数；对象类型是子类时，就调用子类的函数。
+> - **指针：** 通过`指针访问虚函数`的时候，编译器根据`指针所指对象的类型`来决定要调用哪个函数（`动态联编`），而与指针本身的类型无关
+> - **引用：** 与`指针访问虚函数类似`。不同之处在于，引用`一经声明后，引用变量本身无论如何改变，其调用的函数就不会在改变`，始终指向其开始定义时的函数。引用在一定程度上提高了代码的安全性，可以将引用理解为一种“受限制的指针”。
+>
+> ### 析构函数中的虚函数
+>
+> 如 B：A，A是基类，B是子类
+> `构造`子类对象时，`先运行基类构造函数`初始化基类部分，`再执行子类的构造函数`初始化子类部分。在执行基类构造函数时，派生部分还是未初始化的。实际上，此时对象还不是一个派生类对象。即先 A 后 B
+> `撤销`子类对象时，首`先撤销子类`部分，然后按照`与构造顺序的逆序撤销它的基类`部分。即先B 后 A
+>
+> 下面看一个例子：
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> class Father
+> {
+>     public:
+>         Father()
+>         {
+>             cout << "Father Constructor" << endl;
+>         }
+>         void calcMethod()
+>         {
+>             cout << "Father calcMethod()" << endl;
+>         }
+>         virtual void virtualMethod()
+>         {
+>             cout << "Father virtualMethod()" << endl;
+>         }
+>         virtual void virtualCommon()
+>         {
+>             cout << "Father virtualCommon()" << endl;
+>         }
+>         ~Father()
+>         {
+>             cout << "Father disConstruct" << endl;
+>         }
+> };
+> 
+> class Son:public Father
+> {
+>     public:
+>         Son()
+>         {
+>             cout << "Son Constructor" << endl;
+>         }
+>         void calcMethod()
+>         {
+>             cout << "Son calcMethod()" << endl;
+>         }
+>         void virtualMethod()
+>         {
+>             cout << "Son virtualMethod()" << endl;
+>         }
+>         ~Son()
+>         {
+>             cout << "Son disConstruct" << endl;
+>         }
+> };
+> 
+> 
+> int main()
+> {
+>     Father *f = new Son();          //先执行father构造函数，在执行son构造函数
+>     f->calcMethod();                //Father calcMethod()。父，子--->父。如果父类中的方法有自己的实现，则会去调用父类的方法。  见上述第3条。
+>     f->virtualMethod();             //Son virtualMethod()。父虚，子虚--->子。若把父类中的方法定义成虚函数，子类中有自己的实现，则会去调用指向的子类中对应的方法。  见上述第2条。
+>     f->virtualCommon();                //Father virtualCommon()。父虚，子无--->父。若把父类中的方法定义成虚函数，子类中有没有覆盖这个虚函数，则会直接调用父类的虚函数。
+>     
+>     delete f;
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```
+> Father Constructor
+> Son Constructor
+> Father calcMethod()
+> Son virtualMethod()
+> Father disConstruct
+> ```
+>
+> 可以发现调用 delete 的时候只执行了父类的析构函数，没有执行子类的析构函数。因为父类的析构函数不是虚函数，这不是造成了`内存泄漏`？怎么解决这个问题呢？
+>
+> **虚析构函数**
+>
+> delete后面跟`父类指针`，则`只会执行父类`的析构函数。
+> delete后面跟`子类指针`，那么`即会执行子类`的析构函数，`也会执行父类`的析构函数。
+>
+> 可以通过在`基类中把析构函数定义成虚函数`来解决这个问题。因为若不定义成虚函数，通过指向子类的指针或引用调用delete的时候会默认执行父类的析构函数(可参考上述虚函数介绍的第3条)，而不会去执行子类的析构函数。
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> class Father
+> {
+>     public:
+>         Father()
+>         {
+>             cout << "Father Constructor" << endl;
+>         }
+>         virtual ~Father()
+>         {
+>             cout << "Father Destruct" << endl;
+>         }
+> };
+> 
+> class Son:public Father
+> {
+>     public:
+>         Son()
+>         {
+>             cout << "Son Constructor" << endl;
+>         }
+>         ~Son()
+>         {
+>             cout << "Son Destruct" << endl;
+>         }
+>     
+> };
+> 
+> 
+> int main()
+> {
+>     Father *f = new Son();            
+>     delete f;
+>     
+>     cout << "--------------" << endl;
+>     
+>     Son *s = new Son();
+>     delete s;
+>     
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```c++
+> Father Constructor
+> Son Constructor
+> Son Destruct
+> Father Destruct
+> --------------
+> Father Constructor
+> Son Constructor
+> Son Destruct
+> Father Destruct
+> ```
+>
+> ### 虚函数表指针 vptr
+>
+> 
+>
+> ```c++
+> class Base
+> {
+>     public:
+>         virtual void f() 
+>         {
+>             cout << "Base::f" << endl;
+>         }
+>         
+>         virtual void g() 
+>         {
+>             cout << "Base::g" << endl;
+>         }
+>             
+>         virtual void h() 
+>         {
+>             cout << "Base::h" << endl;
+>         }        
+> };
+> 
+> 
+> int main()
+> {
+>     // 函数指针
+>     typedef void (*Func) (void);
+>     
+>     Base b;
+>     
+>     cout << sizeof(b) << endl;                // B 函数只有一个虚函数表指针，即 4 
+>     cout << "虚函数表地址:" << (int*)(&b) << endl; 
+>     cout << "虚函数表-第一个函数地址：" << (int *)*(int *)(&b) << endl;
+>     
+>     Func pFunc = NULL;
+>     pFunc = (Func)*((int*)*(int*)(&b));            // 通过 Func * 把 int*强制转换成函数指针 
+>     pFunc();
+>     
+>     return 0;
+> }
+> ```
+>
+> [![img](CPP_Primer_5th.assets/1959382-20211018160737320-78296787.png)](https://img2020.cnblogs.com/blog/1959382/202110/1959382-20211018160737320-78296787.png)
+>
+> ### 多继承下的虚函数表
+>
+> 
+>
+> ```c++
+> class A
+> {
+>     public:
+>         virtual void a() { cout << "a() in A" << endl; }    
+>         virtual void b() { cout << "b() in A" << endl; }    
+>         virtual void c() { cout << "c() in A" << endl; }    
+>         virtual void d() { cout << "d() in A" << endl; }    
+> };
+>  
+> class B : public A
+> {
+>     public:
+>         virtual void a() { cout << "a() in B" << endl; }    
+>         virtual void b() { cout << "b() in B" << endl; }    
+> };
+> 
+> class C : public A
+> {
+>     public:
+>         virtual void a() { cout << "a() in C" << endl; }    
+>         virtual void b() { cout << "b() in C" << endl; }    
+> };
+> 
+> class D : public B, public C
+> {
+>     public:
+>         virtual void a() { cout << "a() in D" << endl; }    
+>         virtual void d() { cout << "d() in D" << endl; }    
+> };
+> ```
+>
+> 每个类的`虚函数表`结构如下：
+> [![img](CPP_Primer_5th.assets/20200213204559992.png)](https://img-blog.csdnimg.cn/20200213204559992.png)
+>
+> `B ：public A` 重写了 `a() b()`
+> [![img](CPP_Primer_5th.assets/20200213204614259.png)](https://img-blog.csdnimg.cn/20200213204614259.png)
+>
+> `C ：public A` 重写了 `a() b()`
+> [![img](CPP_Primer_5th.assets/20200213204636600.png)](https://img-blog.csdnimg.cn/20200213204636600.png)
+>
+> `D ：public B , public C` 重写了 `a() d()`
+> [![img](CPP_Primer_5th.assets/20200213204655777.png)](https://img-blog.csdnimg.cn/20200213204655777.png)
+>
+> 可见，`多继承时，有几个基类就有几个vptr`。D类中的函数 a与d 覆盖了B类中的同名函数
+>
+> ### 虚基类表指针 bptr
+>
+> 菱形继承即如下图继承方式：B、C `虚拟`继承A，D`普通`继承B，C
+>
+> 
+>
+> ```c++
+> B : virtual public A
+> C : virtual public A
+> D : public B, public C
+> ```
+>
+> [![img](CPP_Primer_5th.assets/1959382-20211018160942739-831472974.png)](https://img2020.cnblogs.com/blog/1959382/202110/1959382-20211018160942739-831472974.png)
+>
+>  
+>
+>  
+>
+>  在`虚拟继承`情况下，基类不管在继承串链中被派生多少次，永远`只会存在一个实体`。
+>
+> 在虚拟继承基类的子类中，`子类会增加某种形式的指针`，指向虚基类子对象或指向相关表格（表格中存放的不是虚基类子对象的地址，就是其偏移量），此指针被称为 `bptr`
+>
+> 菱形继承时的对象布局：
+> [![img](CPP_Primer_5th.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM2NzQ4Mjc4,size_16,color_FFFFFF,t_70.png)](https://img-blog.csdnimg.cn/20200213213409544.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM2NzQ4Mjc4,size_16,color_FFFFFF,t_70)
+>
+> 
+>
+> ```c++
+> // 菱形继承
+> class A {};
+>  
+> class B : virtual public A {};
+> class C : virtual public A {};
+> 
+> class D : public B, public C {};
+> 
+> 
+> int main()
+> {
+>     cout << "sizeof(A) : " << sizeof(A) << endl;    // 1 空类，编译器会为空类安插一个字节
+>     cout << "sizeof(B) : " << sizeof(B) << endl;    // 4 bptr指针
+>     cout << "sizeof(C) : " << sizeof(C) << endl;    // 4 bptr指针
+>     cout << "sizeof(D) : " << sizeof(D) << endl;    // 8 一个虚基类子对象只会在继承类中存在一份实体，即A占用1B（现在编译器做了优化，可以为0），0 + 4 + 4 = 8
+> }
+> ```
+>
+> ## 纯虚函数
+>
+> 纯虚函数相当于定义了一个接口，不同的子类必须定义自己的实现。
+>
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> 
+> //抽象类
+> class Father
+> {
+>     public:
+>         virtual void calcMem() = 0;         //=0表示这是个纯虚函数。纯虚函数不需要定义，没有方法体。
+>         virtual void anotherMethod() = 0;    //纯虚函数，也可以定义。
+> };
+> 
+> void Father::anotherMethod()
+> {
+>     cout << "Father anotherMethod" << endl;
+> }
+> 
+> class Son:public Father
+> {
+>     public:
+>         virtual void calcMem()                //这里的virtual也可以不显示声明。
+>         {
+>             cout << "son calcMem" << endl;
+>         }
+>         
+>         void anotherMethod()
+>         {
+>             cout << "Son anotherMethod" << endl;
+>         }
+> };
+> 
+> int main()
+> {
+>     Son *s = new Son();
+>     s->calcMem();                //son calcMem
+>     s->anotherMethod();            //Son anotherMethod
+> 
+>     Father *f = new Son();
+>     f->calcMem();                //son calcMem
+>     f->anotherMethod();            //Son anotherMethod
+>     f->Father::anotherMethod();    //Father anotherMethod。也可以显示的调用父类的方法
+> 
+>    
+>     return 0;
+> }
+> ```
+>
+> 控制台打印：
+>
+> 
+>
+> ```c++
+> son calcMem
+> Son anotherMethod
+> son calcMem
+> Son anotherMethod
+> Father anotherMethod
+> ```
+>
+> ### 抽象类c++
+>
+> `抽象类`不能声明对象，`只是作为基类的派生类服务`。
+> `抽象类`不能定义对象，但是可以`作为指针或者引用类型使用`。
+>
+> 1：`含有纯虚函数的类`成为抽象类。
+>    除非派生类中完全`实现基类中所有的纯虚函数`，否则，派生类也是抽象类，不能实例化对象。
+>
+> 2：`只定义了protected型构造函数`的类也是抽象类。因为无论是在外部还是派生类中都不能创建该对象。但是可以由其派生出新的类。
+>
+> 这种能派生出新类，但是不能创建自己对象的类时另一种形式的抽象类。
+>
+> **抽象类为什么不能实例化？**
+> 因为抽象类中的纯虚函数没有具体的实现，所以没办法实例化。
+>
+> ## 虚函数和纯虚函数的比较
+>
+> （1）如果基类中定义了虚函数AF，派生类中对于这个虚函数可以覆盖也可以不覆盖。
+> 派生类中如果覆盖了这个虚函数AZ，则通过指向子类的指针或引用调用的就是派生类中AZ
+> 如果派生类中没有对这个AF进行覆盖，那么通过指向子类的指针或引用调用的就是基类中AF
+>
+> （2）如果基类中定义了纯虚函数AAF，相当于是个接口。那么在派生类中就**必须覆盖**基类的这个纯虚函数。
+>
+> 转自：https://blog.csdn.net/qq_36748278/article/details/80433777
+>
+> **内联函数为什么不能被定义成虚函数？**
+> 内联函数是为了在代码中直接展开，减少函数调用花费的代价。
+> inline 函数是在`编译`时确定的，而 virtual 属性是在`运行`时确定的，因此这个两个属性是不可能同时定义的。
+
+另外一篇（https://cloud.tencent.com/developer/article/1827440）
+
+> # C++多态虚函数动态绑定
+>
+> 发布于2021-05-21 15:40:07 阅读 594
+>
+> ## **定义**
+>
+> 动态绑定是将一个过程调用与相应代码链接起来的行为。是指与给定的过程调用相关联的代码，只有在运行期才可知的一种绑定，它是多态实现的具体形式。
+>
+> ## **原理**
+>
+> C++中，通过基类的引用或指针调用虚函数时，发生动态绑定。引用(或指针)既可以指向基类对象也可以指向派生类对象，这一事实是动态绑定的关键。用引用(或指针)调用的虚函数在运行时确定，被调用的函数是引用(或指针)所指对的实际类型所定义的。 C++中动态绑定是通过虚函数实现的。而虚函数是通过一张虚函数表实现的。这个表中记录了虚函数的地址，解决继承、覆盖的问题，保证动态绑定时能够根据对象的实际类型调用正确的函数。 在C++的标准规格说明书中说到，编译器必需要保证虚函数表的指针存在于对象实例中最前面的位置(这是为了保证正确取到虚函数的偏移量)。这意味着我们通过对象实例的地址得到这张虚函数表，然后就可以遍历其中函数指针，并调用相应的函数。
+>
+> ## **缺点**
+>
+> 1.动态绑定在函数调用时需要在虚函数表中查找，所以性能比静态函数调用稍低。 2.通过基类类型的指针访问派生类自己的虚函数将发生错误。
+>
+> 虚函数、动态绑定、运行时多态之间的关系： 虚函数是动态绑定的基础；动态绑定是实现运行时多态的基础。
+>
+> ## **动态绑定两个条件**
+>
+> (1) 只有虚函数才能进行动态绑定，非虚函数不进行动态绑定。 (2) 必须通过基类类型的引用或指针进行函数调用。
+>
+> 对应的有静态绑定 静态绑定是指不需要考虑表达式的执行期语义，仅分析程序文本而决定的表达式类型。静态绑定仅依赖于包含表达式的程序文本的形式，而在程序运行时不会改变。简单的讲，就是上下文无关，在编译时就可以确定其类型。
+>
+> 动态绑定与静态绑定 静态绑定：编译时绑定，通过对象调用 动态绑定：运行时绑定，通过地址实现
+>
+> ### **代码实例**
+>
+> C++
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> class Base
+> {
+> public:
+>     virtual void f1()
+>     {
+>         cout<<"Base"<<endl;
+>     }
+> };
+> class Drived1:public Base
+> {
+> public:
+>     void f1()
+>     {
+>         cout<<"Drived1"<<endl;
+>     }
+> };
+> class Drived2:public Base
+> {
+> public:
+>     void f1()
+>     {
+>         cout<<"Drived2"<<endl;
+>     }
+> };
+> void Test(Base* pB)
+> {
+>     pB->f1 ();
+> }
+> int main()
+> {
+>     Base b;
+>     Drived1 d1;
+>     Drived2 d2;
+>     Test(&b);
+>     Test(&d1);
+>     Test(&d2);
+>     return 0;
+> }
+> ```
+>
+> 输出结果： Base Drived1 Drived12
+>
+> ## **多继承中的问题**
+>
+> 声明一个车(vehicle)基类，有Run、Stop等成员函数，由此派生出自行车(bicycle)类、汽车(motorcar)类，从bicycle和motorcar派生出摩托车(motorcycle)类，它们都有Run、Stop等成员函数。观察虚函数的作用。 其中令基类（vehicle）的Run和Stop函数设为虚函数
+>
+> 代码：
+>
+> ```c++
+> #include<iostream>
+> using namespace std;
+> 
+> class vehicle{
+> public:
+>     virtual void Run()const{cout<<"Vehicle Run"<<endl;}
+>     virtual void Stop()const{cout<<"Vehicle Stop"<<endl;}
+> };
+> 
+> class bicycle:public vehicle{
+> private:
+>     int Height;
+> public:
+>     void Run()const{cout<<"Bicycle Run"<<endl;}
+>     void Stop()const{cout<<"Bicycle Stop"<<endl;}
+> };
+> 
+> class motorcar:public vehicle{
+> private:
+>     int SeatNum;
+> public:
+>     void Run()const{cout<<"Motorcar Run"<<endl;}
+>     void Stop()const{cout<<"Motorcar Stop"<<endl;}
+> };
+> 
+> 
+> class motorcycle:public bicycle,public motorcar{
+> private:
+> public:
+>     void Run()const{cout<<"Motorcycle Run"<<endl;}
+>     void Stop()const{cout<<"Motorcycle Stop"<<endl;}
+> };
+> 
+> void fun(vehicle *ptr)
+> {
+>     ptr->Run();
+>     ptr->Stop();
+> }
+> 
+> void fun(motorcycle *ptr)
+> {
+>     ptr->Run();
+>     ptr->Stop();
+> }
+> 
+> int main()
+> {
+>     vehicle v;
+>     bicycle b;
+>     motorcar m;
+>     motorcycle x;
+>     fun(&v);
+>     fun(&b);
+>     fun(&m);
+>     fun(&x);
+> }
+> ```
+>
+> 复制
+>
+> ![img](CPP_Primer_5th.assets/1620.png)
+>
+> 程序类中类vehicle，motorcar，bicycle均属于同一个类组，而且是通过公有派生来的，因此满足赋值兼容规则。同时基类vehicle的函数成员Run和Stop声明为虚函数，程序中使用对象指针来访问函数成员，完成了动态绑定。
+>
+> **为什么motorcycle单独设置了一个函数（使用指针）？**
+>
+> 此时如果还用上面的第一个fun函数对于vehicle则产生二义性（多继承），解决方法是使用虚基类（注意不是虚函数）或者重载，不使用动态绑定。
+
+```c++
+class Base {
+public:
+ virtual int fcn();
+};
+class D1 : public Base {
+public:
+ // hides fcn in the base; this fcn is not virtual
+ // D1 inherits the definition of Base::fcn()
+ int fcn(int); // parameter list differs from fcn in Base 这个fcn隐藏了虚函数，D1有两个fcn函数
+ virtual void f2(); // new virtual function that does not exist in Base
+};
+class D2 : public D1 {
+public:
+ int fcn(int); // nonvirtual function hides D1::fcn(int)  
+ int fcn(); // overrides virtual fcn from Base
+ void f2(); // overrides virtual f2 from D1
+};
+
+
+Base bobj; D1 d1obj; D2 d2obj;
+Base *bp1 = &bobj, *bp2 = &d1obj, *bp3 = &d2obj;
+bp1->fcn(); // virtual call, will call Base::fcn at run time
+bp2->fcn(); // virtual call, will call Base::fcn at run time
+bp3->fcn(); // virtual call, will call D2::fcn at run time
+D1 *d1p = &d1obj; D2 *d2p = &d2obj;
+bp2->f2(); // error: Base has no member named f2
+d1p->f2(); // virtual call, will call D1::f2() at run time
+d2p->f2(); // virtual call, will call D2::f2() at run time
+
+Base *p1 = &d2obj; D1 *p2 = &d2obj; D2 *p3 = &d2obj;
+p1->fcn(42); // error: Base has no version of fcn that takes an int
+p2->fcn(42); // statically bound, calls D1::fcn(int)
+p3->fcn(42); // statically bound, calls D2::fcn(int)
+```
+
+
+
+
+
+##### 覆盖重载的函数
 
 和其他函数一样，成员函数无论是否是虚函数都能被重载。
 
@@ -12588,8 +13725,8 @@ public:
     virtual void mf1() = 0;
     virtual void mf1(int);
     virtual void mf2();
-    void fm3();
-    void fm3(double);
+    void mf3();
+    void mf3(double);
 };
 
 class Derived : public Base
@@ -12600,8 +13737,8 @@ public:
     using Base::mf1;
     using Base::mf3;
     virtual void mf1();
-    void fm3();
-    void fm4();
+    void mf3();
+    void mf4();
 };
 ```
 
