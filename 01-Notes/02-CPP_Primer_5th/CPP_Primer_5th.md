@@ -14048,7 +14048,7 @@ int compare(const T &v1, const T &v2)
 }
 ```
 
-##### 模板编译 大多数编译错误在实例化期间报告
+##### 模板编译大多数编译错误在实例化期间报告
 
 只有当模板的一个特定版本被实例化时，编译器才会生成代码。此时编译器需要掌握生成代码所需的信息，因此函数模板和类模板成员函数的定义通常放在头文件中。
 
@@ -14084,7 +14084,15 @@ Blob<double> prices;    // different element type
 
 一个类模板的每个实例都形成一个独立的类，相互之间没有关联。
 
+##### 在模板作用域中引用模板类型
+
+在阅读模板类代码时，应该记住类模板的名字不是一个类型名。
+
 如果一个类模板中的代码使用了另一个模板，通常不会将一个实际类型（或值）的名字用作其模板实参，而是将模板自己的参数用作被使用模板的实参。
+
+##### 类模板的成员函数
+
+与其他任何类相同，我们可以在类模板内外定义其成员函数，且定义在类模板内部的成员函数被隐式声明为内联函数。
 
 类模板的成员函数具有和类模板相同的模板参数，因此定义在类模板外的成员函数必须以关键字`template`开始，后跟类模板参数列表。
 
@@ -14093,7 +14101,13 @@ template <typename T>
 ret-type Blob<T>::member-name(parm-list)
 ```
 
-默认情况下，一个类模板的成员函数只有当程序用到它时才进行实例化。
+
+
+##### 类模板成员函数的实例化
+
+默认情况下，一个类模板的成员函数只有当程序用到它时才进行实例化
+
+##### 在类代码内简化模板类名的使用
 
 在类模板自己的作用域内，可以直接使用模板名而不用提供模板实参。
 
@@ -14106,7 +14120,7 @@ public:
     BlobPtr& operator++();
 }
 
-// 类外定义时需要提供模板实参
+// 而在类外定义时需要提供模板实参
 template <typename T>
 BlobPtr<T>& BlobPtr<T>::operator++()
 {
@@ -14114,6 +14128,10 @@ BlobPtr<T>& BlobPtr<T>::operator++()
     BlobPtr Ret = *this;
 }
 ```
+
+
+
+##### 类模板和友元
 
 当一个类包含一个友元声明时，类与友元各自是否是模板并无关联。如果一个类模板包含一个非模板友元，则友元可以访问所有类模板实例。如果友元自身是模板，则类可以给所有友元模板实例授予访问权限，也可以只授权给特定实例。
 
@@ -14183,6 +14201,11 @@ C++11允许使用`using`为类模板定义类型别名。
 ```c++
 template<typename T> using twin = pair<T, T>;
 twin<string> authors;   // authors is a pair<string, string>
+//也可以固定一个或多个模板参数
+template <typename T> using partNo = pair<T, unsigned>;
+partNo<string> books; // books is a pair<string, unsigned>
+partNo<Vehicle> cars; // cars is a pair<Vehicle, unsigned>
+partNo<Student> kids; // kids is a pair<Student, unsigned>
 ```
 
 类模板可以声明`static`成员。
@@ -14211,9 +14234,11 @@ template <typename T>
 size_t Foo<T>::ctr = 0;    // define and initialize ctr
 ```
 
+类似任何其他成员函数，一个static成员函数只有在使用时才会实例化。
 
+#### 16.1.3 Template Parameters 模板参数
 
-#### 16.1.3 Template Parameters
+##### 模板参数与作用域
 
 模板参数遵循普通的作用域规则。与其他任何名字一样，模板参数会隐藏外层作用域中声明的相同名字。但是在模板内不能重用模板参数名。
 
@@ -14229,13 +14254,24 @@ void f(A a, B b)
 
 由于模板参数名不能重用，所以一个名字在一个特定模板参数列表中只能出现一次。
 
+```c++
+// error: illegal reuse of template parameter name V
+template <typename V, typename V> // ...
+```
+
+##### 模板声明
+
 与函数参数一样，声明中模板参数的名字不必与定义中的相同。
 
 一个特定文件所需要的所有模板声明通常一起放置在文件开始位置，出现在任何使用这些模板的代码之前。
 
+##### 使用类的类型成员
+
 模板中的代码使用作用域运算符`::`时，编译器无法确定其访问的名字是类型还是`static`成员。
 
-默认情况下，C++假定模板中通过作用域运算符访问的名字是`static`成员。因此，如果需要使用一个模板类型参数的类型成员，就必须使用关键字`typename`显式地告知编译器该名字是一个类型。
+默认情况下，C++假定模板中通过作用域运算符访问的名字是`static`成员。
+
+因此，如果需要使用一个模板类型参数的类型成员，就必须使用关键字`typename`显式地告知编译器该名字是一个类型。
 
 ```c++
 template <typename T>
@@ -14247,6 +14283,8 @@ typename T::value_type top(const T& c)
         return typename T::value_type();
 }
 ```
+
+##### 默认模板实参
 
 C++11允许为函数和类模板提供默认实参。
 
@@ -14261,6 +14299,8 @@ int compare(const T &v1, const T &v2, F f = F())
     return 0;
 }
 ```
+
+##### 模板默认实参与类模板
 
 如果一个类模板为其所有模板参数都提供了默认实参，在使用这些默认实参时，必须在模板名后面跟一个空尖括号对`<>`。
 
