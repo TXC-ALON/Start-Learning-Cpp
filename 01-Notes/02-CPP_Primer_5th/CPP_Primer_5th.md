@@ -14321,7 +14321,7 @@ Numbers<> average_precision;    // empty <> says we want the default type
 
 
 
-#### 16.1.4 Member Templates
+#### 16.1.4 Member Templates 成员模板
 
 一个类（无论是普通类还是模板类）可以包含本身是模板的成员函数，这种成员被称为成员模板。成员模板不能是虚函数。
 
@@ -14362,11 +14362,102 @@ Blob<T>::Blob(It b, It e):
 
 为了实例化一个类模板的成员模板，必须同时提供类和函数模板的实参。
 
-#### 16.1.5 Controlling Instantiations
+
+
+> 复刻了一下，却发现一些问题
+>
+> ```c++
+> #include <iostream>
+> #include <vector>
+> #include <algorithm>
+> #include <memory>
+> 
+> using namespace std;
+> 
+> class DebugDelete {
+> public:
+>     DebugDelete(std::ostream &s = std::cerr): os(s) { }
+>     // as with any function template, the type of T is deduced by the compiler
+>     template <typename T> void operator()(T *p) const { os << "deleting unique_ptr" << std::endl; delete p;
+>     }
+> private:
+>     std::ostream &os;
+> };
+> //void DebugDelete::operator()(int *p) const { delete p; }
+> //void DebugDelete::operator()(string *p) const { delete p; }
+> 
+> 
+> int main() {
+>     double* p = new double;
+>     *p = 1.5;
+>     DebugDelete d; // an object that can act like a delete expression
+>     cout<<"1"<<endl;
+>     d(p); // calls DebugDelete::operator()(double*), which deletes p
+>     int* ip = new int;
+>     *ip = 2;
+> // calls operator()(int*) on a temporary DebugDelete object
+>     DebugDelete()(ip);
+>     cout<<"2"<<endl;
+>     unique_ptr<int, DebugDelete> wp(new int, DebugDelete());
+> // destroying the the object to which sp points
+> // instantiates DebugDelete::operator()<string>(string*)
+>     unique_ptr<string, DebugDelete> sp(new string,DebugDelete());
+> 
+> 
+> 
+>     return 0;
+> }
+> ```
+>
+> 在clion上
+>
+> ![image-20221227154040420](CPP_Primer_5th.assets/image-20221227154040420.png)
+>
+> 在vs上
+>
+> ![image-20221227154108205](CPP_Primer_5th.assets/image-20221227154108205.png)
+>
+> 但是我clion调试的结果是和vs一样的
+>
+> 另外在ubuntu上跑不出来
+>
+> 以后再研究吧。todo
+
+#### 16.1.5 Controlling Instantiations 控制实例化
+
+
 
 因为模板在使用时才会进行实例化，所以相同的实例可能出现在多个对象文件中。当两个或多个独立编译的源文件使用了相同的模板，并提供了相同的模板参数时，每个文件中都会有该模板的一个实例。
 
 在大型程序中，多个文件实例化相同模板的额外开销可能非常严重。C++11允许通过显式实例化（explicit instantiation）来避免这种开销。
+
+> 在C++中，显式实例化是指在编译时生成模板的具体实例的过程。当使用模板时，编译器会根据模板的参数生成具体的实例。但是，如果你想在编译时手动生成模板的具体实例，就可以使用显式实例化。
+>
+> 例如，如果你有一个名为MyTemplate的模板，并希望生成一个int类型的实例，可以使用如下语法：
+>
+> template class MyTemplate<int>;
+>
+> 这样，编译器会在编译时生成一个MyTemplate<int>类型的实例。
+>
+> 显式实例化的主要作用是可以在编译时生成模板的具体实例，从而避免在运行时生成实例的时间开销。这对于那些需要高效执行的程序来说是非常有用的。
+>
+> 另外，显式实例化的另一个用途是用来解决模板元编程中的一些常见问题。例如，在模板元编程中，某些操作需要模板的具体实例才能进行，但是在编译期间不知道模板的具体类型。在这种情况下，可以使用显式实例化来生成模板的具体实例，然后使用这个实例来进行操作。
+>
+> 另外，显式实例化还可以用来避免二义性。如果你使用了两个不同的模板，但是它们在某些情况下可以产生相同的代码，那么编译器就会报二义性错误。在这种情况下，可以使用显式实例化来指定使用哪个模板。
+>
+> 显式实例化还可以用来提升编译速度。如果你的代码使用了大量的模板，那么编译器需要花费大量的时间来生成所有模板的具体实例。如果你只使用了其中的少数几个模板，那么可以使用显式实例化来生成这些模板的具体实例，从而提升编译速度。
+>
+> 另外，显式实例化也可以用来解决编译器在模板元编程中的一些限制。例如，编译器有时会拒绝在编译期间执行一些操作，因为它无法确定操作的结果。在这种情况下，可以使用显式实例化来生成模板的具体实例，然后使用这个实例来执行操作。
+>
+> 总的来说，显式实例化是一种有用的技术，可以用来提升编译速度、解决二义性、解决模板元编程中的一些限制以及其他一些问题。但是，使用显式实例化也有一些限制，例如只能在头文件中使用，不能对函数模板进行显式实例化等。
+>
+> 显式实例化还有一些其他的限制。例如，只能在头文件中使用，不能对函数模板进行显式实例化，也不能对具有默认模板参数的模板进行显式实例化。
+>
+> 另外，如果你在头文件中使用了显式实例化，那么在源文件中就不能再对相同的模板进行显式实例化。如果你在源文件中对相同的模板进行显式实例化，那么编译器会报错。
+>
+> 因此，在使用显式实例化时，需要注意这些限制。
+>
+> 此外，显式实例化并不是总是必要的。如果你的代码只使用了少量的模板，那么编译器可能就能够快速生成所有模板的具体实例，因此你可能就不需要使用显式实例化。
 
 显式实例化的形式如下：
 
@@ -14397,9 +14488,9 @@ int i = compare(a1[0], a2[0]);    // instantiation will appear elsewhere
 
 当编译器遇到类模板的实例化定义时，它不清楚程序会使用哪些成员函数。和处理类模板的普通实例化不同，编译器会实例化该模板的所有成员，包括内联的成员函数。因此，用来显式实例化类模板的类型必须能用于模板的所有成员。
 
-#### 16.1.6 Efficiency and Flexibility
+#### 16.1.6 Efficiency and Flexibility 效率与灵活性
 
-`unique_ptr`在编译时绑定删除器，避免了间接调用删除器的运行时开销。`shared_ptr`在运行时绑定删除器，使用户重载删除器的操作更加简便。
+`unique_ptr`在编译时绑定删除器，避免了间接调用删除器的运行时开销。`shared_ptr`在运行时绑定删除器，使用户重载删除器的操作更加方便。
 
 ### 16.2 Template Argument Deduction
 
