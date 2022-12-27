@@ -14492,11 +14492,11 @@ int i = compare(a1[0], a2[0]);    // instantiation will appear elsewhere
 
 `unique_ptr`在编译时绑定删除器，避免了间接调用删除器的运行时开销。`shared_ptr`在运行时绑定删除器，使用户重载删除器的操作更加方便。
 
-### 16.2 Template Argument Deduction
+### 16.2 Template Argument Deduction 模板实参推断
 
 对于函数模板，编译器通过调用的函数实参来确定其模板参数。这个过程被称作模板实参推断。
 
-#### 16.2.1 Conversions and Template Type Parameters
+#### 16.2.1 Conversions and Template Type Parameters 类型转换与模板类型参数
 
 与非模板函数一样，调用函数模板时传递的实参被用来初始化函数的形参。如果一个函数形参的类型使用了模板类型参数，则会采用特殊的初始化规则，只有有限的几种类型转换会自动地应用于这些实参。编译器通常会生成新的模板实例而不是对实参进行类型转换。
 
@@ -14533,7 +14533,11 @@ long lng;
 flexibleCompare(lng, 1024);   // ok: calls flexibleCompare(long, int)
 ```
 
+注：需要定义能比较这些类型的运算符！
+
 函数模板中使用普通类型定义的参数可以进行正常的类型转换。
+
+如果函数参数类型不是模板参数，则对实参进行正常的类型转换。
 
 ```c++
 template <typename T>
