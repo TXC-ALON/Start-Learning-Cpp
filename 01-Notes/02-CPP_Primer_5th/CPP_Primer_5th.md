@@ -14593,7 +14593,7 @@ compare<int>(lng, 1024);    // ok: instantiates compare(int, int)
 
 
 
-#### 16.2.3 Trailing Return Types and Type Transformation
+#### 16.2.3 Trailing Return Types and Type Transformation 尾置返回类型与类型转换
 
 由于尾置返回出现在函数列表之后，因此它可以使用函数参数来声明返回类型。
 
@@ -14606,6 +14606,8 @@ auto fcn(It beg, It end) -> decltype(*beg)
     return *beg;   // return a reference to an element from the range
 }
 ```
+
+##### 进行类型转换的标准库模板类
 
 标准库在头文件`type_traits`中定义了类型转换模板，这些模板常用于模板元程序设计。其中每个模板都有一个名为`type`的公有类型成员，表示一个类型。此类型与模板自身的模板类型参数相关。如果不可能（或不必要）转换模板参数，则`type`成员就是模板参数类型本身。
 
@@ -14625,7 +14627,7 @@ auto fcn2(It beg, It end) -> typename remove_reference<decltype(*beg)>::type
 
 
 
-#### 16.2.4 Function Pointers and Argument Deduction
+#### 16.2.4 Function Pointers and Argument Deduction 函数指针与实参推断
 
 使用函数模板初始化函数指针或为函数指针赋值时，编译器用指针的类型来推断模板实参。
 
@@ -14646,9 +14648,9 @@ func(compare);     // error: which instantiation of compare?
 func(compare<int>);    // passing compare(const int&, const int&)
 ```
 
+注：当参数是一个函数模板实例的地址时，程序上下文必须满足：对每个模板参数。能唯一确定其类型或值。
 
-
-#### 16.2.5 Template Argument Deduction and References
+#### 16.2.5 Template Argument Deduction and References 模板实参推断和引用
 
 当一个函数参数是模板类型参数的普通（左值）引用（形如`T&`）时，只能传递给它一个左值（如一个变量或一个返回引用类型的表达式）。`T`被推断为实参所引用的类型，如果实参是`const`的，则`T`也为`const`类型。
 
@@ -14678,7 +14680,9 @@ template <typename T> void f3(T&&);
 f3(42);    // argument is an rvalue of type int; template parameter T is int
 ```
 
-模板参数绑定的两个例外规则：
+##### 引用折叠和右值引用参数（move 的基础）
+
+**模板参数绑定的两个例外规则**：
 
 - 如果将一个左值传递给函数的右值引用参数，且此右值引用指向模板类型参数时，编译器推断模板类型参数为实参的左值引用类型。
 
@@ -14704,6 +14708,8 @@ void f3<int&>(int&);       // when T is int&, function parameter collapses to in
 
 - 如果将一个左值传递给这样的参数，则函数参数被实例化为一个普通的左值引用。
 
+##### 编写接受右值引用参数的模板函数
+
 当代码中涉及的类型可能是普通（非引用）类型，也可能是引用类型时，编写正确的代码就变得异常困难。
 
 ```c++
@@ -14715,6 +14721,11 @@ void f3(T&& val)
     if (val == t) { /* ... */ }    // always true if T is a reference type
 }
 ```
+
+- 比如说用右值来调用f3，比如字面值42，那么T为int，t也为int。通过拷贝val的值被初始化，对t赋值时，val不变。
+- 而用左值来调用f3，T就为int &，t 类型也为int &，那么对t的初始化实际上是将其绑定到val。我们改变t，同时改变val，在这种情况下，这个if判断永远为真。
+
+所以代码中涉及的类型，可能是普通（非引用）类型也可能是引用类型时，编写正确的代码就会有难度。
 
 实际编程中，模板的右值引用参数通常用于两种情况：模板转发其实参或者模板被重载。函数模板的常用重载形式如下：
 
@@ -14771,7 +14782,11 @@ s2 = std::move(s1);     // ok: but after the assigment s1 has indeterminate valu
 
 可以使用`static_cast`显式地将一个左值转换为一个右值引用。
 
-#### 16.2.7 Forwarding
+> 这里可以结合effective modern c++ 一起看。
+>
+> https://cntransgroup.github.io/EffectiveModernCppChinese/1.DeducingTypes/item1.html
+
+#### 16.2.7 Forwarding 转发
 
 某些函数需要将其一个或多个实参连同类型不变地转发给其他函数。在这种情况下，需要保持被转发实参的所有性质，包括实参的`const`属性以及左值/右值属性。
 
