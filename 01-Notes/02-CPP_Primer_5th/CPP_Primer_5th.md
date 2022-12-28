@@ -14869,6 +14869,44 @@ void flip(F f, T1 &&t1, T2 &&t2)
 
 函数模板可以被另一个模板或普通非模板函数重载。
 
+```c++
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <memory>
+#include <sstream>
+
+using namespace std;
+
+
+template <typename T> string debug_rep(const T &t)
+{
+    ostringstream ret; // see § 8.3 (p. 321)
+    ret << t; // uses T's output operator to print a representation of t
+    return ret.str(); // return a copy of the string to which ret is bound
+}
+template <typename T> string debug_rep(T *p)
+{
+    ostringstream ret;
+    ret << "pointer: " << p; // print the pointer's own value
+    if (p)
+        ret << " " << debug_rep(*p); // print the value to which p points
+    else
+    ret << " null pointer"; // or indicate that the p is null
+    return ret.str(); // return a copy of the string to which ret is bound
+}
+int main() {
+
+    string s("hi");
+    cout<<debug_rep(&s)<<endl;
+    return 0;
+}
+
+/*
+pointer: 0xc441dff760 hi
+*/
+```
+
 如果重载涉及函数模板，则函数匹配规则会受到一些影响：
 
 - 对于一个调用，其候选函数包括所有模板实参推断成功的函数模板实例。
