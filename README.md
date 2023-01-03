@@ -1,6 +1,8 @@
 # Start Learning C++
 
-重头认真学一下C++
+重头认真学一下C++ 
+
+一年精通，三年入门，五年头秃，十年躺平（20230103）
 
 ## 笔记
 
@@ -20,7 +22,7 @@
 
 - 20220810 看完下卷 [侯捷-C++面向对象高级编程下](./01-Notes/03-HJ-HLOPP/C++面向对象高级编程下.md) ，准备接着看CPP primer 第二第三部分，学习一下泛型编程
 
-- 
+- 20230103 拖拖拉拉，看完了C++ primer 5th的第二第三部分。下面准备重温一下[书后习题](./01-Notes/04-CPP_Primer_5th_Homework/CPP Primer 5th Homework.md)，同时开始快速扫一下[Effective C++](./01-Notes/05-Effective_C++/Effective C++.md)
 
 
 
