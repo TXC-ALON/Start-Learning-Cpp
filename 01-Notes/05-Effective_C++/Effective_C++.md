@@ -1,5 +1,7 @@
 # Effective C++
 
+[TOC]
+
 ## 导读
 
 学习程序语言根本大法是一回事，学习如何以某种语言设计并实现高效程序则是另一回事。
@@ -218,13 +220,244 @@ inline void callWithMax(const T& a, const T& b) // know what T is, we
 
 Use const whenever possible
 
+const的一个妙处在于，他允许你指定一个语义约束，而编译器会强制实施这项约束。它允许你告诉编译器和其他程序员某值应该保持不变。只要存在这个事实，那么就应该说出来，这样可以获得编译器的帮助，确保这条约束不被违反。
+
+关键字const多才多艺，你可以用它在classes外部修饰global或namespace作用域中的常量，或修饰文件、函数、或区块作用域中被声明为static的对象。也可以用它修饰classes内部的static和non-static成员变量。面对指针，你也可以指出指针自身、指针所指物，或者两者都（或都不）是const。
+
+const语法虽然变化多端，但是并不复杂。
+
+- 如果关键字const出现在星号左边，表示被指物是常量。如果出现在星号右边，表示指针自身是常量。如果出现在星号两边，表示被指物和指针两者都是常量。
+
+- 如果被指物是常量，const在类型的前后其实没有区别。
+
+  ```c++
+  void f1(const Widget *pw); // f1 takes a pointer to a
+  // constant Widget object
+  void f2(Widget const *pw); // so does f2
+  ```
+
+
+- STL迭代器系以指针为根据塑模出来，所以迭代器的作用就像个T*指针。声明迭代器为const就像声明指针为const一样。表示这个迭代器不得指向不同的东西，但它所指的对象的值是可以改动的。如果想指的东西也不可以改动，那么就需要const_iterator。
+
+  ```c++
+  std::vector<int> vec;
+  ...
+  const std::vector<int>::iterator iter = // iter acts like a T* const
+  vec.begin();
+  *iter = 10; // OK, changes what iter points to
+  ++iter; // error! iter is const
+  std::vector<int>::const_iterator cIter = // cIter acts like a const T* vec.begin();
+  *cIter = 10; // error! *cIter is const
+  ++cIter; // fine, changes cIter
+  ```
+
+- const 最具威力的是面对函数声明时的应用。在一个函数声明式内，const可以和函数返回值、各参数、函数自身（如果是成员函数）产生关联。
+
+
+
+#### const成员函数
+
+将const用于成员函数的目的，是为了确认该成员函数可作用于const对象身上。
+
+这一类成员函数之所以重要是因为：
+
+- 它们使class接口比较容易被理解。（即知道哪个函数可以改动对象内容，哪个不行，非常重要）
+- 它们使”操作const对象“成为可能。如【条款20】所说，改善c++ 程序的一个根本方法就是通过`pass bu reference to const`来传递对象。而该技术的前提就是我们有const成员函数来处理取得（并经过修饰而成）的const对象。
+
+许多人漠视这一事实：两个成员函数如果只是常量性不同，可以被重载。
+
+```c++
+#include<iostream>
+using namespace std;
+class TextBlock {
+public:
+    TextBlock(std::string _text):text(_text){}
+    const char& operator[](std::size_t position) const // operator[] for const objects
+        { return text[position]; }
+    char& operator[](std::size_t position) // operator[] for non-const objects
+        { return text[position]; }
+    // 如果把引用去掉会报error: lvalue required as left operand of assignment
+private:
+    std::string text;
+};
+
+int main(){
+    TextBlock tb("Hello");
+    std::cout << tb[0]; // calls non-const
+// TextBlock::operator[]
+    const TextBlock ctb("World");
+    std::cout << ctb[0]; // calls const TextBlock::operator[]
+    std::cout << tb[0]; // fine — reading a
+// non-const TextBlock
+    tb[0] = 'x'; // fine — writing a
+// non-const TextBlock
+    std::cout << ctb[0]; // fine — reading a
+// const TextBlock
+    ctb[0] = 'x'; // error! — writing a const TextBlock
+    //error: assignment of read-only location 'ctb.TextBlock::operator[](0)'
+
+    return 0;
+}
+```
+
+也请注意，non-const operator[] 的返回类型是reference to char，而不是char。如果返回一个char，那么`tb[0] = ‘x'`就无法通过编译
+
+如果函数的返回值是个内置类型，那么改动函数返回值从来就不合法，纵然合法，C++以by value 返回对象这一事实【条款20】意味着被改动的实际上是tb.text[0]的一个副本，不是tb.textp[0]自身，那不会是你想要的行为。
+
+> **这里非常量版本的operator[]返回值是引用 ，为什么？**
+>
+> 这样做的原因是使用引用可以提高效率。当你使用 operator[] 访问 TextBlock 对象中的某个字符时，你希望能够直接获取到该字符，而不是复制一份副本。
+>
+> 如果 operator[] 返回值是一个普通的 char 类型，那么就会复制一份副本。如果 TextBlock 对象中的文本非常大，复制的过程就会变得很慢。
+>
+> 但是如果 operator[] 返回值是 char& 类型的引用，就能直接获取到原始的字符。这样做可以大大提高访问速度。
+>
+> 另外，返回值是引用还允许修改原始的字符。例如，你可以这样做：
+>
+> TextBlock tb; tb[0] = 'a'; // 这样做就是修改了 tb 中的第一个字符
+>
+> 如果 operator[] 返回值是 char 类型，就不能这样做了。你必须这样做：
+>
+> TextBlock tb; char c = tb[0]; c = 'a'; // 这样做并不会修改 tb 中的字符
+>
+> TextBlock tb; char c = tb[0]; // 这样做就是将 tb 中的第一个字符复制到 c 中
+>
+> 在这个例子中，tb[0] 这个表达式的值就是 tb 中的第一个字符。但是这个值不是一个变量，而是一个普通的 char 类型的值，它存储在临时变量中。
+>
+> 因此，你不能把一个 char 类型的值赋值给一个函数的返回值。相当于`‘a’=tb[0]`，这样做是非法的，编译器会报错。
+>
+> 这就意味着你必须复制一份副本，然后再修改副本。这样做虽然也能完成修改操作，但是效率要低得多。
+
+
+
+成员函数为const意味着什么？
+
+- bitwise constness（physical constness）
+
+  成员函数只有在不改变对象值任何成员变量（static除外）时，才可以说是const。也就是说不改变对象内的任意一个bit。
+
+  这样好处是编译器方便侦测违反点，但是不幸的是许多函数 不十分具备const性质也能通过bitwise测试。具体的说，就是一个更改了“指针所指物”的成员函数，虽然严格意义上不算是const，但是可以说是bitwise const。
+
+- logical constness
+
+  一个const成员函数可以修改它所处理的对象内的某些bits，但只有在客户端侦测不出的情况下才得如此。
+
+  这时候就需要使用`mutable`，mutable会释放掉non-static成员变量的bitwise constness约束。（take advantage of C++’s const-related wiggle room known as mutable. mutable frees non-static data members from the constraints of bitwise constness:）,
+
+  ```c++
+  class CTextBlock {
+  public:
+  ...
+  std::size_t length() const;
+  private:
+  char *pText;
+  std::size_t textLength; // last calculated length of textblock
+  bool lengthIsValid; // whether length is currently valid
+  };
+  std::size_t CTextBlock::length() const
+  {
+  if (!lengthIsValid) {
+  textLength = std::strlen(pText); // error! can’t assign to textLength
+  lengthIsValid = true; // and lengthIsValid in a const 
+  } // member function
+  return textLength;
+  }
+  
+  class CTextBlock {
+  public:
+  ...
+  std::size_t length() const;
+  private:
+  char *pText;
+  mutable std::size_t textLength; // these data members may
+  mutable bool lengthIsValid; // always be modified, even in 
+  }; // const member functions
+  std::size_t CTextBlock::length() const
+  {
+  if (!lengthIsValid) {
+  textLength = std::strlen(pText); // now fine
+  lengthIsValid = true; // also fine
+  }
+  return textLength;
+  }
+  ```
+
+
+
+#### 在const 和  non-const成员函数中避免重复
+
+```c++
+class TextBlock {
+public:
+...
+const char& operator[](std::size_t position) const
+{
+... // do bounds checking 边界检查
+... // log access data	日志数据访问
+... // verify data integrity //检验数据完整性
+return text[position];
+}
+char& operator[](std::size_t position) 
+{
+... // do bounds checking
+... // log access data
+... // verify data integrity
+return text[position];
+}
+private:
+ std::string text;
+};
+```
+
+这样会重复大量的代码，你真正应该做的是实现operator[]的机能，并令一个调用另外一个。这促使我们将常量性移除（casting away constness)
+
+一般来说，转型(casting)是一个糟糕的想法【条款27】。但是代码重复也令人厌烦。本例中，常量版本做到了非常量版本的一切功能，只是多了个const修饰。这样把返回值的const去除就是安全的。
+
+```c++
+class TextBlock {
+public:
+...
+const char& operator[](std::size_t position) const // same as before
+{
+...
+...
+...
+return text[position];
+}
+char& operator[](std::size_t position) // now just calls const op[]
+{
+return
+const_cast<char&>( // cast away const on
+// op[]’s return type;
+static_cast<const TextBlock&>(*this) // add const to *this’s type;
+[position] // call const version of op[]
+);
+}
+...
+};
+```
+
+这里有两个转型动作，首先是为this添加const，这样在调用operator[]时得以调用const版本。第二则是从const operator[]的返回值中移除const。
+
+添加const使用static_cast做了一次安全转型，而移除const的动作只能由const_cast完成（C-style的转型也行，不过【条款27】会说，这种转型很少是正确的选择）。
+
+另外注意，使用const生成non-const版本是可以的，但是反之不行，因为non-const成员函数不承诺绝不改变对象的逻辑状态。
+
+
+
+#### 总结：
+
+- 将某些东西声明为const可帮助编译器侦测出错误用法，const可被施加于任何作用域内的对象、函数参数、函数返回类型、成员函数本体
+- 编译器强制实施bitwise constness。但你编写程序时，应该使用概念上的常量性(conceptual constness)
+- 当const和non-const成员函数有着实质等价的实现时，令non-const版本调用const版本可避免代码重复
+
 ### 条款04 确定对象被使用前已先被初始化 
 
 Make sure that objects are initialized before they're used
 
 ## 第二章 构造/析构/赋值运算
 
- **[Constructors, Destructors, and Assignment Operators]**
+ [Constructors, Destructors, and Assignment Operators]
 
 ### 条款05 了解C++默默编写并调用哪些函数
 
