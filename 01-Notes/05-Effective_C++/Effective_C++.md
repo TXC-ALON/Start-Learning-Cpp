@@ -1050,9 +1050,188 @@ AWOV::~AWOV() {} // definition of pure virtual dtor
 
 Prevent exceptions from leaving destructors
 
+C++ 并不禁止在析构函数吐出异常，但是并不鼓励你这样做，譬如一个vector<tempclass>v，如果v[0]的析构抛出异常，那么v后面的类也应该被销毁。
+
+```c++
+class DBConnection
+{
+public:
+    ... 
+    static DBConnection create(); // function to return
+    // DBConnection objects; params
+    // omitted for simplicity
+    void close(); // close connection; throw an
+};                // exception if closing fails
+class DBConn
+{             // class to manage DBConnection
+public:       // objects ...
+    ~DBConn() // make sure database connections
+    {         // are always closed
+        db.close();
+    }
+
+private:
+    DBConnection db;
+};
+// That allows clients to program like this:
+{                                       // open a block
+    DBConn dbc(DBConnection::create()); // create DBConnection object
+    // and turn it over to a DBConn
+    // object to manage
+    ... // use the DBConnection object
+    // via the DBConn interface
+} // at end of block, the DBConn
+  // object is destroyed, thus
+  // automatically calling close on
+  // the DBConnection object
+```
+
+
+
+对于这种问题一般有两种解决方法
+
+- 如果close抛出异常就结束程序，通常通过调用abort来完成
+
+  ```c++
+  DBConn::~DBConn()
+  {
+  try { db.close(); }
+  catch (...) {
+  make log entry that the call to close failed;
+  std::abort();
+  }
+  }
+  ```
+
+  当程序遭遇一个于析构期间发生的错误后无法继续执行，通过调用abort可以抢先致“不明确行为”于死地。
+
+- 吞下因调用close而导致的异常
+
+  ```c++
+  DBConn::~DBConn()
+  {
+  try { db.close(); }
+  catch (...) {
+  make log entry that the call to close failed;
+  }
+  }
+  ```
+
+  一般而言，将异常吞掉都是一个坏主意，因为它压制了某些动作失败的重要信息，然而有时候吞下异常比“草率结束程序”或“不明确行为带来的风险”好。当程序必须能够继续可靠的运行，即使在遭遇并忽略一个异常后。
+
+但是这两种方法都无法对“导致close抛出异常的情况”作出反应
+
+一种较好的策略是重新设计DBConn接口，将close的权利提供给客户，而DBConn也可也追踪它管理的DBConnection是否已被关闭。并在答案为否的情况下由其析构函数关闭之。但是如果DBConnection析构函数调用close失败，我们又将退回到“强迫结束程序”或“吞下异常”的老路。
+
+```c++
+class DBConn {
+public:
+    ...
+    void close() // new function for
+    { // client use
+    db.close();
+    closed = true;
+}
+~DBConn()
+{
+    if (!closed) {
+    try { // close the connection
+    db.close(); // if the client didn’t
+}
+catch (...) { // if closing fails,
+	make log entry that call to close failed; // note that and ... // terminate or swallow
+}
+}
+}
+private:
+	DBConnection db;
+	bool closed;
+};
+```
+
+将调用close 的责任从析构函数转移到用户手上（但DBConn析构函数中仍有一个双保险调用）可能会给你一种甩锅的感觉，你甚至会认为它违反了【条款18】所说的“让接口易于使用”，但这些污名都不成立。因为如果某个操作可能在失败时抛出异常，而又存在某种需要必须处理该异常，那么这个异常必须来自析构函数以外的函数。因为析构函数吐出异常就是危险。总会带来过早结束程序或发生不明确行为的风险。由客户自己调用close是给他们一个处理错误的机会。
+
+
+
+#### 总结：
+
+- 析构函数绝对不要吐出异常。如果一个被析构函数调用的函数可能抛出异常，析构函数应该捕捉任何异常，仍然让吞下他们“不传播”或结束程序。
+- 如果客户需要对某个操作函数运行期间抛出的异常做出反应，那么class应该提供一个普通函数（而非在析构函数中）执行该操作。
+
+
+
+
+
 ### 条款09 绝不在构造和析构过程中调用virtual函数
 
 Never call virtual functions during construction or destruction
+
+因为子类中的基类成分会先在子类自身成分被构造前构造妥当，所以你在derived类构造函数里调用virtual函数，这时候调用的版本并非是derived版本，而是base  类版本。
+
+在derived  class对象的base class构造期间，对象的类型是base class而不是derived class。不只是virtual 函数会被编译器解析至base class。若使用运行期类型信息（runtime type information，例如dynamic_cast【条款27】和typeid），也会把对象视为base class类型。
+
+同理也适用于析构函数，一旦derived class 析构函数开始执行，对象内的derived class成员变量便呈现为未定义值。
+
+想要保证Transaction继承体系上的对象被创建，就有适当版本的logTransaction被调用。一种方法就是在class Transaction内将logTransaction改为non-virtual，然后要求derived class构造函数传递必要的信息给Transaction构造函数。
+
+```c++
+#include <string>
+#include<iostream>
+using namespace std;
+class Transaction {
+public:
+    explicit Transaction(const std::string& logInfo);
+    void logTransaction(const std::string& logInfo) const; // now a non-virtual func
+};
+
+Transaction::Transaction(const std::string& logInfo)
+{
+    logTransaction(logInfo); // now a non-virtual call
+}
+
+void Transaction::logTransaction(const std::string& logInfo) const
+{
+    cout<<"Transaction"<<"   "<< logInfo<<endl;
+}
+
+class BuyTransaction: public Transaction {
+public:
+    BuyTransaction(int parameters)
+            : Transaction(createLogString(parameters)) // pass log info
+    {
+        cout<<"BuyTransaction"<<endl;
+    } // to base class
+
+private:
+    static std::string createLogString(int parameters)
+    {
+// create and return log string based on parameters
+        if(parameters > 20){
+            return "parameters > 20";
+        }
+        else{
+            return "parameters <= 20";
+        }
+
+    }
+};
+
+int main()
+{
+    BuyTransaction bt(42);
+    return 0;
+}
+```
+
+换句话说，你无法使用virtual函数从base classes向下调用，在构造期间，你可以藉由令基类将必要的构造信息向上传递给base classes构造函数来借以弥补。
+
+createLogString 是 BuyTransaction 类的一个私有的、静态的函数，因为此函数为static，也就不可能指向“初期未成熟之BuyTransaction对象内尚未初始化的成员变量”，也因为静态函数不能访问类的非静态数据成员，因为静态函数并不依赖于任何特定的对象。因此，它不能访问类的非静态数据成员，因为这些数据成员是属于对象的，而不是属于类的。
+
+
+
+#### 总结：
+
+- 在构造和析构期间不要调用virtual函数，因为这类调用从不下降至derived class（比起当前指向构造函数和析构函数的那层）[Don’t call virtual functions during construction or destruction, because such calls will never go to a more derived class than that of the currently executing constructor or destructor.]
 
 ### 条款10 令operator = 返回一个 reference to *this
 
