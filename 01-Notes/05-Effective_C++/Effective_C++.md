@@ -1225,7 +1225,7 @@ int main()
 
 换句话说，你无法使用virtual函数从base classes向下调用，在构造期间，你可以藉由令基类将必要的构造信息向上传递给base classes构造函数来借以弥补。
 
-createLogString 是 BuyTransaction 类的一个私有的、静态的函数，因为此函数为static，也就不可能指向“初期未成熟之BuyTransaction对象内尚未初始化的成员变量”，也因为静态函数不能访问类的非静态数据成员，因为静态函数并不依赖于任何特定的对象。因此，它不能访问类的非静态数据成员，因为这些数据成员是属于对象的，而不是属于类的。
+createLogString 是 BuyTransaction 类的一个私有的、静态的函数，因为此函数为static，也就不可能指向“初期未成熟之BuyTransaction对象内尚未初始化的成员变量”，静态函数不能访问类的非静态数据成员，因为静态函数并不依赖于任何特定的对象。因此，它不能访问类的非静态数据成员，因为这些数据成员是属于对象的，而不是属于类的。
 
 
 
@@ -1237,13 +1237,272 @@ createLogString 是 BuyTransaction 类的一个私有的、静态的函数，因
 
 Have assignment operators return a reference to *this
 
+在赋值时，我们常常忽视一点，即赋值可以连续赋值，同时采用右结合律。
+
+为了实现这两点，赋值操作符必须返回一个引用指向操作符的左侧实参，这是你为classes实现赋值操作符时应该遵守的条款。
+
+```c++
+class Widget {
+public:
+...
+    Widget& operator=(const Widget& rhs) // return type is a reference to
+    { // the current class
+    ...
+    return *this; // return the left-hand object
+	}
+...
+};
+
+class Widget {
+public:
+    ...
+    Widget& operator+=(const Widget& rhs) // the convention applies to
+    { // +=, -=, *=, etc.
+    	...
+        return *this;
+	}
+	Widget& operator=(int rhs) // it applies even if the
+	{ // operator’s parameter type ... // is unconventional
+		return *this;
+	}
+...
+};
+```
+
+
+
+```c++
+class MyClass {
+private:
+    int x;
+    int y;
+
+public:
+    MyClass() {
+        x = 0;
+        y = 0;
+    }
+
+    MyClass(int x, int y) {
+        this->x = x;
+        this->y = y;
+    }
+
+    MyClass(const MyClass& other) {
+        x = other.x;
+        y = other.y;
+    }
+
+    int getX() const {
+        return x;
+    }
+
+    int getY() const {
+        return y;
+    }
+
+    void setX(int x) {
+        this->x = x;
+    }
+
+    void setY(int y) {
+        this->y = y;
+    }
+
+    // overload the assignment operator
+    MyClass& operator=(const MyClass& other) {
+        // check for self-assignment
+        if (this != &other) {
+            x = other.x;
+            y = other.y;
+        }
+        return *this;
+    }
+    MyClass& operator+=(const MyClass& other) {
+        x += other.x;
+        y += other.y;
+        return *this;
+    }
+    MyClass& operator++() { // prefix
+        ++x;
+        ++y;
+        return *this;
+	}
+	MyClass operator++(int) { // postfix
+        MyClass tmp(*this);
+        operator++();
+        return tmp;
+	}
+};
+
+int main() {
+    MyClass obj1, obj2(1, 2), obj3(3, 4);
+    obj1 = obj2 = obj3; // assigns obj3's value to obj2, then obj2's value to obj1
+
+    obj1.setX(10).setY(20);  // assigns 10 to x and 20 to y
+    std::cout << obj1.getX() << ' ' << obj1.getY() << std::endl;
+}
+
+```
+
+> 在 C++ 中，一元自增运算符 (++) 有两种形式：前缀形式 (++x) 和后缀形式 (x++)。前缀形式直接改变原来的对象,通常返回 *this 的引用；而后缀形式会先返回原来的对象，再改变对象。
+>
+> 由于后缀形式的一元自增运算符需要先返回原来的值，因此不能返回 this 的引用。相反，它必须返回一个拷贝，该拷贝包含原始对象的值。这样，在使用后缀形式的一元自增运算符时，可以保留原始对象的值。
+>
+> 返回拷贝会增加一些额外的开销，因为需要复制一个对象，如果这种设计不是必要的话，应该尽量避免使用。
+>
+> 需要注意的是，重载运算符需要遵循严格的语义，因此在实现之前应该仔细考虑它的行为和后果。
+>
+> 在 C++ 中，编译器通过运算符函数的参数个数来识别运算符的前缀和后缀形式。如果一个运算符函数没有参数，那么就是前缀形式；如果有一个参数，那么就是后缀形式。
+>
+> 这就是为什么在实现后缀形式的自增运算符时，需要添加一个不会被使用的 int 参数，以便区分前缀和后缀形式，使编译器能够正确识别并调用合适的运算符函数。
+
+#### 总结：
+
+- 令赋值（assignment） 操作符返回一个reference to *this
+
 ### 条款11 在operator = 中处理“自我赋值”
 
 Handle assignment to self in operator=
 
+“自我赋值“发生在对象被赋值给自己时。
+
+一般而言，如果某段代码操作指针或引用，而他们被用来指向多个相同类型的对象，那么就需考虑这些对象是否为同一个。实际上两个对象只要来自同一个继承体系，他们甚至不需声明为相同类型就可能造成“别名”，因为一个基类的指针或引用可以指向一个子类对象。
+
+如果遵循【条款13】【条款14】，你会使用对象来管理资源，并且你可以确定所谓资源管理对象在copy发生时有着正确的举措。这种情况下，你的赋值操作符或许是“自我赋值安全的”。然而，如果你尝试自行管理资源（如果你打算写一个用于资源管理的类就得这样做），可能会掉进“在停止使用资源之前意外释放了它”的陷阱。
+
+比如建立了一个class用于保存一个指针指向一块动态分配的位图。想用rhs来替换当前的pb指针
+
+但是下面的代码，operator=函数内的*this和rhs可能是同一个对象。那么delete就会销毁当前对象的bitmap。
+
+```c++
+class Bitmap { ... };
+class Widget {
+    ...
+    private:
+    Bitmap *pb; // ptr to a heap-allocated object
+};
+Widget&
+    Widget::operator=(const Widget& rhs) // unsafe impl. of operator=
+    {
+    delete pb; // stop using current bitmap
+    pb = new Bitmap(*rhs.pb); // start using a copy of rhs’s bitmap
+    return *this; // see Item 10
+}
+```
+
+欲阻止这一错误，传统方法是藉由operator=最前面的一个证同测试(identity)来达到自我赋值的检验目的。
+
+```c++
+Widget& Widget::operator=(const Widget& rhs)
+{
+    if (this == &rhs) return *this; // identity test: if a self-assignment,
+    // do nothing
+    delete pb;
+    pb = new Bitmap(*rhs.pb);
+    return *this;
+}
+```
+
+前一版不仅不具备自我赋值安全性，也不具备异常安全性。这个新版本依然有着异常方面的麻烦。【条款29】深入讨论了异常安全性。
+
+下面的代码就比之前的好些（虽然不考虑证同，因为大多数情况下，能保证异常安全基本上可以保证自我赋值安全），在复制pb所指的对象之前，不删除pb。这时，如果new Bitmap发生异常，pb保持原状，这段代码还是能够自我赋值。（？todo）
+
+```c++
+Widget& Widget::operator=(const Widget& rhs)
+{
+    Bitmap *pOrig = pb; // remember original pb
+    pb = new Bitmap(*rhs.pb); // point pb to a copy of rhs’s bitmap
+    delete pOrig; // delete the original pb
+    return *this;
+}
+```
+
+> 这段代码将 Widget 对象的状态更新为 rhs 对象的状态。首先，它通过 new 关键字分配内存来存储一个新的 Bitmap，并将其初始化为 rhs 对象中 Bitmap 的拷贝。如果在 new Bitmap 操作过程中发生异常，将抛出 std::bad_alloc。
+>
+> 在这种情况下，程序将无法继续执行。在这段代码中，它没有使用异常安全的内存分配，或者异常处理机制来处理异常情况，导致程序无法继续执行。在 new 操作失败后，delete pOrig并没有执行，所以会造成内存泄漏。
+>
+> 如果想要正常运行，应该使用异常安全的内存分配，比如std::unique_ptr或std::shared_ptr来管理动态分配的内存,或者使用 try-catch 机制来捕获和处理异常。
+>
+> ```c++
+> Widget& Widget::operator=(const Widget& rhs)
+> {
+>     try{
+>         Bitmap *pOrig = pb; // remember original pb
+>         pb = new Bitmap(*rhs.pb); // point pb to a copy of rhs’s bitmap
+>         delete pOrig; // delete the original pb
+>         return *this;
+>     } catch(std::bad_alloc &ex)
+>     {
+>         std::cout<<ex.what()<<std::endl;
+>         throw ex;
+>     }
+> }
+> 
+> ```
+
+
+
+另外一种替代方案是所谓的copy-swap技术，
+
+```c++
+class Widget {
+    ...
+    void swap(Widget& rhs); // exchange *this’s and rhs’s data; ... // see Item 29 for details
+    };
+    Widget& Widget::operator=(const Widget& rhs)
+    {
+    Widget temp(rhs); // make a copy of rhs’s data
+    swap(temp); // swap *this’s data with the copy’s
+    return *this;
+}
+```
+
+这个一变形采用了以下事实：
+
+* 某class的copy assignment操作符可能被声明为“以by value方式接受实参”
+* 以“by value”方式传递东西会造成一份附件【条款20】
+
+```c++
+Widget& Widget::operator=(Widget rhs) // rhs is a copy of the object
+{ 	// passed in — note pass by val
+    swap(rhs); // swap *this’s data with
+    // the copy’s
+    return *this;
+}
+```
+
+作者比较忧虑这个做法，他认为它为了伶俐灵巧的修补而牺牲了清晰性，然而将copying操作从函数本体移至函数参数构造阶段，却可令编译器有时生成更高效的代码。
+
+#### 总结：
+
+- 确保当对象自我赋值时，operator= 有良好行为。其中技术包括比较“来源对象”和“目标对象”的地址，精心周到的语句顺序、以及copy-and-swap
+- 确定任何函数如果操作一个以上的对象，而其中多个对象是同一个对象时，其行为仍然正确。
+
 ### 条款12 复制对象时勿忘其每一个成分 
 
 Copy all parts of an object
+
+设计良好的面向对象系统（OO-systems）会将对象的内部封装起来，只留两个函数负责对象拷贝（复制），那就是带着适当名称的copy构造函数和copy assignment 操作符。并称为copying函数。
+
+编译器会在必要时为我们的类创建copying函数，如果你自己声明自己的copying函数，意思就是告诉编译器你并不喜欢缺省实现中的某些行为。编译器就好像被冒犯一样，会以一种奇怪的方式回敬：当你代码几乎必然出错时却不提醒你。
+
+当你新添加新的成员函数时，copying函数也应该同时更新。而编译器不会告诉你这一点。也不会为你补全。
+
+所以，当你编写一个copying函数，请确保：
+
+- 复制所有local成员变量
+- 调用所有base class内的适当copying 函数。
+
+同时请注意，令某个copy函数调用另一个copy函数是不合理的：
+
+- 令copying assignment 操作符调用copy构造函数是不合理的，因为这就像试图构造一个已经存在的对象。
+- 令copying 构造函数调用copying assignment 操作符也是无意义的，构造函数用来初始化新对象，而assignment操作符只施行于已初始化的对象上。
+
+#### 总结：
+
+- Copying 函数应该确保复制“对象内的所有成员变量”及“所有base-class成分”
+- 不要尝试以某个copying函数实现另一个copying函数，应该将共同的机能放进第三个函数中，并由两个copying函数共用。
 
 ## 第三章 资源管理
 
