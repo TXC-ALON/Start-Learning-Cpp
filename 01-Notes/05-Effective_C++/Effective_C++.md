@@ -919,11 +919,11 @@ class Empty{};
 //it’s essentially the same as if you’d written this:
 class Empty {
 public:
-Empty() { ... } // default constructor
-Empty(const Empty& rhs) { ... } // copy constructor
-~Empty() { ... } // destructor — see below
+    Empty() { ... } // default constructor
+    Empty(const Empty& rhs) { ... } // copy constructor
+    ~Empty() { ... } // destructor — see below
 // for whether it’s virtual
-Empty& operator=(const Empty& rhs) { ... } // copy assignment operator
+	Empty& operator=(const Empty& rhs) { ... } // copy assignment operator
 };
 ```
 
@@ -936,7 +936,9 @@ Empty e2(e1); // copy constructor
 e2 = e1; // copy assignment operator 
 ```
 
-编译器产出的析构是non-virtual【条款07】，除非这个class的base class 自身声明有virual 析构函数，这时这个函数的虚属性主要来自base class。
+编译器为你写函数，default构造函数和析构函数主要是给编译器一个地方用来放置“藏身幕后”的代码，比如调用base classes和non-static 成员变量的构造函数和析构函数。注意，编译器产生的析构函数是non-virtual【条款07】，除非这个class的base class 自身声明有virual 析构函数，这时这个函数的虚属性主要来自base class。
+
+至于copying构造函数，编译器创建的版本只是单纯地将来源对象的每一个non-static 成员变量拷贝到目标对象。
 
 
 
@@ -1508,13 +1510,240 @@ Copy all parts of an object
 
 **[Constructors, Destructors, and Assignment Operators]**
 
+所谓资源就是，一旦用了它，将来必须还给系统。如果不这样，糟糕的事情就会发生。C++程序最常用的资源就是动态分配内存（如果你分配内存却从来不曾归还它，就会导致内存泄漏）。但内存只是你必须管理的众多资源之一。其他常见资源还包括文件描述器（file descriptors）、互斥锁（mutex locks）、图形界面中的字型fonts和笔刷、数据库连接、以及网络sockets。不论哪一种资源，重要的是，当你不再使用它时，必须将它还给系统。
+
+本章一开始是一个直接而易懂且基于对象的资源管理办法，建立在C++对构造函数、析构函数、copying函数的基础上，经验表明，经过训练后严守这些做法，几乎可以消除资源管理问题。然后本章的某些条款将专门用来对付内存管理。这些排列在后的专属条款弥补了先前一般化条款的不足，因为管理内存的那个对象必须知道如何适当而正确的工作。
+
 ### 条款13 以对象管理资源
 
 Use objects to manage resources
 
+```c++
+void f()
+{
+Investment *pInv = createInvestment(); // call factory function
+... // use pInv
+delete pInv; // release object
+}
+```
+
+若是在`...`里面有return或continue类的语句，那么就有可能没有释放调用的资源。
+
+为确保函数返回的资源总会被释放，我们需要将资源放进对象里，当控制流离开f，该对象的析构函数自动调用机制会自动释放那些资源。
+
+
+
+用auto_ptr以避免f函数潜在的资源泄漏可能性（但是auto_ptr已经被废弃了）
+
+> auto_ptr是C++标准库中的一个智能指针类型，它能自动释放所指向的内存。在C++11标准中，auto_ptr被废弃了，因为它存在一些问题，如不支持移动语义、不能与其他智能指针类型一起使用等。
+>
+> 替代auto_ptr的是std::unique_ptr和std::shared_ptr，分别用于表示独占所有权和共享所有权的智能指针。下面是一个使用std::unique_ptr的代码示例：
+>
+> ```c++
+> include <memory>
+> 
+> int main() {
+>     std::unique_ptr<int> p1(new int(5));
+>     std::unique_ptr<int> p2 = std::make_unique<int>(6);
+>     *p1 = 10;
+>     std::cout << *p1 << " " << *p2 << std::endl;
+>     return 0;
+> }
+> ```
+>
+> std::shared_ptr代码示例
+>
+> ```c++
+> include <memory>
+> 
+> int main() {
+>     std::shared_ptr<int> p1(new int(5));
+>     std::shared_ptr<int> p2 = std::make_shared<int>(6);
+>     *p1 = 10;
+>     std::cout << *p1 << " " << *p2 << std::endl;
+>     return 0;
+> }
+> ```
+>
+> 这些智能指针类型可以简化内存管理，避免手动释放内存导致的错误，并且支持移动语义，能更好地支持多线程编程。
+
+```c++
+void f()
+{
+std::auto_ptr<Investment> pInv(createInvestment()); // call factory
+// function
+... // use pInv as
+// before
+} // automatically
+// delete pInv via 
+// auto_ptr’s dtor
+```
+
+
+
+**以对象管理资源的两个关键想法**
+
+- 获得资源后立刻放进管理对象内
+
+  以对象管理资源的观念常被称为“资源取得时机便是初始化时机”***Resource Acquisition Is Initialization (RAII)***“，因为我们几乎总是在获得一笔资源后在同一语句内以它初始化某个管理对象。有时候获得的资源被拿来赋值（而非初始化）某个管理对象，但不论哪一种做法，每一笔资源都在获得的同时立刻被放进管理对象中。
+- 管理对象运用析构函数确保资源被释放
+
+  不论控制流如何离开区块，一旦对象被销毁其析构函数自然会被自动调用，于是资源被释放。如果资源释放动作可能导致抛出异常，但是【条款8】已经能够解决这个问题。
+
+由于auto_ptr被销毁时会自动删除它所指之物，多以不要让多个auto_ptr同时指向同一对象。否则，对象可能会被删除一次以上。所以为了预防这个问题，auto_ptr有一个不寻常的性质，即“若通过copying函数复制它们，它们会变成null，而复制所得的指针将获得资源的唯一拥有权”。
+
+```c++
+std::auto_ptr<Investment> // pInv1 points to the
+pInv1(createInvestment()); // object returned from
+// createInvestment
+std::auto_ptr<Investment> pInv2(pInv1); // pInv2 now points to the
+// object; pInv1 is now null
+pInv1 = pInv2; // now pInv1 points to the
+// object, and pInv2 is null
+```
+
+这一诡异的赋值，加上它的底层条件，导致类似STL容器无法适配。
+
+auto_ptr的替代方案就是引用计数型智慧指针“reference-counting smart pointer (RCSP)”。持续追踪共有多少对象指向某笔资源，并在无人指向它时自动删除该资源。RCSPs提供的行为类似垃圾回收，不同的时RCSP无法打破环状引用（例如两个其实已经没人使用的对象彼此互指，因而好像还处在被使用状态）。
+
+auto_ptr 和shared_ptr 两者都在其析构函数内做delete而不是delete[] 【条款16】对两者的不同有些描述。那意味着动态分配的array身上使用auto_ptr 或 shared_ptr是个馊主意。但是，可叹的是，这么做依然能通过编译。
+
+```c++
+std::auto_ptr<std::string> // bad idea! the wrong 
+aps(new std::string[10]); // delete form will be used 
+std::tr1::shared_ptr<int> spi(new int[1024]); // same problem
+```
+
+
+
+> 有几种改善方法可以避免这个问题：
+>
+> 1. 使用 std::unique_ptr 或 std::shared_ptr 代替 std::auto_ptr 和 std::tr1::shared_ptr。这些指针在 C++11 中引入，可以自动调用 delete[] 来释放数组内存。
+> 2. 使用 std::vector 或 std::array 代替手动分配的数组。这些容器在被销毁时会自动释放内存。
+> 3. 使用 std::shared_ptr[std::string[\]](javascript:void(0)) 或 std::unique_ptr[std::string[\]](javascript:void(0)) 管理字符串数组。这些指针在 C++14 中引入，可以自动调用 delete[] 来释放数组内存
+> 4. 如果使用 std::auto_ptr 或 std::tr1::shared_ptr，那么应该使用一个类似 std::shared_ptr<T[]> 的自定义智能指针，这样在析构函数里面可以自定义释放方式。
+> 5. 如果你不想使用智能指针, 那么可以手动释放内存，使用 delete[] 来释放内存，而不是 delete.
+>
+> 
+>
+> std::shared_ptr 是 C++11 中引入的一种智能指针，它可以在管理动态分配的内存时自动调用 delete[] 来释放数组内存。这是通过在 shared_ptr 类模板中定义一个类型为 T* 的 deleter 成员变量来实现的。
+>
+> 这个 deleter 成员变量是一个函数指针，指向了一个删除器函数。这个函数会在 shared_ptr 的析构函数中被调用来释放资源。
+>
+> 默认情况下，shared_ptr 会使用 std::default_delete<T> 作为删除器，它是一个类模板，定义了 operator() 函数，这个函数会调用 delete 运算符来释放内存。
+>
+> 但是，如果 T 是数组类型，那么 std::default_delete<T> 会被特化为 std::default_delete<T[]>，它定义了 operator() 函数，这个函数会调用 delete[] 运算符来释放内存。
+>
+> 下面是 std::shared_ptr 的部分源代码，可以看到 shared_ptr 的析构函数会调用 deleter 来释放内存。
+>
+> ```c++
+> Copy codetemplate<class T>
+> class shared_ptr {
+>     // ...
+>     template<class T1> friend class shared_ptr;
+>     template<class T1> friend class weak_ptr;
+>     T* _ptr;
+>     std::shared_ptr<T>* _shared_this;
+>     std::atomic<long>* _shared_count;
+>     std::function<void(T*)> deleter;
+>     // ...
+>     ~shared_ptr() {
+>         if (_shared_count) {
+>             if (_shared_count->fetch_sub(1) == 1) {
+>                 if (deleter) deleter(_ptr);
+>                 else delete _ptr;
+>                 delete _shared_count;
+>             }
+>         }
+>     }
+> };
+> ```
+
+
+
+#### 总结：
+
+- 为防止资源泄漏，请使用RAII对象，它们在构造函数中获得资源并在析构函数中释放资源
+- 两个常被使用的RAII classes分别是tr1::shared_ptr 和 auto_ptr。前者通常是更好的选择，因为它copy行为比较直观，若是auto_ptr，复制动作会使被复制物指向null。
+
 ### 条款14 在资源管理类中小心copying行为
 
 Think carefully about copying behavior in resource-managing classes
+
+有时候需要我们自己建立自己的资源管理类。
+
+这样的class的基本结构由RAII守则支配，也就是“资源在构造期间获得，在析构期间释放”。
+
+```c++
+void lock(Mutex *pm); // lock mutex pointed to by pm
+void unlock(Mutex *pm); // unlock the mutex
+
+class Lock {
+public:
+    explicit Lock(Mutex *pm)
+    : mutexPtr(pm)
+    	{ lock(mutexPtr); } // acquire resource
+    ~Lock() { unlock(mutexPtr); } // release resource
+private:
+    Mutex *mutexPtr;
+};
+```
+
+上面是某个一般化问题的特定例子。那么“当一个RAII对象被复制，会发生什么事？”
+
+- 禁止复制
+
+  许多时候允许RAII对象被复制并不合理。对一个像Lock这样的class这是有可能的。因为很少能够合理拥有“同步化基础器物”的副本。(In many cases, it makes no sense to allow RAII objects to be copied. This is likely to be true for a class like Lock, because it rarely makes sense to have “copies” of synchronization primitives. )
+
+  如果复制动作对RAII对象并不合理，那么你便应该禁止之，【条款6】已经说了，将copying操作声明为private。
+
+- 对底层资源祭出“引用计数法”
+
+  类似C++11的智慧指针。但是我们使用Mutex类，我们想要做的释放动作是解除锁定而非删除。幸运的是，tr1::shared_ptr允许指定所谓的“删除器”，那是一个函数或函数对象，当引用次数为0时便被调用（此机能并不存在于auto_ptr–它总是将其指针删除)。删除器对tr1::shared_ptr构造函数是可有可无的第二参数。
+
+  ```c++
+  class Lock {
+  public:
+      explicit Lock(Mutex *pm) // init shared_ptr with the Mutex
+      : mutexPtr(pm, unlock) // to point to and the unlock func as the deleter 指定unlock作为删除器
+      { 
+      	lock(mutexPtr.get()); // see Item 15 for info on “get” 
+  	}
+  private:
+  	std::tr1::shared_ptr<Mutex> mutexPtr; // use shared_ptr
+  }; // instead of raw pointer
+  ```
+
+  
+
+  注意：本例的Lock class不再声明析构函数。因为没有必要。【条款5】说过，class析构函数（无论是编译器生成的，或用户自定的）会自动调用其non-static成员变量（本例为mutexPtr)。而mutexPtr的析构函数会在互斥器的引用次数为0时自动调用删除器。
+
+- 复制底部资源
+
+  复制资源管理对象时，进行的是“深拷贝”
+
+- 转移底部资源的拥有权
+
+  某些罕见情况下，你可能希望确保永远只有一个RAII对象指向一个未加工资源。即使RAII对象被复制依然如此。此时资源的拥有权会从被复制物到目标物（一如auto_ptr奉行的复制意义)
+
+
+
+Copying函数，有可能被编译器自动创建出来，因此除非编译器所生产的版本做了你想要的事，否则你得自己编写它们。某些情况下你或许也想支持这些函数的一般版本，这样的版本描述于【条款45】。
+
+
+
+#### 总结：
+
+- 复制RAII对象必须一并复制它所管理的资源，所以资源的copying行为决定RAII对象的copying行为。
+- 普遍而常见的RAII class copying 行为是：抑制copying，施行引用计数法（即1、2）。不过其他行为也可能用。
+
+
+
+
+
+
+
+
 
 ### 条款15 在资源管理类中提供对原始资源的访问
 
