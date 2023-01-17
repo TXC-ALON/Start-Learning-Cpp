@@ -1736,12 +1736,7 @@ Copying函数，有可能被编译器自动创建出来，因此除非编译器�
 
 - 复制RAII对象必须一并复制它所管理的资源，所以资源的copying行为决定RAII对象的copying行为。
 - 普遍而常见的RAII class copying 行为是：抑制copying，施行引用计数法（即1、2）。不过其他行为也可能用。
-
-
-
-
-
-
+- 注：C++11提供了新的智能指针，能用那个就用那个。
 
 
 
@@ -1749,13 +1744,206 @@ Copying函数，有可能被编译器自动创建出来，因此除非编译器�
 
 Provide access to raw resources in resource-managing classes
 
+理论上资源管理类可以有效的对抗资源泄漏，而排除此类泄漏是良好设计系统的根本性质。但是许多API直接指涉资源，所以除非你永远不用这样的API，那么就只能绕过资源管理对象，直接访问原始资源。
+
+```c++
+std::tr1::shared_ptr<Investment> pInv(createInvestment()); // from Item 13
+int daysHeld(const Investment *pi); // return number of days
+// investment has been held
+int days = daysHeld(pInv); // error!
+```
+
+
+
+即需要一个函数将RAII class对象转换为所内含之原始资源。有两个做法可以达成目标 -- 显式转换和隐式转换。
+
+- 显式转换
+
+  tr1::shared_ptr 和 auto_ptr都提供一个get函数(C++11里的智能指针也支持)，用来执行显式转换，也就是返回只能指针内部的原始指针（的复件）
+
+  ```c
+  int days = daysHeld(pInv.get()); // fine, passes the raw pointer
+  // in pInv to daysHeld
+  ```
+
+  
+
+- 隐式转换
+
+   就像几乎所有智能指针一样，tr1::shared_ptr 和 auto_ptr也重载了指针取值操作符，它们允许隐式转换至底部原始指针。
+
+  ```c++
+  class Investment { // root class for a hierarchy
+  public: // of investment types
+      bool isTaxFree() const;
+      ...
+  };
+  Investment* createInvestment(); // factory function
+  std::tr1::shared_ptr<Investment> // have tr1::shared_ptr
+  pi1(createInvestment()); // manage a resource
+  bool taxable1 = !(pi1->isTaxFree()); // access resource
+  // via operator->
+  ...
+  std::auto_ptr<Investment> pi2(createInvestment()); // have auto_ptr
+  // manage a
+  // resource
+  bool taxable2 = !((*pi2).isTaxFree()); // access resource
+  // via operator*
+  ```
+
+  但有时还是必须取得RAII对象内的原始资源，有的设计者会考虑提供一个隐式转换函数。譬如下面的这个字体类。
+
+  ```c++
+  FontHandle getFont(); // from C API — params omitted
+  // for simplicity
+  void releaseFont(FontHandle fh); // from the same C API
+  
+  class Font { // RAII class
+  public:
+  	explicit Font(FontHandle fh) // acquire resource;
+  	: f(fh) // use pass-by-value, because the
+  	{} // C API does
+  	~Font() { releaseFont(f ); } // release resource
+  ... // handle copying (see Item 14)
+  private:
+  	FontHandle f; // the raw font resource
+  };
+  ```
+
+  如果有大量的处理FontHandle C API，那么将Font对象转换为FontHandle会是很频繁的需求，在这里，Font class可以提供一个类似get的转换函数。但是这使得客户每当想要使用API就必须使用get，会很烦。
+
+  ```c++
+  class Font {
+  public:
+  ...
+  	FontHandle get() const { return f; } // explicit conversion function
+  ...
+  };
+  void changeFontSize(FontHandle f, int newSize); // from the C API
+  Font f(getFont());
+  int newFontSize;
+  ...
+  changeFontSize(f.get(), newFontSize); // explicitly convert
+  // Font to FontHandle
+  ```
+
+  所以有些程序员会觉得，那不如给你一个隐式转换。这样调用起来比较自然。
+
+  ```c++
+  class Font {
+  public:
+  ...
+  	operator FontHandle() const // implicit conversion function
+  	{ return f; }
+  ...
+  };
+  
+  Font f(getFont());
+  int newFontSize;
+  ...
+  changeFontSize(f, newFontSize); // implicitly convert Font
+  // to FontHandle
+  ```
+
+  > changeFontSize(f, newFontSize);是调用一个函数，向函数传递了两个参数，一个是类型为Font的变量f，另一个是int类型的变量newFontSize。由于Font类中定义了隐式转换函数"operator FontHandle()", 这个函数可以将类型为Font的变量f转换为类型为FontHandle的变量，所以changeFontSize函数在调用的时候可以接受Font类型的变量f作为参数，而不需要显式转换。
+
+  但是吧，这个隐式转换又会增加错误发生机会。例如客户可能在需要Font时，意外创建FontHandle。
+
+  ```c++
+  Font f1(getFont());
+  ...
+  FontHandle f2 = f1; // oops! meant to copy a Font 
+  // object, but instead implicitly
+  // converted f1 into its underlying
+  // FontHandle, then copied that
+  ```
+
+  > 上述代码中， 先通过调用 getFont()函数创建一个FontHandle类型的变量fh，然后将fh传递给Font类的构造函数，创建一个Font类型的变量f1. 然后将f1赋值给FontHandle类型的变量f2.
+  >
+  > 这段代码的风险是将一个RAII类型的对象赋值给非RAII类型的变量，可能会导致资源泄露。 因为f1是一个RAII对象，它在构造时通过getFont()获取了资源，而在析构时会释放资源。如果将f1赋值给f2，那么f1的析构函数就不会被调用，资源就不会被释放，造成资源泄露。
+  >
+  > 比如f1被销毁，字体被释放，而f2就成为虚吊的。
+  >
+  > 为了避免这个问题，应该在类中重载赋值运算符，并且在赋值运算符中避免这种赋值方式。
+
+是否应该提供一个显式转换函数将RAII class转换为其底部资源，或是应该提供隐式转换。取决于【条款18】，即“让接口更容易被使用，不易被误用”。通常显式转换函数如get是比较受欢迎的方法，因为它将“非故意之类型转换”的可能性最小化了。然而有时候，隐式类型转换所带来的“自然用法”也会引发天秤倾斜。
+
+可能你会认为，RAII class内的那个返回原始资源的函数，与封装发生矛盾。这是真的。但是一般而言算不上什么设计灾难。RAII classes并不是为了封装某物而存在，它们的存在是为了确保一个特殊行为--资源释放--会发生。如果一定要，当然也可以在这基本功能之上再加一层资源封装，但那并非必要。此外也有某些RAII class结合十分松散的底层资源封装，藉以获得真正的封装实现。例如tr1::shared_ptr 将它的所有引用计数机构封装了起来，但还是让外界很容易访问其内含的原始指针。就好像多数设计良好的class一样，它隐藏了客户不需要看的部分，但备妥客户需要的所有东西。
+
+#### 总结：
+
+- API往往要求访问原始资源（raw resources），所以每一个RAII class 应该提供一个“取得其所管理之资源”的方法。
+- 对原始资源的访问可能经由显式转换或隐式转换。一般而言显式转换比较安全，但隐式转换对客户比较方便。
+
+
+
+
+
 ### 条款16 成对使用new和delete时要采取相同形式
 
 Use the same form in corresponding uses of new and delete
 
+被删除的指针，得明确所指的单一对象还是对象数组。
+
+typedef很容易令人误解，把对象数组理解成单一对象。
+
+#### 总结：
+
+- 如果你在new表达式中使用[]，必须在相应的delete表达式中也使用[]；如果你在new表达式中不使用[]，一定不要在相应的delete表达式中也使用[]；
+
 ### 条款17 以独立语句将newd 的对象置入智能指针
 
-Store newed objects in smart pointers in standalone statements
+Store newed objects in smart pointers in standalone statements.
+
+假设我们有个函数用来揭示处理程序的优先权，另一个函数用来在某动态分配所得的Widget上进行某些带来优先权的处理：
+
+```c++
+int priority();
+void processWidget(std::tr1::shared_ptr<Widget> pw, int priority);
+```
+
+现在尝试调用 `processWidget`。
+
+```c++
+//这种写法不能通过编译，因为tr1::shared_ptr构造函数需要一个原始指针，但该构造函数是个explict构造函数，无法进行隐式转换。
+processWidget(new Widget, priority());
+//写成这样就可以通过编译
+processWidget(std::tr1::shared_ptr<Widget>(new Widget), priority());
+```
+
+令人震惊的是，虽然我们在此使用“对象管理式资源”，上述调用却可能泄露资源。
+
+编译器产出一个processWidget 调用码之前，必须首先核算既将被传递的各个实参。上述的第二实参是一个简单的对priority函数的调用。但是第一实参std::tr1::shared_ptr<Widget>(new Widget)由两部分组成：
+
+- 执行new Widget表达式
+- 调用tr1::shared_ptr构造函数
+
+于是在调用processWidget之前，编译器必须创建代码，做以下三件事：
+
+- 调用priority
+- 执行new Widget表达式
+- 调用tr1::shared_ptr构造函数
+
+C++ 编译器以什么次序完成这些事情呢？弹性很大。可以确定new Widget 一定执行与tr1::shared_ptr构造函数被调用之前，因为这个表达式的结果还要被传递作为tr1::shared_ptr构造函数的一个实参，但对priority的调用则可以排在第一、第二或第三执行。如果对priority的调用导致异常，在此情况下，new Widget返回的指针将会遗失，因为它尚未被置入tr1::shared_ptr内。
+
+总结，即资源被创建和资源被转换为资源管理对象两个时间点之间有可能发生异常干扰。
+
+避免这个问题的办法很简单：使用分离语句。
+
+```c++
+std::tr1::shared_ptr<Widget> pw(new Widget); // store newed object
+// in a smart pointer in a
+// standalone statement
+processWidget(pw, priority()); // this call won’t leak
+```
+
+以上之所以写的通，因为编译器对于跨越语句的各项操作没有重新排列的自由（只有在语句内它才有那个自由度）。在上述修订后的代码内，newWidget表达式以及对tr1::shared_ptr 构造函数的调用这两个动作，和对priority的调用时分隔开的，位于不同语句内，所以编译器不得在它们之间任意选择执行次序。
+
+#### 总结：
+
+- 以独立语句将newed对象存储于智能指针内。如果不这样做，一旦异常被抛出，有可能导致难以察觉的资源泄漏。
+
+
 
 ## 第四章 设计声明
 
