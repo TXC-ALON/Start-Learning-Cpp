@@ -1949,21 +1949,183 @@ processWidget(pw, priority()); // this call won’t leak
 
 **[Designs and Declarations]**
 
+所谓软件设计，是“令软件做出你希望它做的事”的步骤和做法。通常以颇为一般性的构想开始，最终演变为十足的细节，以允许特殊接口`interfaces`的开发。
+
+我们对良好C++接口和声明的一项基本准则为：“让接口容易被正确使用，不容易被误用”。
+
+这个准则设立了一个舞台，让其他更专精的准则对付一个大范围的题目，包括正确性、高效性、封装性、维护性、延展性，以及协议的一致性。
+
 ### 条款18 让接口容易被使用，不易被误用
 
 Make interfaces easy to use correctly and hard to use incorrectly
+
+理想上，如果客户企图使用某个接口而没有获得他所预期的行为，这个代码不应该通过编译；如果代码通过了编译，它的作为就该是客户所想要的。
+
+想开发一个良好的接口，首先必须考虑客户可能做出怎么样的错误。
+
+我们可以
+
+- 通过导入外覆类型(wrapper types)来区别天数、月份和年份。
+- 类型定位好后，可以限制其值（比如月份，固定为1-12）
+- 限制类型内什么事可以做，什么不能做，最常见的限制是加const。
+- 除非有好理由，否则努力使你的type与内置type一致。
+- 提供一致的接口（类似STL容器都有size成员函数）
+- 使用智能指针，保证合理的释放资源
+
+
+
+#### 总结：
+
+- 好的接口很容易被正确使用，不容易被误用。你应该在你的所有接口中努力达成这些性质。
+- 促进正确使用的方法包括接口的一致性，以及与内置类型的行为兼容。
+- 阻止误用的办法包括建立新类型、限制类型上的操作，束缚对象值，以及消除客户的资源管理责任。
+- 智能指针支撑定制型删除器（custom deleter）。这可防范DLL问题，可被用来自动解除互斥锁（mutexes【条款14】）
+
+
 
 ### 条款19 设计class犹如设计type
 
 Treat class design as type design
 
+C++ 就像其他OOP语言一样，当你定义一个新class，也就是定义了一个新type。
+
+身为C++ 程序员，你的许多时间主要用来扩张你的类型系统（type system）。这意味着你并不只是class设计者，还是type设计者。重载overloading函数和操作符、控制内存的分配和归还、定义对象的初始化和终结……全都在手上。因此你应该带着和“语言设计者当初设计语言内置类型”时一样的谨慎来研讨class的设计。
+
+> ### c++中的类class和类型type有哪些异同？
+>
+> C++中的类(class)和类型(type)有一些相似之处，但也有一些明显的区别。
+>
+> 相似之处:
+>
+> 1. 都是用于定义一种数据类型。
+> 2. 都可以用于定义变量和函数。
+>
+> 不同之处:
+>
+> 1. 类是用于定义面向对象编程中的类型，而类型是更广义的概念，包括基本类型和自定义类型。
+> 2. 类可以定义私有成员和公有成员，而类型没有这个概念。
+> 3. 类可以定义构造函数和析构函数，而类型没有这个概念。
+> 4. 类可以继承和重载，而类型没有这个概念。
+>
+> 总结: 类是一种特殊的类型, 它是面向对象编程中的基本概念, 类型是更广义的概念,包括基本类型和自定义类型.
+
+在设计高效的class，我们往往需要面对以下的自问。
+
+<font color='#DB4437'>淆了</font>
+
+- **<font color='#DB4437'>新type的对象应该如何被创建和销毁？</font>**              <font color='#4285F4'>构造析构</font>
+
+  这牵扯到你的class的构造函数和析构函数以及内存分配函数和释放函数（(operator new, operator new[], operator delete, and operator delete[] 【第八章】 ）
+
+- **对象的初始化和对象的赋值该有什么样的差别？**
+
+  这决定你的构造函数和赋值操作符的行为，以及其间的差异。很重要的的是别混淆了初始化和“赋值”，因为它们对应于不同的函数调用【条款4】
+
+- **新type的对象如果被passed by value 意味着什么？**
+
+  copy构造函数用来定义一个type的 pass-by-value该如何实现
+
+- **什么是新type的“合法值”？**
+
+  对class的成员变量而言，通常只有某些数值集是有效的。那些数值集决定了你的class必须维护的约束条件（invariants），也就决定了你的成员函数（特别是构造函数、赋值操作符和所谓的setter函数）必须进行的错误检查工作。它也影响函数抛出的异常、以及（极少被使用的）函数异常明细列（exception specifications）。
+
+- **<font color='#DB4437'>你的新type需要配合某个继承图系（inheritance graph）吗？</font>**             <font color='#4285F4'>继承</font>
+
+  如果你继承自某些既有的classes，那么你就会受到哪些classes设计的束缚，特别是受到它们的函数是virual或non-virtual的印象【条款34】【条款36】。如果你运行其他class，那会影响你所声明的函数--尤其是析构函数--是否为virual【条款7】。
+
+- **你的新type需要什么样的转换？**
+
+  你新写的type 生存在很多types之中，那么彼此之间需要进行转换吗？
+
+  - 如果你想T1可以隐式转换为T2，那么就必须在T1内写一个类型转换函数或者在T2内写一个non-explicit-argument（可被单一实参调用）的构造函数。
+  - 如果你只允许explicit构造函数存在，就得写出专门负责执行转换的函数，且不得为类型转换操作符（type conversion operators）或non-explicit-one-argument构造函数。
+
+- **<font color='#DB4437'>什么样的操作符和函数对此新type而言是合理的？</font>**                           <font color='#4285F4'> 定义函数</font>
+
+  你需要为你的类重载哪些操作符（譬如你的类会放入map，那你得写个`<`的重载）？
+
+  这个回答将会决定你将为你的class声明哪些函数。其中哪些应该是memberr函数，哪些不是？【条款23、24、46】
+
+- **什么样的标准函数应该驳回？**
+
+  哪些就是你需要设定为private的。
+
+  - **<font color='#DB4437'>谁该取用新type的成员？</font>**															<font color='#4285F4'>资源分配</font>
+
+  这个提问可以帮助你决定哪个成员为public，哪些为protected的，哪些是private的。他也帮助你决定哪一个classes和/或functions应该是friends，以及将它们嵌套于另一个之内是否合理。
+
+- **什么是新type的“未声明接口（undeclared interface)”？**
+
+  它对效率、异常安全性【条款29】以及资源运用（例如多任务锁定和动态内存）提供何种保证？你在这些方面提供的保证将为你的class实现代码加上相应的约束条件。
+
+- **你的type 有多么一般化？**
+
+  如果你定义的并非一个type，而是一整个type家族，那么你应该定义一个新的class template而不是简单一个type。
+
+- **你真的需要一个新type吗？**
+
+  如果只是定义新的derived class 以便为既有的class添加机能，那么说不定单纯定义一或多个non-member函数或templates，更能够达到目标。
+
+
+
+#### 总结：
+
+- class的设计就是type的设计，在定义一个新type之前，请确定你已经考虑过本条款覆盖的所有主题。
+
 ### 条款20 宁以pass-by-reference-to-const替换pass-by-value
 
 Prefer pass-by-reference-to-const to pass-by-value
 
+缺省情况下C++以 by value（一个继承自C的方式）传递对象至（或来自）函数。除非指定，否则函数参数都是以实参的复件为初值，而调用端所获得的亦是函数返回值的一个复件。这些复件是由对象的copy构造函数产出，这可能使得传值成为昂贵费事的操作。
+
+参数的传递成本是“一次copy构造函数调用，一次析构函数调用”。但是！如果这个类有若干父类等等，那么每一次调用动作都回调用构造析构，成本很大。
+
+想要回避这些操作，那就可以采用pass by reference to const。
+
+这种传递方式效率高得多：因为没有任何新对象被创造。修订后的这个参数声明中的const是重要的。因为这确保函数不会改变传入的参数的值。
+
+以by reference方式传递参数也可以避免slicing（对象切割）问题。当子类对象以传值方式传递并被视为base class对象时，base class的构造函数会被调用，而它的子类部分都被切割掉了。
+
+```c++
+class Window {
+public:
+    ...
+    std::string name() const; // return name of window
+    virtual void display() const; // draw window and contents
+};
+class WindowWithScrollBars: public Window {
+public:
+...
+	virtual void display() const;
+};
+
+void printNameAndDisplay(Window w) // incorrect! parameter
+{ // may be sliced!
+    std::cout << w.name();
+    w.display();
+}
+//解决切割的方法
+void printNameAndDisplay(const Window& w) // fine, parameter won’t
+{ // be sliced
+std::cout << w.name();
+w.display();
+}
+```
+
+不过如果你想传的对象是内置类型，传值可能比传址更快。而STL容器习惯上也被设定为传值。迭代器和函数对象的实践者有责任看看它们是否高效且不受切割问题影响。这就是【条款1】里所说的，规则改变取决于你使用了哪一部分的C++。
+
+#### 总结:
+
+- 尽量以pass-by-reference-to-const替换pass-by-value。前者通常比较高效，并可避免切割问题。
+- pass-by-value开销并不昂贵的唯一对象就是内置类型和STL的迭代器和函数对象。对他们而言，传值可能比较恰当
+
+
+
 ### 条款21 必须返回对象时，别妄想返回其reference
 
 Don’t try to return a reference when you must return an object
+
+
 
 ### 条款22 将成员变量声明为private
 
