@@ -2294,6 +2294,81 @@ namespace与class不同，前者可以跨越多个文件，而后者不能。cle
 
 Declare non-member functions when type conversions should apply to all parameters
 
+在导读里曾经提过，令class支持隐式类型转换通常是一个糟糕的主意，但是也得视情况而定。比如把整数隐式转换为有理数就很自然。
+
+但是在重载运算符时，我们往往会遇到各种问题。
+
+```c++
+#include<iostream>
+using namespace std;
+using namespace std;
+class Rational {
+public:
+    Rational(int numerator = 0, // see Item 24 for why this
+             int denominator = 1):n(numerator),d(denominator){}; // ctor isn’t declared explicit
+    void print(){
+        cout<< "Rational is "<< this->d <<" "<<this->n<<endl;
+    }
+    const Rational operator*(const Rational& rhs) const;
+
+private:
+    int n, d; // numerator and denominator
+
+};
+
+const Rational Rational::operator*(const Rational &rhs) const {
+    { return Rational(this->d*rhs.d,this->n*rhs.n);}
+}
+
+int main(){
+    Rational oneEighth(1, 8);
+    Rational oneHalf(1, 2);
+    Rational result = oneHalf * oneEighth; // fine
+    result = result * oneEighth; // fine
+
+    result = oneHalf * 2; // fine
+    result.print();
+    result = 2 * oneHalf; // error!
+    result.print();
+}
+
+/*
+C:/Users/Administrator/CLionProjects/1109/main.cpp:30:16: error: no match for 'operator*' (operand types are 'int' and 'Rational')
+   30 |     result = 2 * oneHalf; // error!
+      |              ~ ^ ~~~~~~~
+      |              |   |
+      |              int Rational
+ninja: build stopped: subcommand failed.
+*/
+```
+
+错误的原因是因为
+
+```c++
+result = oneHalf * 2; // fine
+result = 2 * oneHalf; // error!
+//理解成下面的
+result = oneHalf.operator*(2); //2可以被隐式转换为Rational
+result = 2.operator*(oneHalf);//2本身没有重载运算符
+```
+
+这种情况下，编译器会尝试寻找可以被这样调用的非成员函数，但是这里没有提供。
+
+我们自己加一个即可。
+
+```c++
+const Rational operator*(const Rational& lhs, const Rational& rhs) // 
+{
+	return Rational(lhs.numerator() * rhs.numerator(),lhs.denominator() * rhs.denominator());
+}
+```
+
+
+
+#### 总结：
+
+- 如果你需要为某个函数的所有参数（包括被this指针所指的那个隐喻参数）进行类型转换，那么这个函数必须是个non-member。
+
 ### 条款25 考虑写出一个不抛异常的swap函数
 
 Consider support for a non-throwing swap
