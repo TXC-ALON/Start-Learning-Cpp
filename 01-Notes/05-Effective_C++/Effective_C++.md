@@ -2116,7 +2116,7 @@ w.display();
 
 #### 总结:
 
-- 尽量以pass-by-reference-to-const替换pass-by-value。前者通常比较高效，并可避免切割问题。
+- 尽量以pass-by-reference-to-const替换pass-by-value。前者通常比较高效（避免了反复的拷贝构造&析构），并可避免切割问题。
 - pass-by-value开销并不昂贵的唯一对象就是内置类型和STL的迭代器和函数对象。对他们而言，传值可能比较恰当
 
 
@@ -2125,15 +2125,170 @@ w.display();
 
 Don’t try to return a reference when you must return an object
 
+看完【条款20】，很多人会坚定追求pass-by-reference的纯度。但是有时传递一些references指向实际并不存在的对象，未必是件好事。
 
+```c++
+#include<iostream>
+using namespace std;
+using namespace std;
+class Rational {
+public:
+    Rational(int numerator = 0, // see Item 24 for why this
+             int denominator = 1):n(numerator),d(denominator){}; // ctor isn’t declared explicit
+    void print(){
+        cout<< "Rational is "<< this->d <<" "<<this->n<<endl;
+    }
+
+private:
+    int n, d; // numerator and denominator
+    friend
+    const Rational operator*(const Rational& lhs, // 如果这里是const Rational& operator*，c.print就不会输出。
+              const Rational& rhs)
+              {
+                Rational result(lhs.d*rhs.d,lhs.n*rhs.n);
+                return result;
+                };
+};
+
+int main(){
+    Rational a(1,2);
+    a.print();
+    Rational b = Rational(3,5);
+    b.print();
+    Rational c = a*b;
+    c.print();
+}
+
+/*
+编译器会告警但不会报错。
+C:/Users/Administrator/CLionProjects/1109/main.cpp: In function 'const Rational& operator*(const Rational&, const Rational&)':
+C:/Users/Administrator/CLionProjects/1109/main.cpp:19:24: warning: reference to local variable 'result' returned [-Wreturn-local-addr]
+   19 |                 return result;
+      |                        ^~~~~~
+C:/Users/Administrator/CLionProjects/1109/main.cpp:18:26: note: declared here
+   18 |                 Rational result(lhs.d*rhs.d,lhs.n*rhs.n);
+      |                          ^~~~~~
+[2/2] Linking CXX executable 1109.exe
+
+*/
+```
+
+上段代码是通过传值来进行的，如果你采用传reference，那么就不需要付出任何代价。但是，任何时候看到一个reference声明式，你都一个立刻问自己，它的另一个名称是什么？上述operator* ，如果它返回一个reference，那么后者一定指向某个既有的Rational对象，内含两个Rational对象的乘积。
+
+我们当然不可能期望这样的内含乘积的Rational对象在调用`operator*`之前就存在。所以如果`operator*`要返回一个reference并指向此数值，那么就必须自己创建那个Rational对象。
+
+函数创建新对象的方法有二：
+
+- stack
+
+  ```c++
+  const Rational& operator*(const Rational& lhs, const Rational& rhs)
+         {
+          Rational result(lhs.d*rhs.d,lhs.n*rhs.n);
+          return result;
+         };
+  ```
+
+  这是一个糟糕的代码，因为local对象在函数退出前就被销毁。这个版本的`operator*`指向一个已经死去的Rational，任何对此函数做的调用，都会坠入无定义行为的深渊。
+
+- heap
+
+  ```c++
+  const Rational& operator*(const Rational& lhs, // warning! more bad
+  const Rational& rhs) // code!
+  {
+  	Rational *result = new Rational(lhs.n * rhs.n, lhs.d * rhs.d);
+  	return *result;
+  }
+  ```
+
+  new是new了，但是什么时候delete呢？所以这种方法也很糟糕。而且在使用`x*y*z`这样的表达式时，没有办法合理的delete。
+
+上述两种方法都行不通的情况下，可能会想到使用static来避免构造函数的开销。但是这也是会引起譬如多线程安全性的问题。以及譬如`if (operator==(operator*(a, b), operator*(c, d)))`这样的操作，也会引起歧义。
+
+
+
+#### 总结：
+
+- 绝不要返回指向一个local stack对象的指针或引用，或返回指向一个heap-allocated对象的引用，或返回指向一个可能被多个需求需要的local static对象的指针或引用。(Never return a pointer or reference to a local stack object, a reference to a heap-allocated object, or a pointer or reference to a local static object if there is a chance that more than one such object will be needed. (Item 4 provides an example of a design where returning a reference to a local static is reasonable, at least in single-threaded environments.)
 
 ### 条款22 将成员变量声明为private
 
 Declare data members private
 
+将成员变量隐藏在函数接口的背后，可以为“所有可能的实现”提供弹性。例如这可以使得成员变量被读或被写时轻松通知其他对象、可以验证class的约束条件以及函数的前提和事后状态、可以在多线程环境中执行同步控制……等等。
+
+封装的重要性比你最初见到它时还要重要。如果你隐藏了成员变量，那么可以确保class的约束条件总是会获得维护，因为只有成员函数可以影响它们。
+
+Public意味着不封装，不封装的另一层意思就是（为了安全性）几乎就意味着不可改变。特别是用的特别广泛的class。假设我们有一个public的成员变量，而我们最终取消了它，可能会有不可估量的代码会被破坏。而protected和public一样缺乏封装性。所以在实际操作中，请记住只有两种访问权限：private和其他。
+
+
+
+#### 总结：
+
+- 切记将成员变量声明为private。这可赋予客户访问数据的一致性、可细微划分访问控制、允诺约束条件获得保证，并提供class作者以充分的实现弹性。
+- Protected并不比public更具有封装性。
+
+
+
 ### 条款23 宁以non-member、non-friend替换member函数
 
 Prefer non-member non-friend functions to member functions
+
+```c++
+class WebBrowser {
+public:
+...
+    void clearCache();
+    void clearHistory();
+    void removeCookies();
+    ...
+    void clearEverything();//调用上面三个函数。
+};
+
+void clearBrowser(WebBrowser& wb)
+{
+	wb.clearCache();
+	wb.clearHistory();
+	wb.removeCookies();
+}
+
+```
+
+
+
+面向对象守则要求，数据以及操作数据的那些函数应该被捆绑在一起。但实际上这是一种对面向对象真实意义的一种误解。面向对象守则要求尽可能的被封装。而与直觉相悖的是，成员函数cleareverything 带来的封装性比非成员函数clearBrowser低。因为它并不增加“能够访问class内private成分”的函数数量。此外，提供非成员函数可允许对WebBrowser相关机能有较大的包裹弹性(packaging flexibility)，而那将导致较低的编译相依度，增加了WebBrowser的可延伸性。
+
+这里有两点需要注意：
+
+* 这个论述这适用于non-member 和non-friend函数。所以从封装的角度来看，选择关键是在member和non-membernon-friend函数之间。
+* 只因在意封装性而让函数成为class的non-member，不意味着它不可以是另一个class的member。比如我们可以让clearBrowser成为某工具类（utility class）的一个static member函数。
+
+在C++中，比较自然的做法是将clearBrowser成为一个非成员函数，并和WebBrowser处于同一个命名空间内。
+
+```c++
+namespace WebBrowserStuff {
+class WebBrowser { ... };
+void clearBrowser(WebBrowser& wb);
+...
+}
+```
+
+namespace与class不同，前者可以跨越多个文件，而后者不能。clearBrowser实际上是一个便利函数，将所有便利函数放在多个头文件，但隶属于同一个命名空间，意味着客户可以轻松拓展这一组便利函数。
+
+
+
+#### 总结：
+
+- 宁可拿non-member non-friend函数替换member函数，这一做可以增加封装性、包裹弹性和机能扩充性。
+
+但是这不绝对。
+
+> C++中，封装性和自包含是两个相互关联的概念。封装性是指对于类的实现细节进行隐藏，使得类的用户不需要了解这些细节就可以使用类。而自包含是指将数据和操纵数据的函数放在一起，使得类更加简洁，并且更容易维护。
+>
+> 封装性和自包含在很大程度上是相互依存的，因为自包含可以帮助类更好地封装实现细节，而封装性又可以帮助类更好地达到自包含。
+>
+> 在实际开发中，应该根据具体情况来决定哪个更重要。在一些情况下，类的封装性可能更重要，因为它可以帮助类更好地隐藏实现细节，使得类更加稳定和可靠。在另一些情况下，类的自包含性可能更重要，因为它可以帮助类更好地管理数据，使得类更加简洁和易于维护。
 
 ### 条款24 若所有参数皆需类型转换、请为此采用non-member函数
 
