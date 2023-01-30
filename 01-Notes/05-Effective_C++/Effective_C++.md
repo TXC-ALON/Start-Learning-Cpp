@@ -954,13 +954,13 @@ e2 = e1; // copy assignment operator
 
 #### 总结：
 
-- 编译可以暗自为class 创建default构造函数，copy构造函数，copy assignment 操作符，以及析构函数。
+- 编译器可以暗自为class 创建default构造函数，copy构造函数，copy assignment 操作符，以及析构函数。
 
 ### 条款06 若不想使用编译器自动生成的函数，就该明确拒绝
 
 Explicitly disallow the use of compiler-generated
 
-通过明确声明一个生源函数，你阻止了编译器暗自创建其专属版本，而令这些函数为private，使得阻止别人调用这些函数。
+通过明确声明一个成员函数，你阻止了编译器暗自创建其专属版本，而令这些函数为private，使得阻止别人调用这些函数。
 
 一般来说，这样做并不是完全安全。因为成员函数和友元函数还是可以调用你的private 函数。除非你不去定义它们。
 
@@ -2651,9 +2651,330 @@ Once you’ve got those right, the corresponding implementations are largely str
 
 Postpone variable definitions as long as possible
 
-### 条款27 尽量少做转型动作
+在你定义了变量而其类型带有构造函数和析构函数，那么你就会承担构造和析构的成本。因此应该尽可能避免这一点。尤其是牵扯到异常导致程序中断时。
+
+```c++
+// this function defines the variable "encrypted" too soon
+std::string encryptPassword(const std::string& password)
+{
+    using namespace std;
+    string encrypted;
+    if (password.length() < MinimumPasswordLength) {
+     throw logic_error("Password is too short");
+    }
+    ... // do whatever is necessary to place an
+    // encrypted version of password in encrypted
+    return encrypted;
+}
+//上面的代码中， 万一出现异常，encrypted这个变量就没有用到。
+// this function postpones encrypted’s definition until it’s truly necessary
+std::string encryptPassword(const std::string& password)
+{
+    using namespace std;
+    if (password.length() < MinimumPasswordLength) {
+    throw logic_error("Password is too short");
+    }
+    string encrypted;
+    ... // do whatever is necessary to place an
+    // encrypted version of password in encrypted
+    return encrypted;
+}
+```
+
+但是上面第二段代码也并非尽善尽美，因为encrypted虽获得定义但是没有赋初值。这就意味着其调用的是default构造函数。【条款4】说过，通过default构造函数构造出一个对象然后对它赋值比直接在构造时指定初值效率差。改正后的代码如下：
+
+```c++
+std::string encryptPassword(const std::string& password)
+{
+	using namespace std;
+    if (password.length() < MinimumPasswordLength) {
+    throw logic_error("Password is too short");
+    } 
+    string encrypted(password); // define and initialize via copy
+    // constructor
+    encrypt(encrypted);
+    return encrypted;
+}
+```
+
+
+
+在循环里，声明变量也有考究。
+
+```c++
+// Approach A: define outside loop 				// Approach B: define inside loop
+Widget w;
+for (int i = 0; i < n; ++i) 					{ for (int i = 0; i < n; ++i) { 
+w = some value dependent on i; 					Widget w(some value dependent on i);
+... 											...
+} 												}
+```
+
+- 方法A：一个构造函数，一个析构函数，n个赋值函数
+- 方法B：n个构造函数，n个析构函数
+
+如果class的赋值成本低于一组构造+析构成本，做法A比较高效，尤其是n比较大的时候。
+
+否则B更好，此外考虑B的另一个理由是，做法A可能会使得w的作用域（覆盖整个循环）比做法B更大，有时候会对程序的可理解性和易维护性造成冲突。
+
+作者推荐，除非你知道赋值成本比构造+析构更低或者你特别需要效率，不然建议使用做法B。、
+
+***但是我习惯A诶。。。因为这种很多时候就是一个参数跑一边循环，然后看看被折腾成什么样，B的话我还是得在循环过程中吐出来一个参数。。。还是看实际操作情况吧，只要赋值不是很大，一般来说影响不大，，，吧？***
+
+#### 总结：
+
+- 尽可能延后变量定义式的出现，这样做可以增加程序的清晰度并改善程序效率。
+
+### **条款27 尽量少做转型动**作
 
 Minimize casting
+
+C++规则的设计目标之一是，保证“类型错误”绝不可能发生。理论上，如果你的程序很“干净地”通过编译，那就表示它并不企图在任何对象身上执行任何不安全、无意义、愚蠢的操作。这是一个很有价值的保证，不要草率地放弃。
+
+但是转型这一操作破坏了类型系统。不同于别的语言，C++中的映射带来风险的可能性更大，需要审慎地对待。
+
+转型语法通常有三种形式：
+
+- 旧式转型
+  - C风格的转型动作
+    - (T)expression
+  - 函数风格的转型动作
+    - T(expression)
+- 新式转型（C++ style）
+  - const_cast<T>(expression)
+  - dynamic_cast<T>(expression)
+  - reinterpret_cast<T>(expression)
+  - static_cast<T>(expression)
+
+
+
+- const_cast<T>(expression) 通常被用来将对象的常量性转除，他也是唯一有此能力的C++-style的转型操作符
+- dynamic_cast<T>(expression) 主要用来执行安全向下转型，也就是用来决定某个对象是否归属继承体系中的某个类型。它是唯一无法由旧式语法执行的动作，也是唯一可能耗费重大运行成本的转型动作。
+- reinterpret_cast<T>(expression) 意图执行低级转型，实际动作可能取决于编译器，这就意味着它不可移植。【条款50】
+- static_cast<T>(expression) 用来强迫隐式转换（implicit conversions）。可以把non-const转化为const（但是反过来不行），可以将point-to-base转化为point-to-derived。
+
+> 四种新式转换，最明显的区别是安全性和目的：
+>
+> - `const_cast` 和 `reinterpret_cast` 很不安全，它们没有任何类型检查，所以易出错。
+> - `dynamic_cast` 和 `static_cast` 更安全，它们进行了类型检查，可以保证转换后的类型是正确的。
+> - `dynamic_cast` 用于多态类型转换，它检查类型转换是否可行。
+> - `static_cast` 用于简单的类型转换，它不进行任何类型检查，但它可以在编译时发现错误。
+
+> ### reinterpret_cast
+>
+> `reinterpret_cast` 是一种不安全的强制类型转换，它用于重新解释类型的二进制表示。
+>
+> 它实现以下功能：
+>
+> - 将指针或引用转换为不同类型的指针或引用。
+> - 将整数转换为指针或者反之。
+> - 将类的对象的地址转换为其他类型的指针。
+>
+> 它不安全是因为它不进行任何类型检查，所以很容易出错。它是有可能造成数据损坏，程序崩溃或其他不可预期的后果。
+>
+> 尽管不安全，但有些情况下仍然会使用 `reinterpret_cast`，例如：
+>
+> - 在编写驱动程序和其他低级代码时，有时需要重新解释类型。
+> - 在编写平台特定的代码时，有时需要强制转换类型以访问硬件或其他底层资源。
+>
+> 但总的来说，在大多数情况下，应该避免使用 `reinterpret_cast`。如果需要进行类型转换，应该使用 `static_cast` 或 `dynamic_cast`。
+
+> ### `dynamic_cast` 和 `static_cast` 
+>
+> `dynamic_cast` 和 `static_cast` 都是用于类型转换，但它们有以下不同点：
+>
+> 1. 检查：`dynamic_cast` 会在运行时进行类型检查，如果转换不可行，则会返回 `nullptr`，而 `static_cast` 不会进行类型检查，它相当于强制类型转换。
+> 2. 继承关系：`dynamic_cast` 只能用于向下转换，也就是说，它只能在继承关系中用于从基类转换为派生类，而 `static_cast` 可以用于向上和向下转换。
+> 3. 速度：因为 `dynamic_cast` 需要进行类型检查，所以速度略慢于 `static_cast`。
+>
+> 代码示例：
+>
+> ```c++
+> #include <iostream>
+> 
+> class Base {};
+> 
+> class Derived : public Base {};
+> 
+> int main() {
+>     Base *b = new Base;
+>     Derived *d = static_cast<Derived *>(b);  // 未安全的强制类型转换
+>     d = dynamic_cast<Derived *>(b);  // 返回 nullptr
+>     if (d) {
+>         std::cout << "转换成功" << std::endl;
+>     } else {
+>         std::cout << "转换失败" << std::endl;
+>     }
+>     return 0;
+> }
+> 
+> /*
+> cannot 'dynamic_cast' 'b' (of type 'class Base*') to type 'class Derived*' (source type is not polymorphic)
+> 使用 dynamic_cast 进行类型转换时，源类型必须是多态类型，即它必须至少有一个虚函数。在这种情况下，必须先在 Base 类中定义虚函数，然后才能使用 dynamic_cast 进行类型转换。
+> */
+> #include <iostream>
+> 
+> class Base {
+> public:
+>     virtual void func() {}
+> };
+> 
+> class Derived : public Base {};
+> 
+> int main() {
+> 
+>     Base *b = new Base;
+>     //Derived *d = static_cast<Derived *>(b);  // 未安全的强制类型转换
+>     d = dynamic_cast<Derived *>(b);  // 返回 nullptr
+>     if (d) {
+>         std::cout << "Cast from b to d is successful\n";
+>     } else {
+>         std::cout << "Cast from b to d is not successful\n";
+>     }
+>     return 0;
+> }
+> 
+> ```
+>
+> 总的来说，如果需要进行继承关系中的类型转换，应该使用 `dynamic_cast`，因为它安全且灵活，如果确定类型转换是安全的，则可以使用 `static_cast`。
+
+许多程序员认为，转型实际上什么都没有做，只是告诉编译器把某种类型视为另一种类型，这是一种错误的观念。哪怕是最简单的`int x, y;double d = static_cast<double>(x)/y;`将int x转型为double也肯定会产生一些代码。因为在大部分计算机体系结构中，int的底层表述不同于double的底层表述。
+
+```c++
+#include <iostream>
+
+class Base {
+public:
+    int m = 1;
+};
+
+class Derived : public Base {
+public:
+    int a  = 1;
+    double b = 2.0;
+};
+using namespace std;
+int main() {
+
+    Derived d;
+    Derived *pd = &d;
+    Base *pb = &d; // implicitly convert Derived* ⇒ Base*
+    cout<<pd<<endl;
+    cout<<pb<<endl;
+    cout<<sizeof(*pd)<<endl;
+    cout<<sizeof(*pb)<<endl;
+    return 0;
+}
+/*
+0xf8337ff880
+0xf8337ff880
+16
+4
+*/
+```
+
+书里说单一对象可能用于一个以上的地址，例如以`Base*`指向它时的地址以及以`Derived*`指向它的地址。***（但是我自己跑没出现诶）***
+
+> C、Java和C#不支持这种情况是因为它们使用了隐式指针类型转换，并且不支持从派生类指针到基类指针的显式转换。因此，一个对象只有一个地址，无论它是什么类型。与C++不同，C++允许显式指针类型转换，因此一个对象可能有多个地址，具体取决于它的类型和如何被访问。但是不同编译器可能实现的方法不同。
+
+todo 这里回头研究一下吧，应该牵扯到编译器了。
+
+
+
+另一件有关转型的事情是，我们很容易写出似是而非的代码。
+
+譬如想在子类的虚函数代码中调用基类的对于函数。下面的代码看起来对，实际上错。
+
+```c++
+#include<iostream>
+using namespace std;
+class Window { // base class
+public:
+    int m = 2;
+    virtual void onResize() {m = 9;cout<<"Window"<<endl;} // base onResize impl
+};
+
+class SpecialWindow : public Window { // derived class
+public:
+    int n = 0;
+    virtual void onResize() { // derived onResize impl;
+        cout<<"Special Window"<<endl;
+        n = 4;
+        static_cast<Window>(*this).onResize(); // cast *this to Window,
+    } // specific stuff
+};
+int main(){
+    SpecialWindow A;
+    cout<<A.m<<endl;
+    cout<<A.n<<endl;
+    A.onResize();
+    cout<<A.m<<endl;
+    cout<<A.n<<endl;
+}
+
+/*
+2
+0
+Special Window
+Window
+2
+4
+可以看出基类的部分没有改变
+*/
+```
+
+这段代码确实将`*this`转型为Window，也调用的是Window::onResize。但是它调用的不是当前对象上的函数，而是稍早转型动作所建立的`*this`对象上base class成分的暂时副本上的onResize。函数就是函数，成员函数只有一份，但是问题是成员函数都有一个隐藏的this指针，会因此影响函数操作的数据。
+
+> 当调用`static_cast<Window>(*this).onResize()`时，它会创建当前对象的基类部分的一个新的临时副本，然后在该副本上调用`onResize`函数。 这是因为静态转换会创建一个新的临时副本，并从当前对象中选择基类部分，并以这个副本为接收者调用该函数。 这意味着在该副本上执行的任何更改都不会影响到当前对象。
+
+解决方法是拿掉转型动作，说老实话。你只是想调用base class版本的函数，那就好好写。
+
+```c++
+#include<iostream>
+using namespace std;
+class Window { // base class
+public:
+    int m = 2;
+    virtual void onResize() {m = 9;cout<<"Window"<<endl;} // base onResize impl
+};
+
+class SpecialWindow : public Window { // derived class
+public:
+    int n = 0;
+    virtual void onResize() { // derived onResize impl;
+        cout<<"Special Window"<<endl;
+        n = 4;
+        Window::onResize(); // cast *this to Window,
+    } // specific stuff
+};
+int main(){
+    SpecialWindow A;
+    cout<<A.m<<endl;
+    cout<<A.n<<endl;
+    A.onResize();
+    cout<<A.m<<endl;
+    cout<<A.n<<endl;
+}
+```
+
+
+
+至于dynamic_cast，它的许多实现版本非常慢。之所以需要它，通常是因为你想在一个你认定为derived class对象身上执行derived class函数，但是你手上只有一个”指向base“的指针或引用。
+
+一般来说有两种方法避免这个问题：
+
+1. 使用容器并在其中存储直接指向derived class对象的指针，从而消除通过base class接口处理对象的需要。
+2. 在base class内提供虚函数以便各个派生类重载。
+
+
+
+优秀的C++的代码很少使用转型，我们应该尽量避免并隔离他们，通常是把它们隐藏在某个函数内。
+
+#### 总结：
+
+- 如果可以，尽量避免转型，特别是在注重效率的代码中避免dynamic_cast。如果有个设计需要转型，试着发展无需转型的替代设计。
+- 如果转型是必要的，试着将它隐藏在某个函数背后，客户可以调用这个函数而无需将转型放进他们自己的代码中。
+- 尽量使用C++新式转型。
 
 ### 条款28 避免返回handles指向对象内部成分
 
