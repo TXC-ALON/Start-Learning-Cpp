@@ -1451,13 +1451,13 @@ Widget& Widget::operator=(const Widget& rhs)
 class Widget {
     ...
     void swap(Widget& rhs); // exchange *this’s and rhs’s data; ... // see Item 29 for details
-    };
-    Widget& Widget::operator=(const Widget& rhs)
+};
+Widget& Widget::operator=(const Widget& rhs)
     {
     Widget temp(rhs); // make a copy of rhs’s data
     swap(temp); // swap *this’s data with the copy’s
     return *this;
-}
+	}
 ```
 
 这个一变形采用了以下事实：
@@ -2373,9 +2373,279 @@ const Rational operator*(const Rational& lhs, const Rational& rhs) //
 
 Consider support for a non-throwing swap
 
+swap是一个有趣的函数。原本只是STL的一部分，而后成为异常安全性编程【条款29】的脊柱，以及用来处理自我赋值可能性【条款11】的一个常见机制。
+
+所谓swap，就是将两对象的值彼此赋予给对方。
+
+标准库的swap典型实现如下：
+
+```c++
+namespace std {
+template<typename T> // typical implementation of std::swap;
+    void swap(T& a, T& b) // swaps a’s and b’s values
+    {
+        T temp(a);
+        a = b;
+        b = temp;
+    }
+}
+/*
+swap(_Tp& __a, _Tp& __b)
+    _GLIBCXX_NOEXCEPT_IF(__and_<is_nothrow_move_constructible<_Tp>,
+				is_nothrow_move_assignable<_Tp>>::value)
+    {
+#if __cplusplus < 201103L
+      // concept requirements
+      __glibcxx_function_requires(_SGIAssignableConcept<_Tp>)
+#endif
+      _Tp __tmp = _GLIBCXX_MOVE(__a);
+      __a = _GLIBCXX_MOVE(__b);
+      __b = _GLIBCXX_MOVE(__tmp);
+    }
+*/
+```
+
+只要类型T支撑copying函数，缺省的swap实现代码就会帮你置换类型为T的对象。你不需要为此另外再做任何工作。
+
+这一种swap设计三个对象的复制，但是对于某些类型（最主要的就是以指针指向一个对象，内含真正数据）。
+
+这种类型的设计手法常常是pimpl手法（pointer to implementation）【条款31】。
+
+```c++
+#include<iostream>
+#include <vector>
+static int num = 0;
+using namespace std;
+class WidgetImpl { // class for Widget data;
+public: // details are unimportant
+    WidgetImpl(){ num++;cout<<"WidgetImpl construct times is "<<num<<endl;}
+    WidgetImpl(const WidgetImpl& rhs){ num++;cout<<"WidgetImpl copy times is "<<num<<endl;}
+private:
+    int a, b, c; // possibly lots of data —
+    std::vector<double> v; // expensive to copy!
+
+};
+class Widget {
+public:
+    Widget() : pImpl(new WidgetImpl) {num++;cout<<"construct times is "<<num<<endl;}; //default constructor
+    Widget(const Widget& rhs) : pImpl(new WidgetImpl(*rhs.pImpl)) {num++;cout<<"copy times is "<<num<<endl;}; //copy constructor
+    Widget& operator=(const Widget& rhs) {
+        if (this != &rhs) {
+            *pImpl = *(rhs.pImpl);
+            num++;cout<<"=== times is "<<num<<endl;//copy constructor
+        }
+        return *this;
+    } //overloaded assignment operator
+    ~Widget(){
+        delete pImpl; //释放pImpl指向的堆上内存
+        num++;cout<<"delete times is "<<num<<endl;
+    }
+private:
+    WidgetImpl *pImpl;
+};
+
+
+
+int main(){
+    Widget A;
+    Widget B;
+    std::swap(A,B);
+    cout<<"hello world"<<endl;
+    A = B;
+    cout<<"hello world 2"<<endl;
+    return 0;
+}
+
+
+
+/*
+WidgetImpl construct times is 1
+construct times is 2
+WidgetImpl construct times is 3
+construct times is 4
+
+
+WidgetImpl copy times is 5
+copy times is 6
+=== times is 7
+=== times is 8
+delete times is 9
+
+
+hello world
+=== times is 10
+hello world 2
+delete times is 11
+delete times is 12
+
+进程已结束,退出代码0
+
+*/
+```
+
+这种实现下，置换两个widget值，实际上只需要置换其pimpl指针即可。但缺省的swap操作不知道这一点，它不只复制三个widgets，还复制三个WidgetImpl对象，非常缺乏效率。
+
+为此我们需要告诉std::swap针对Widget进行特化。
+
+```c++
+namespace std {
+    template<> // this is a specialized version
+    void swap<Widget>(Widget& a, // of std::swap for when T is
+    Widget& b) // Widget
+    {
+    	swap(a.pImpl, b.pImpl); // to swap Widgets, swap their
+    } // pImpl pointers; this won’t compile
+}
+```
+
+一开始我们可能会想到上面的版本，但是因为pImpl是private的，所以我们访问不到。一般来说我们可以将这个特化版本声明为friend，但和以往的规矩不太一样：我们令Widget声明一个名为swap的public成员函数来做真正的置换工作，然后将std::swap特化，令他调用成员函数。
+
+```c++
+class Widget { // same as above, except for the
+public: // addition of the swap mem func
+...
+void swap(Widget& other)
+{
+	using std::swap; // the need for this declaration is explained later in this Item
+	swap(pImpl, other.pImpl); // to swap Widgets, swap their pImpl pointers
+} 
+...
+};
+namespace std {
+	template<> // revised specialization of
+	void swap<Widget>(Widget& a, // std::swap
+	Widget& b)
+	{
+		a.swap(b); // to swap Widgets, call their
+	} // swap member function
+}
+/*
+这段代码定义了一个名为 "Widget" 的类，并为这个类的对象定义了 std::swap 模板函数的特化版本。类中有一个名为 "swap" 的成员函数，它会交换类的 "pImpl" 指针的值与另一个 Widget 对象的值。
+
+Widget 类的 std::swap 特化版本在 std 命名空间中定义，它调用类的 swap 成员函数。这意味着当标准的 swap 函数在两个 Widget 对象之间调用时，它会使用 swap 成员函数来执行交换操作。
+
+这段代码的一个主要特点是在成员函数 swap 中使用 "using std::swap" 语句。这是为了确保在交换 pImpl 指针时使用标准 swap 函数而不是成员函数 swap。这样做是为了防止无限递归并确保交换正确执行。
+*/
+```
+
+这种做法不仅能够通过编译，还与STL容器有一致性。因为所有STL容器也都提供有public swap成员函数和std::swap特化版本（用以调用前者）
+
+> 这是 std::vector<T> 中的 swap 成员函数的实现：
+>
+> ```c++
+> codetemplate<class T, class Alloc>
+> inline void vector<T, Alloc>::swap(vector<T, Alloc>& x)
+> {
+>     std::swap(this->impl_, x.impl_);
+> }
+> ```
+>
+> 这是 std::swap 的 vector 特化版本的实现：
+>
+> ```c++
+> codetemplate<class T, class Alloc>
+> inline void swap(vector<T, Alloc>& x, vector<T, Alloc>& y)
+> {
+>     x.swap(y);
+> }
+> ```
+>
+> 可以看到, vector中的swap成员函数调用了 std::swap,而std::swap特化版本又调用了vector中的swap成员函数。 它们两个配合使用，可以使得 vector 与其它容器具有一致性，且保证了vector中数据交换的高效性。
+
+然而假设Widget和WidgetImpl都是模板而非类的话，或许我们可以试试将WidgetImpl内的数据类型加以参数化（模板）：但是结果是过不了编译
+
+```c++
+template<typename T>
+class WidgetImpl { ... };
+template<typename T>
+class Widget { ... };
+
+
+//下面的代码是不合法的。
+namespace std {
+    template<typename T>
+    void swap<Widget<T> >(Widget<T>& a, // error! illegal code!
+    Widget<T>& b)
+    { a.swap(b); }
+}
+```
+
+上面的代码之所以有误，是因为我们企图偏特化一个函数模板。但是C++只允许我们对类进行偏特化，所以上面的代码通不过编译。
+
+当你打算偏特化一个函数模板时，惯常做法是简单地为它添加一个重载版本。
+
+```c++
+namespace std {
+    template<typename T> // an overloading of std::swap 
+    void swap(Widget<T>& a, // (note the lack of “<...>” after
+    Widget<T>& b) // “swap”), but see below for
+    { a.swap(b); } // why this isn’t valid code
+}
+```
+
+一般而言，重载函数模板没有问题，但是std是个特殊的命名空间，用户可以全特化std里的templates，但是不可以添加新的template过去。
+
+为解决这种问题，我们还是声明一个非成员函数让它调用成员函数，但不再将那个non-member swap 声明为std::swap的特化版本或重载版本。假设Widget的所有相关机能都被置于命名空间WidgetStuff内，整个结果看起来就像这样：
+
+```c++
+namespace WidgetStuff {
+... // templatized WidgetImpl, etc.
+    template<typename T> // as before, including the swap
+    class Widget { ... }; // member function
+    ...
+    template<typename T> // non-member swap function;
+    void swap(Widget<T>& a, // not part of the std namespace
+    Widget<T>& b)
+    {
+    	a.swap(b);
+    }
+}
+```
+
+现在， 任何地点的任何代码如果打算置换两个Widget对象，因而调用swap，C++的名称查找法则（name lookup rules；更具体地说是所谓argument-dependent lookup 法则（实参取决之查找规则））会找到WidgetStuff内的Widget专属版本。
+
+> C++ 的名称查找法则是指编译器查找符号（例如变量、函数、类、模板等）的过程。这些规则决定了编译器如何确定符号的含义，以便在编译时进行类型检查和代码生成。
+>
+> 在 C++ 中，argument-dependent lookup (ADL) 法则是指，当调用一个函数时，如果该函数的所有参数类型都在某个命名空间内定义，则编译器会在该命名空间内查找该函数。如果该命名空间内没有找到该函数，则会继续在全局空间中查找该函数。
+>
+> 因此，在上面的代码中，如果任何代码调用 "swap(a, b)"，其中 "a" 和 "b" 的类型都是 "Widget<T>"，那么编译器会首先在 "WidgetStuff" 命名空间中查找 "swap" 函数，因为 "Widget<T>" 和 "swap" 函数都在该命名空间内定义。如果在该命名空间内找到了 "swap" 函数，则编译器会使用该函数。因此，编译器会使用 "WidgetStuff" 命名空间内的 "swap" 函数版本。
+
+现在我们已经对default swap、member swaps、non-member swaps、std::swap特化版本、以及对swap的调用，现在来做个总结：
+
+- 首先、如果swap的默认版本对你的class或class template提供可接受的效率，那么你不需要做什么。
+- 其次，如果swap默认版本的效率不足（一般来说都是因为类或模板使用了pimpl手法），试着做以下事情：
+  - 提供一个public swap成员函数，让它高效地置换你的类型的两个对象值。这个函数绝不应该抛出异常。
+  - 在你的class或template所在的命名空间内提供一个non-member swap，并令它调用上述swap函数。
+  - 如果你正编写一个class而非类模板，为你的类特化std::swap，并令它调用你的swap成员函数
+- 最后，如果你调用swap，请确定包含一个using 声明式，以便让std::swap在你的函数内曝光可见，然后不加任何namespace修斯副，赤裸裸地调用swap。
+
+
+
+注：成员版的swap决不可抛出异常，因为swap的一个最好应用是帮助class和class template提供强烈的异常安全性保障。【条款29】详细描述了细节。但这有一个前提，即成员版swap不抛出异常。这个约束只要求成员版，因为默认swap是以copying函数为基础的，而两者（copy构造函数，copy assignment）都允许抛出异常。
+
+
+
+#### 总结：
+
+- 当std::swap 对你的类型效率不高时，提供一个swap成员函数，并确定这个函数不抛出异常。
+- 如果你提供一个member swap，也该提供一个non-member swap 用来调用前者。对于class（而非templates），也请特化std::swap。
+- 调用swap时应针对std::swap使用using 声明式，然后调用swap并且不带任何命名空间资格修饰。
+- 为用户定义类型进行std templates全特化是好的，但是不要尝试在std内乱加东西。
+
 ## 第五章 实现
 
 **[Implementations]**
+
+For the most part, coming up with appropriate definitions for your classes (and class templates) and appropriate declarations for your functions (and function templates) is the lion’s share of the battle. 大多数情况下，适当地提出你的class(template)和function(template)声明是花费心力最多的两件事。
+
+Once you’ve got those right, the corresponding implementations are largely straightforward. Still, there are things to watch out for. 一旦正确完成这些，相应的实现大多直接了当，但是还有些需要小心。
+
+- Defining variables too soon can cause a drag on performance.  太快定义变量可能导致效率上的拖延。
+- Overuse of casts can lead to code that’s slow, hard to maintain, and infected with subtle bugs. 过度使用转型可能导致代码变慢且难以维护。
+- Returning handles to an object’s internals can defeat encapsulation and leave clients with dangling handles.返回对象内部的把柄可能会破坏封装并可能引起虚吊。
+-  Failure to consider the impact of exceptions can lead to leaked resources and corrupted data structures. 未考虑异常带来的冲击可能导致资源泄漏和崩坏的数据结构。
+- Overzealous inlining can cause code bloat. 过分的inline可能会引起代码膨胀。
+- Excessive coupling can result in unacceptably long build times. 过渡耦合则可能导致让人不可接受的建构时间。
 
 ### 条款26 尽可能延后变量定义式的出现时间
 
