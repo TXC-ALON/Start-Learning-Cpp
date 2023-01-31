@@ -10981,7 +10981,7 @@ int main()
 
 ##### 移动赋值运算符
 
-别玩了检查自赋值
+别忘了检查自赋值
 
 ```c++
 StrVec &StrVec::operator=(StrVec &&rhs) noexcept

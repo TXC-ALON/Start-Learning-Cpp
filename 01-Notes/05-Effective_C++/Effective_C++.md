@@ -332,13 +332,13 @@ int main(){
 
 成员函数为const意味着什么？
 
-- bitwise constness（physical constness）
+- **bitwise constness**（physical constness）
 
   成员函数只有在不改变对象值任何成员变量（static除外）时，才可以说是const。也就是说不改变对象内的任意一个bit。
 
   这样好处是编译器方便侦测违反点，但是不幸的是许多函数 不十分具备const性质也能通过bitwise测试。具体的说，就是一个更改了“指针所指物”的成员函数，虽然严格意义上不算是const，但是可以说是bitwise const。
 
-- logical constness
+- **logical constness**
 
   一个const成员函数可以修改它所处理的对象内的某些bits，但只有在客户端侦测不出的情况下才得如此。
 
@@ -347,38 +347,38 @@ int main(){
   ```c++
   class CTextBlock {
   public:
-  ...
-  std::size_t length() const;
+      ...
+      std::size_t length() const;
   private:
-  char *pText;
-  std::size_t textLength; // last calculated length of textblock
-  bool lengthIsValid; // whether length is currently valid
+      char *pText;
+      std::size_t textLength; // last calculated length of textblock
+      bool lengthIsValid; // whether length is currently valid
   };
   std::size_t CTextBlock::length() const
   {
-  if (!lengthIsValid) {
-  textLength = std::strlen(pText); // error! can’t assign to textLength
-  lengthIsValid = true; // and lengthIsValid in a const 
-  } // member function
-  return textLength;
+      if (!lengthIsValid) {
+          textLength = std::strlen(pText); // error! can’t assign to textLength
+          lengthIsValid = true; // and lengthIsValid in a const 
+      } // member function
+      return textLength;
   }
   
   class CTextBlock {
   public:
-  ...
-  std::size_t length() const;
+      ...
+      std::size_t length() const;
   private:
-  char *pText;
-  mutable std::size_t textLength; // these data members may
-  mutable bool lengthIsValid; // always be modified, even in 
+      char *pText;
+      mutable std::size_t textLength; // these data members may
+      mutable bool lengthIsValid; // always be modified, even in 
   }; // const member functions
   std::size_t CTextBlock::length() const
   {
-  if (!lengthIsValid) {
-  textLength = std::strlen(pText); // now fine
-  lengthIsValid = true; // also fine
-  }
-  return textLength;
+      if (!lengthIsValid) {
+          textLength = std::strlen(pText); // now fine
+          lengthIsValid = true; // also fine
+      }
+      return textLength;
   }
   ```
 
@@ -2955,6 +2955,15 @@ int main(){
     cout<<A.m<<endl;
     cout<<A.n<<endl;
 }
+
+/*
+2
+0
+Special Window
+Window
+9
+4
+*/
 ```
 
 
@@ -2980,9 +2989,393 @@ int main(){
 
 Avoid returning “handles” to object internals
 
+通过两个点定义矩形，同时为了让Rectangle对象尽可能小，将这些点放在一个辅助的struct内再让Rectangle去指它。
+
+```c++
+class Point { // class for representing points
+public:
+    Point(int x, int y);
+    ...
+    void setX(int newVal);
+    void setY(int newVal);
+    ...
+};
+
+struct RectData { // Point data for a Rectangle
+    Point ulhc; // ulhc = “ upper left-hand corner”
+    Point lrhc; // lrhc = “ lower right-hand corner”
+};
+class Rectangle {
+    ...
+    private:
+    std::tr1::shared_ptr<RectData> pData; // see Item 13 for info on
+}; // tr1::shared_ptr
+
+
+```
+
+Rectangle的客户必须能够计算 Rectangle的范围，这个class提供了upperLeft和lowerRight函数，又根据【条款20】(传引用比传值更高效)，这些函数返回reference。
+
+```c++
+class Rectangle {
+public:
+    ...
+    Point& upperLeft() const { return pData->ulhc; }
+    Point& lowerRight() const { return pData->lrhc; }
+    ...
+};
+
+```
+
+以上的代码可以通过编译，但是是错误的，因为一方面upperLeft和lowerRight函数设置为const，意思是只提供告知坐标点，并不希望修改内部值。但是这两个函数都返回指向private内部数据的reference，调用者可以通过这些reference修改内部数据。
+
+这就带给我们两个教训：
+
+1. 成员变量的封装性最多只等于“返回其reference”的函数的访问级别。本例中ulhc和lrhc虽然都被设置为private，但是public函数传出了它们的引用，所以它们实际上是public的。
+2. 如果const成员函数传出一个reference，后者所指数据与对象自身有关联，而它又被储存于对象之外，那么这个函数的调用者可以修改这个数据，二者正是bitwise constness的一个附带结果。【条款3】
+
+```c++
+Point coord1(0, 0);
+Point coord2(100, 100);
+const Rectangle rec(coord1, coord2); // rec is a const rectangle from
+// (0, 0) to (100, 100)
+rec.upperLeft().setX(50); // now rec goes from
+// (50, 0) to (100, 100)!
+
+```
+
+以上我们说的是返回引用，实际上，返回指针或是迭代器，类似的情况也会发生，因为引用、指针、迭代器都是所谓把柄（handle），用于取得某个对象，而返回一个代表对象内部数据的handle，随之而来的便是降低对象封装性的风险。同时，他也可能导致“虽然调用const成员函数却造成对象状态被更改”的情况。
+
+通常我们认为，对象的“内部”就是指它的成员变量，而实际上，不被公开的（非public）的成员函数也是对象内部的一部分。因此，也要留心不要返回它们的handles。
+
+对于之前的代码，想弥补这个问题也很简单，在之前加上const即可。
+
+```c++
+class Rectangle {
+public:
+    ...
+    const Point& upperLeft() const { return pData->ulhc; }
+    const Point& lowerRight() const { return pData->lrhc; }
+    ...
+};
+
+//第一个const在方法upperLeft()前面，表示该方法不会修改调用它的对象。
+//第二个const在方法upperLeft()后面，表示该方法返回一个常量Point对象的引用。返回值不能被修改。
+```
+
+但即使如此，这两个函数还是返回了“返回对象内部”的handle，可能会在其他地方带来问题。比如虚吊的handle。最常见的来源就是函数返回值。
+
+譬如某个函数返回GUI对象的外框，客户在调用时获得一个新的、暂时的Rectangle对象，对boundingBox的调用，我们得到的是一个临时的Rectangle对象，权且称为temp。然后是upperLeft，返回一个reference指向temp中的一个内部成分，但是在这句语句结束后，temp就被销毁了，而pUpperLeft就虚吊了。
+
+```c++
+class GUIObject { ... };
+const Rectangle boundingBox(const GUIObject& obj); 
+
+
+GUIObject *pgo; 
+const Point *pUpperLeft = &(boundingBox(*pgo).upperLeft()); 
+
+/*
+可以改为
+  GUIObject go;
+  GUIObject *pgo = &go; 
+  const Rectangle bounding_box = boundingBox(*pgo);
+  const int *pUpperLeft = &(bounding_box.upperLeft());
+  std::cout << *pUpperLeft << std::endl;
+这样可以避免上面提到的两个问题：
+pgo被初始化为指向合法的GUIObject对象的指针。
+bounding_box是一个合法的Rectangle对象，pUpperLeft指向的内存在整个程序执行期间都是合法的
+*/
+```
+
+
+
+以上就是为什么函数如果返回一个handle代表对象内部成分总是危险的原因。无论这个handle是指针、迭代器、引用，也不论这个handle是否为const，也不论哪个返回handle的成员函数是否为const。这里的唯一关键是有个handle被传出去了，一旦如此，你就是暴露在“handle比其所指对象更加长寿”的风险下。
+
+不过，这也不意味着你绝对不会不能让成员函数返回handle。又是你还必须这么做。例如operator[]就允许你得到string和vector里的个别元素，而这些operator[]就是返回reference指向容器内的数据。这些数据会随着容器被销毁而销毁。但是这样的函数毕竟是例外，不是常态。
+
+```c++
+#include<iostream>
+using namespace std;
+#include<vector>
+
+int main(){
+    vector<int> *vec = new vector<int>({1,2,3,4});
+    cout<<sizeof((*vec))<<endl;
+    cout<<(*vec).size()<<endl;
+    cout<<(*vec)[1]<<endl;
+    delete vec;
+    cout<<sizeof((*vec))<<endl;
+    cout<<(*vec).size()<<endl;
+    cout<<(*vec)[1]<<endl;
+}
+/*
+24
+4
+2
+24//当使用 sizeof 求对象的内存大小时，返回的值表示的是内存占用的字节数，而不是对象是否存在。因此，在删除对象后使用该对象的内存大小是安全的。在这种情况下，在调用 delete vec 后，内存仍然占用了 24 个字节，但内存中的内容不再可靠，因此访问该内存会导致未定义行为（UB）。因此，不建议在程序中访问已经删除的对象。
+18446744073709516032 //虚吊了，每次不一样
+550//虚吊了，每次不一样
+*/
+```
+
+
+
+#### 总结：
+
+- 避免返回handles（包括references、指针、迭代器）指向对象内部。遵守这个条款可增加封装性，帮助const成员函数的行为像个const，并且将虚吊号码牌的可能性降至最低。
+
 ### 条款29 为”异常安全“而努力是值得的
 
 Strive for exception-safe code
+
+异常安全性有些像怀孕，你要么怀孕，要么没有，不存在部分怀孕的说法，而且在我们完成求偶前，也无法确实地讨论生育。
+
+下面是从异常安全性来看非常糟糕的一段代码，这个class意图用来表现夹带背景图案的GUI菜单，并工作在多线程环境下，利用互斥器来作为并发控制。
+
+```c++
+class PrettyMenu {
+public:
+    ...
+    void changeBackground(std::istream &imgSrc); // change background
+    ... // image
+private:
+    Mutex mutex; // mutex for this object
+    Image *bgImage; // current background image
+    int imageChanges; // # of times image has been changed
+};
+
+void PrettyMenu::changeBackground(std::istream &imgSrc) {
+    lock(&mutex); // acquire mutex (as in Item 14)
+    delete bgImage; // get rid of old background
+    ++imageChanges; // update image change count
+    bgImage = new Image(imgSrc); // install new background
+    unlock(&mutex); // release mutex
+}
+```
+
+**异常安全有两个条件**，以上函数没有满足任何一个。
+
+- 不泄露任何资源。
+
+  一旦new Image(imaSrc)导致异常，对unlock的调用就不会被执行，而互斥器就永远被把持住了。
+
+- 不允许数据结构被破坏（Don’t allow data structures to become corrupted）
+
+  如果new Image(imaSrc)导致异常，bgImage就是指向一个已被删除的对象，imageChanges也被累加，而实际上并没有新的正确的图像被成功安装。
+
+**解决资源泄露**的问题很容易，因为【条款13】讨论过如何以对象管理资源，而【条款14】也导入了lock class作为一种确保互斥器被即使释放的方法。
+
+```c++
+//条款14里的Lock
+class Lock {
+public:
+    explicit Lock(Mutex *pm) // init shared_ptr with the Mutex
+    : mutexPtr(pm, unlock) // to point to and the unlock func as the deleter 指定unlock作为删除器
+    { 
+    	lock(mutexPtr.get()); // see Item 15 for info on “get” 
+	}
+private:
+	std::tr1::shared_ptr<Mutex> mutexPtr; // use shared_ptr
+}; // instead of raw pointer
+
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+    Lock ml(&mutex); // from Item 14: acquire mutex and
+    // ensure its later release
+    delete bgImage;
+    ++imageChanges;
+    bgImage = new Image(imgSrc);
+}
+```
+
+对于如Lock这样的资源管理类，有一个很棒的事情，就是它们通常会使代码更短，这里我们就不需要调用unlock了（因为Lock会自动释放资源）。
+
+一个简单常识，少做少错。（As a general rule, less code is better code, because there’s less to go wrong and less to misunderstand when making changes.）
+
+下面我们来研究**数据结构的败坏**
+
+首先我们来了解一下异常安全函数（Exception-safe function） 提供以下三个保证之一：
+
+- 基本承诺：如果抛出异常，程序内的任何事物仍然保持在有效状态下，没有任何对象或数据结构会因此而败坏，所有对象都处于一种内部前后一致的状态（例如所有class约束条件都继续获得满足），然而程序的显式状态恐怕不可预料。举例，我们可以撰写changeBackground使得当抛出异常是，PrettyMenu对象可以继续拥有原背景图像，或是令它拥有某个缺省背景图像，但客户无法预期哪一种情况。
+- 强烈保证：如果异常被抛出。程序状态不改变。调用这样的函数需有这样的认识：如果函数成功，就是完全成功。如果函数失败，程序会回复到调用函数之前的状态。（强烈保证比起基本承诺，让人放心多了，因为只有两种可能，而基本承诺下玩意出现异常，程序可能处于任何合法但不合理的状态）
+- 不抛保证：承诺绝不抛出异常，因为它们总是能够完成它们原先承诺的功能，作用于内置类型身上所有操作都提供nothrow保证。这是异常安全码中一个必不可少的关键基础材料。
+
+异常安全码必须提供以上三种保证之一。我们的抉择是，我们应该为我们所写的函数提供哪一种保证？
+
+一般而言你应该会想提供可实施的最强烈的保证。一般而言，no-throw函数很棒，但还是一般来说很难做到，抉择往往在基本保证和强烈保证内。
+
+对于changeBackground，我们提供强烈保证并不困难。
+
+首先，用智能指针来管理资源。避免泄漏。
+
+第二，重新排列changeBackground里的顺序，在更换图像后在累加imageChanges。
+
+```c++
+class PrettyMenu {
+    ...
+    std::tr1::shared_ptr<Image> bgImage;
+    ...
+};
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+    Lock ml(&mutex);
+    bgImage.reset(new Image(imgSrc)); // replace bgImage’s internal
+    // pointer with the result of the
+    // “new Image” expression
+    ++imageChanges;
+}
+```
+
+这里不再需要手动删除旧图像，因为智能指针会处理好资源释放。
+
+这样看上去似乎可以提供强烈的异常安全保证了，但是美中不足的是参数imgSrc。如果Image构造函数出现异常，有可能输入流input stream的读取记号read marker被移走，而这样的搬移对程序其他部分是一种可见的状态改变。所以changeBackground在解决这个问题之前只提供基本的异常安全保证。
+
+有一个一般性的设计策略很典型地可以做到强烈保证，即copy and swap。
+
+原则很简单：为你打算修改的对象作出一份副本，然后再副本上作出一切必要修改，然后若有任何修改动作抛出异常，原对象仍保持未改变状态。待所有改变都成功后，再将修改过的那个副本和原对象在一个不抛出异常的操作中置换swap。
+
+实现上，通常是采用pimpl idiom手法【条款31】，即将所有隶属对象的数据从原对象放进另一个对象内，然后赋予原对象一个指针，指向那个所谓的实现对象（即副本）。
+
+> copy-and-swap 是一种拷贝构造函数和赋值运算符的实现策略，它使用交换技巧以避免资源泄漏，同时保证强烈的异常安全性。该策略的基本流程如下：
+>
+> 1. 创建该类的一个临时对象的拷贝。
+> 2. 使用 std::swap 交换该类的成员变量和临时对象的成员变量。
+> 3. 销毁临时对象。
+>
+> 因为 std::swap 保证不抛出异常，因此 copy-and-swap 策略提供了强烈的异常安全性。同时，如果拷贝构造函数或赋值运算符引发了异常，则临时对象的析构函数会被调用，因此不会发生资源泄漏。
+>
+> copy-and-swap 策略非常适用于实现拷贝构造函数和赋值运算符，并且通常会比其他实现方法更简单，更具可读性。
+
+```c++
+struct PMImpl { // PMImpl = “PrettyMenu
+    std::tr1::shared_ptr<Image> bgImage; // Impl.”; see below for
+    int imageChanges; // why it’s a struct
+};
+class PrettyMenu {
+    ...
+private:
+    Mutex mutex;
+    std::tr1::shared_ptr<PMImpl> pImpl;
+};
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+    using std::swap; // see Item 25
+    Lock ml(&mutex); // acquire the mutex
+    std::tr1::shared_ptr<PMImpl> // copy obj. data
+    pNew(new PMImpl(*pImpl));
+    pNew->bgImage.reset(new Image(imgSrc)); // modify the copy
+    ++pNew->imageChanges;
+    swap(pImpl, pNew); // swap the new
+// data into place
+} // release the mutex
+```
+
+这里让PMImpl成为一个struct而不是class，是因为pImpl 为private 使得PrettyMenu获得数据封装性，如果你想，也可以把PMImpl嵌套于PrettyMenu里。但打包问题（packaging，例如独立撰写异常安全码）是我们这里挂虑的事情。
+
+> 这是一个嵌套类的演示。
+>
+> ```c++
+> class Window {
+>  public:
+>   Window(const std::string& title, int width, int height);
+>   ~Window();
+>   void Show();
+> 
+>  private:
+>   class Impl;
+>   std::unique_ptr<Impl> pImpl;
+> };
+> 
+> class Window::Impl {
+>  public:
+>   Impl(const std::string& title, int width, int height);
+>   ~Impl();
+>   void Show();
+>   // ...其他窗口系统的实现细节...
+> };
+
+
+
+> 这里还有一个pimpl的例子
+>
+> ```c++
+> #include <iostream>
+> #include <memory>
+> 
+> class WindowImpl {
+> public:
+>     WindowImpl() = default;
+>     WindowImpl(int width, int height) : width_(width), height_(height) {}
+> 
+>     int width() const { return width_; }
+>     int height() const { return height_; }
+> 
+>     void resize(int width, int height) {
+>         width_ = width;
+>         height_ = height;
+>     }
+> 
+> private:
+>     int width_ = 0;
+>     int height_ = 0;
+> };
+> 
+> class Window {
+> public:
+>     Window() : impl_(std::make_unique<WindowImpl>()) {}
+>     Window(int width, int height) : impl_(std::make_unique<WindowImpl>(width, height)) {}
+> 
+>     int width() const { return impl_->width(); }
+>     int height() const { return impl_->height(); }
+> 
+>     void resize(int width, int height) { impl_->resize(width, height); }
+> 
+> private:
+>     std::unique_ptr<WindowImpl> impl_;
+> };
+> 
+> int main() {
+>     Window w(800, 600);
+>     std::cout << "Width: " << w.width() << ", Height: " << w.height() << std::endl;
+> 
+>     w.resize(1024, 768);
+>     std::cout << "Width: " << w.width() << ", Height: " << w.height() << std::endl;
+> 
+>     return 0;
+> }
+> 
+> ```
+>
+> 在这个代码中，我们有两个类：`Window` 和 `WindowImpl`。`WindowImpl` 包含窗口的实际实现，而 `Window` 仅保留一个指向实现的指针。这样做可以隐藏实现细节
+
+copy-and-swap 策略是对对象状态做出“全有或全无”改变的一个很好办法。但一般而言，他也无法保证整个函数又强烈的异常安全性。
+
+比如这样的一个函数
+
+```c++
+void someFunc()
+{
+    ... // make copy of local state
+    f1();
+    f2();
+    ... // swap modified state into place
+}
+```
+
+如果f1或f2的异常安全性比“强烈保证”低，那么someFunc就很难成为“强烈保证”。即使f1、f2都是强烈异常安全，情况也不会因此好转。如果f1圆满结束，程序状态很有可能有所改变，因此如果f2随后抛出异常，函数装填和someFunc被调用之前不同，哪怕f2什么都没有改变。
+
+问题就出在连带影响。如果函数只操作局部性状态，那么提供强烈保证相对而言就简单些。但一旦函数对非局部性数据有连带影响，比如删增某条数据库数据，一旦操作送出，别的客户很可能已经看到了。
+
+另一个会阻止你提供强烈保证的原因是效率，毕竟譬如copy-swap这种方式耗费太多资源了。
+
+所以，在提供强烈保证比较困难时，提供基本保证，也是个自然的决定。但是如果你写的函数完全不提供异常安全保证，别人也会合理假设你在这方面有缺失。
+
+#### 总结：
+
+- 异常安全函数 即使发生异常不会泄露资源或允许任何数据结构败坏。这样的函数区分为三种保证。
+- 强烈保证往往可以通过copy-and-swap实现出来，但强烈保证 并非对所有函数都可实现或具备现实意义。
+- 函数提供的异常安全保证通常最高只等于其所调用值各个函数的异常安全保证中的最弱者。
 
 ### 条款30 透彻了解inlining的里里外外
 
