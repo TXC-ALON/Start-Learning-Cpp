@@ -2642,7 +2642,7 @@ Once you’ve got those right, the corresponding implementations are largely str
 
 - Defining variables too soon can cause a drag on performance.  太快定义变量可能导致效率上的拖延。
 - Overuse of casts can lead to code that’s slow, hard to maintain, and infected with subtle bugs. 过度使用转型可能导致代码变慢且难以维护。
-- Returning handles to an object’s internals can defeat encapsulation and leave clients with dangling handles.返回对象内部的把柄可能会破坏封装并可能引起虚吊。
+- Returning handles to an object’s internals can defeat encapsulation and leave clients with dangling handles.返回对象内部的句柄可能会破坏封装并可能引起虚吊。
 -  Failure to consider the impact of exceptions can lead to leaked resources and corrupted data structures. 未考虑异常带来的冲击可能导致资源泄漏和崩坏的数据结构。
 - Overzealous inlining can cause code bloat. 过分的inline可能会引起代码膨胀。
 - Excessive coupling can result in unacceptably long build times. 过渡耦合则可能导致让人不可接受的建构时间。
@@ -3044,7 +3044,7 @@ rec.upperLeft().setX(50); // now rec goes from
 
 ```
 
-以上我们说的是返回引用，实际上，返回指针或是迭代器，类似的情况也会发生，因为引用、指针、迭代器都是所谓把柄（handle），用于取得某个对象，而返回一个代表对象内部数据的handle，随之而来的便是降低对象封装性的风险。同时，他也可能导致“虽然调用const成员函数却造成对象状态被更改”的情况。
+以上我们说的是返回引用，实际上，返回指针或是迭代器，类似的情况也会发生，因为引用、指针、迭代器都是所谓句柄（handle），用于取得某个对象，而返回一个代表对象内部数据的handle，随之而来的便是降低对象封装性的风险。同时，他也可能导致“虽然调用const成员函数却造成对象状态被更改”的情况。
 
 通常我们认为，对象的“内部”就是指它的成员变量，而实际上，不被公开的（非public）的成员函数也是对象内部的一部分。因此，也要留心不要返回它们的handles。
 
@@ -3381,9 +3381,266 @@ void someFunc()
 
 Understand the ins and outs of inlining
 
+Inline函数，它们看起来像函数，动作像函数，比宏好得多，可以调用它们而又不需要蒙受函数调用所招致的额外开销。
+
+好处不止于此，编译器最优化机制通常被设计用来浓缩那些不含函数调用的代码。所以当你inline某个函数，或许编译器就有能力对它执行语境相关最优化。而大部分编译器绝不会对一个outlined函数调用动作执行如此之最优化。
+
+但是凡事都是有代价的，inline函数背后的整体观念，就是对函数的每个调用都以函数本体来替换他。这几乎肯定会增加目标码的大小。内存有限的机器上，过于热衷inlining会造成程序体积太大（对可用空间而言）。即使拥有虚内存，inline造成的代码膨胀也会导致额外的换页行为，降低指令高度缓存装置的集中率，以及伴随这些而来的效率损失。
+
+换个角度说，如果inline函数的本体很小，编译器针对函数本体产出的码可能比函数调用产出的码更小。那么就不会有以上的弊端。
+
+记住，inline只是对编译器的一个申请，不是强制命令。这项申请可以隐喻提出，也可以明确提出。
+
+- 隐喻提出是将函数**定义**于class定义式内。
+
+  ```c++
+  class Person {
+  public:
+      ...
+      int age() const { return theAge; } // an implicit inline request: age is
+      ... // defined in a class definition
+  private:
+  	int theAge;
+  };
+  ```
+
+  这样的函数通常是成员函数，但【条款46】说friend函数也可以被定义在class内，若如此，那么也是被隐喻声明为inline。
+
+- 明确声明inline函数的做法是在其定义式前加上关键字inline。例如标准的max template 往往是这样实现的。
+
+  ```c++
+  template<typename T> // an explicit inline
+  inline const T& std::max(const T& a, const T& b) // request: std::max is
+  	{ return a < b ? b : a; } // preceded by “inline”
+  ```
+
+Inline函数通常一定被置于头文件内，因为大多数build environment在编译过程中进行inlining，尽管有的环境可以在运行期完成inlining，不过毕竟是少数。
+
+template通常被置于头文件内，其具现化与inlining无关。如果你正在写一个template而你认为所有根据此template生成的函数都应该inlined，那么就将这个template设为inline。否则就应该避免将模板设为inline。这对template尤其是如此，【条款44】会详细讲。
+
+编译器会拒绝inline太过复杂（比如带有递归和循环）的函数。绝大多数的virtual函数的inline也会落空，因为从逻辑上来说，virual意味着“等待，知道运行期才确定调用哪个函数”，而inline意味着“执行前，先将调用动作替换为函数的本体”。
+
+
+
+有时候虽然编译器有意愿inlining某个函数，还是可能为该函数生成一个函数本体。比如函数想要取某个inline函数的地址，编译器通常得为这个函数生成一个outlined本体，不然编译器不能提出一个函数指向不存在的函数。于此并提的是，编译器通常部队“通过函数指针而进行的调用”实施inlining，这意味着对inline函数的调用有可能被inline，也可能不被。取决于调用方式。
+
+```c++
+inline void f() {...} // assume compilers are willing to inline calls to f
+void (*pf )() = f; // pf points to f
+...
+f(); // this call will be inlined, because it’s a “normal” call
+pf(); // this call probably won’t be, because it’s through a function pointer
+```
+
+
+
+即使你从未使用函数指针，”未被成功inlined“的inline函数还是会困扰你。因为有时候编译器会生成构造函数和析构函数的outlined版本，如此一来它们就可以获得指针指向那些函数，在array内部元素的构造和析构中使用。
+
+实际上构造函数和析构函数是inlining的糟糕候选人。因为C++对于对象被创建以及被销毁时会发生什么做了各式各样的保证，因此编译器实际上会自己构建很多代码安插到你的代码里。看似空白的类，可能有着很多异常处理的代码，更不必提基类子类的继承了。
+
+程序员必须评估将函数设定为inline的代价，因为inline函数无法随着程序库的升级而升级。比如说f是程序库内的一个inline函数，一旦决定改变f，所有用到f的客户端程序都必须重新编译。然而如果是non-inline函数，一旦它有任何修改，客户端只需要重新链接就好了。如果程序块采取动态链接，升级版函数甚至可以不知不觉地被应用程序吸纳。
+
+其实吧，上面讨论这么多，还有一个因素影响我们是否运用inline，即大部分调试器面对inline函数都无能为力，因为你无法在一个不存在的函数上设定断点。
+
+现在我们总结出一个策略，即一开始先不要将任何函数声明为inline，或至少将inlining施行范围限制在那些一定会成为inline【条款46】的函数或类似` int age() const { return theAge; }`这样非常平淡的函数。
+
+#### 总结：
+
+- 将大多数inlining限制在小型、被频繁调用的函数身上。这可使日后的调试过程和二进制升级更容易。也可以使得潜在的代码膨胀问题降低到最小，使程序的速度提升机会最大化。
+- 不要只因为function template出现在头文件，就把它们设定为inline。
+
 ### 条款31 将文件间的编译依存关系降至最低
 
 Minimize compilation dependencies between files
+
+
+
+```c++
+class Person {
+public:
+    Person(const std::string& name, const Date& birthday,
+    const Address& addr);
+    std::string name() const;
+    std::string birthDate() const;
+    std::string address() const;
+...
+private:
+    std::string theName; // implementation detail
+    Date theBirthDate; // implementation detail
+    Address theAddress; // implementation detail
+};
+```
+
+看似简单的这样一个class，它也包含了诸多头文件，如果这些头文件或这些头文件依存的头文件有任何改变，那么每一个含有Person class的文件就得重新编译，每一个使用Person class的文件也得重新编译。
+
+我们可以学习类似Java这些语言，试试将对象实现隐藏在指针背后的把戏。比如说对于Person我们可以这么做，将Person分裂成两个class，一个负责提供接口，一个负责实现接口。
+
+```c++
+#include <string> // standard library components shouldn’t be forward-declared
+#include <memory> // for tr1::shared_ptr; see below
+class PersonImpl; // forward decl of Person impl. class
+class Date; // forward decls of classes used in
+class Address; // Person interface
+class Person {
+public:
+    Person(const std::string& name, const Date& birthday,
+    const Address& addr);
+    std::string name() const;
+    std::string birthDate() const;
+    std::string address() const;
+    ...
+private: // ptr to implementation;
+	std::tr1::shared_ptr<PersonImpl> pImpl; // see Item 13 for info on
+}; // std::tr1::shared_ptr
+```
+
+这里，Person只含有一个指针成员指向其实现类的设计常被称为“pimpl idiom”（pointer to Implemention）。这种class内的指针往往就是pImpl。
+
+这样的设计下，Person的客户就完全与Date，Address，以及Person的实现细目分离了。那些class的任何实现修改都不需要Person客户端重新编译。此外，由于客户无法看到Person的实现细节，也就不可能写出取决于那些细节的代码。这就是真正的接口与实现分离。
+
+这个分离的关键就是在于用“声明的依存性”替换“定义的依存性”。那正式编译依存性最小化的本质。现实中让头文件尽可能自我满足，万一做不到，则让它与其他文件内的声明式（而非定义式）相依存。
+
+- 如果使用object references 或object pointers可以完成任务，就不要使用objects。你可以只靠一个类型声明式就定义处指向该类型的references和pointers；但是如果定义某类型的objects，就需要用到该类型的定义式。
+- 如果能够，尽量使用class声明式来替换class定义式。即使它以传值方式传递该类型的参数也亦然。
+- 为声明式和定义式提供不同的头文件（Provide separate header files for declarations and definitions.[我觉得作者的意思应该是将一个头文件拆成声明hpp和定义cpp，不是指将定义也放在头文件里，不然就和总结的规则2冲突了]）。当然这些文件得保持一致性，一改俱改。例如`<iosfwd>`内含iostream各组件的声明式，其对应定义则分布在若干不同的头文件内。
+
+`<iosfwd>`非常有启发意义的是，它分外彰显本条款适用于templates也适用于non-templates。【条款30】说过Template定义式通常被放在头文件内，不过也有些build environment允许template放在非头文件内，这么一来就可以将只含声明式的头文件给templates，类似`<iosfwd>`。
+
+
+
+像Person这样使用pimpl的class，往往被称为Handle classes。这种类想做事，方法之一就是将它们所有函数转交给相应的实现类。
+
+```c++
+#include "Person.h" // we’re implementing the Person class,so we must #include its class definition
+#include "PersonImpl.h" // we must also #include PersonImpl’s class
+// definition, otherwise we couldn’t call 
+// its member functions; note that 
+// PersonImpl has exactly the same public
+// member functions as Person — their
+// interfaces are identical
+Person::Person(const std::string& name, const Date& birthday,const Address& addr): pImpl(new PersonImpl(name, birthday, addr)){}
+std::string Person::name() const
+{
+	return pImpl->name();
+}
+```
+
+注意，Person构造函数是以new的方式调用PersonImpl构造函数，以及在Person::name 里调用` pImpl->name()`。 让Person变成一个Handle class并不会改变它所做的事，只会改变它做事的方法。
+
+另一个制作Handle class的方法是，令Person成为一种特殊的抽象基类，称为Interface class。这种class的目的是详细一一描述derived class的接口【条款34】，因此它**通常**不带成员变量（Java禁止interface里含有成员变量或成员函数，但是C++不禁止），也没用构造函数，只有一个virtual析构函数【条款7】以及一组pure virtual函数，用来叙述整个接口。
+
+Interface class 的客户必须有办法为这种class创建新对象，他们通常调用一个特殊函数，这个函数扮演“真正将被具现化”的那个derived classes的构造函数的角色，这样的函数被称为factory函数 或 virtual函数，它们返回(智能)指针，指向动态分配的对象，而对象支持interface class的接口。这样的函数往往在interface class内被声明为static.
+
+> #### 工厂函数？
+>
+> 工厂函数是一种创建对象的静态函数，它为客户端代码提供了一种简单的方法来创建对象，而不需要直接调用对象的构造函数。这种设计模式经常用于隐藏对象的实现细节，并使得客户端代码更加简单和灵活。
+>
+> #### 为什么不直接在子类里实现它自己的构造函数呢？用这个工厂函数不是有些多此一举吗
+>
+> 在某些情况下，通过使用工厂函数而不是直接在子类中实现构造函数，可以更好地抽象实现，并且有助于更好地隐藏实现细节，提高代码的可维护性和可读性。
+>
+> 例如：当您有多个子类，而且它们都需要在构造函数中执行相同的初始化操作时，工厂函数可以在一个地方处理它们，这样可以避免在每个子类中都实现一次相同的代码，从而降低代码的冗长性。
+>
+> 另外，工厂函数还可以隐藏构造实际实例所需的复杂性，这对于使用子类的代码来说是透明的。在某些情况下，可以使用工厂函数动态创建不同类型的实例，从而使代码更加灵活和可扩展。
+>
+> 因此，在某些情况下，使用工厂函数可以使代码更简洁，更易于维护和扩展，从而使您的代码更具可读性和可维护性。
+
+
+
+```c++
+#include <iostream>
+#include <memory>
+#include<vector>
+using namespace std;
+class Person {
+public:
+    virtual ~Person();
+    virtual std::string name() const = 0;
+    virtual int birthDate() const = 0;
+    virtual std::string address() const = 0;
+    static std::shared_ptr<Person> create(const std::string& name,const int& birthday,const string& addr);
+};
+
+class RealPerson: public Person {
+public:
+    RealPerson(const std::string& name, const int& birthday,
+               const string& addr)
+            : theName(name), theBirthDate(birthday), theAddress(addr)
+    {}
+    virtual ~RealPerson() {}
+    std::string name() const; // implementations of these
+    int birthDate() const; // functions are not shown, but
+    std::string address() const; // they are easy to imagine
+private:
+    std::string theName;
+    int theBirthDate;
+    string theAddress;
+};
+
+std::string RealPerson::name() const {
+    return this->theName;
+}
+
+int RealPerson::birthDate() const {
+    return this->theBirthDate;
+}
+
+std::string RealPerson::address() const {
+    return this->theAddress;
+}
+
+std::shared_ptr<Person> Person::create(const std::string& name,
+                                            const int& birthday,
+                                            const string & addr)
+{
+    return std::shared_ptr<Person>(new RealPerson( name, birthday,addr));
+}
+
+Person::~Person() {
+    cout<<"\ngood"<<endl;
+}
+
+int main() {
+
+    std::string name = "TXCALON";
+    int dateOfBirth = 20220108;
+    string address = "China Beijing";
+
+// create an object supporting the Person interface
+    std::shared_ptr<Person> pp(Person::create(name, dateOfBirth, address));
+    std::cout << pp->name() // use the object via the
+              << " was born on " // Person interface
+              << pp->birthDate()
+              << " and now lives at "
+              << pp->address();
+    return 0;
+}
+
+```
+
+RealPerson 示范了Interface class两个最常见的机制之一：从Interface class(person)继承接口规格，然后实现出接口所覆盖的函数。
+
+Interface class的第二个实现方法设计多重继承。那是【条款40】探索的主题。
+
+
+
+Handle classes 和 Interface classes解除了接口和实现之间的耦合关系，从而降低文件间的编译依存度（compilation dependence）。那么代价是什么呢？
+
+在Handle classes身上，成员函数必须通过implementation pointers来取得对象数据，这为每一次访问增加一层间接性。而每一个对象消耗的内存数量必须增加implementation pointers的大小。最后，implementation pointers必须初始化（在Handle class构造函数内)，指向一个动态分配的implementation object。所以你会蒙受动态内存分配以及其后的释放动作带来的开销，以及遭遇内存不足的可能。
+
+而interface classes，由于每个函数都是virtual，所以你必须为每次函数调用付出一个indirect jump的成本【条款7】。此外Interface class派生的对象必须含有一个虚函数表。这个指针可能会增加存放对象所需的内存数量。
+
+最后，无论Handle函数还是inline函数，都无法通过inline函数获得太大提升。【条款30】解释过函数本体为了被inlined必须典型地置于头文件内，而前两者正是为了隐藏实现细节（比如函数本体）。（Finally, neither Handle classes nor Interface classes can get much use out of inline functions. Item 30 explains why function bodies must typically be in header files in order to be inlined, but Handle and Interface classes are specifically designed to hide implementation
+ details like function bodies.）
+
+> 因为它们不太可能被频繁调用，因此使用内联函数的性能提升是有限的。句柄类和接口类的主要目的是为底层对象提供抽象接口，它们的实现很可能是复杂的，并包含大量的函数调用，这可能导致显著的性能开销。在这些情况下，不必使用内联函数。
+
+**todo，，，这回算是找到一个翻译错误了**
+
+#### 总结：
+
+- 支持“编译依存性最小化”的一般构想是：相依于声明式，不要相依与定义式。基于此构想的两个手段是Handle classes 和Interface classes。
+- 程序库头文件应该以“完全且仅有声明式”的形式存在，这种方法不论是否涉及templates都适用。
 
 ## 第六章 继承与面向对象设计
 
