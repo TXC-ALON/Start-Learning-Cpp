@@ -3646,17 +3646,217 @@ Handle classes 和 Interface classes解除了接口和实现之间的耦合关�
 
 **[Inheritance and Object-Oriented Design]**
 
+尽管OOP似乎已经为人熟知，但C++的OOP却是最复杂的一类。
+
+- 继承可以是单一继承或多重继承
+- 每一个继承链接link可以是public、protected或private，也可以是virtual或non-virtual。
+- 然后是成员函数的各个选项：virtual？non-virtual？pure-virtual？
+- 成员函数和其他语言的特性的交互影响：
+  - 缺省参数值与virtual函数有什么交互影响？
+  - 继承如何影响C++的名称查找规则？
+  - 设计选项有哪些？
+  - 如果class的行为需要修改，virtual函数会是最佳选择吗？
+
 ### 条款32 确定你的public继承塑模出is-a关系
 
 Make sure public inheritance models “is-a.”
+
+以C++进行面向对象编程，最重要的一个规则是：public inheritance（公开继承）意味着“is-a” 的关系。
+
+如果你令D继承B，那么意味着**D首先就是B**。B能够做的，D一定能做。而D可以比B表现出更多的特殊性。反之你需要一个D，B对象无法效劳。
+
+is-a 并非是唯一存在于classes之间的关系，另两个常见的关系是has-a和is-implemented-in-terms-of（根据某物实现出）。这些关系将在【条款38】和【条款39】中讨论。
+
+#### 总结：
+
+- Public继承意味着is-a。适用于base classes身上的每一件事情一定也适用于derived classes身上。因为每一个derived class对象也都是一个base class对象。
 
 ### 条款33 避免遮掩继承而来的名称
 
 Avoid hiding inherited names
 
+我们之前接触过作用域和C++ 的名称遮掩规则，而这规则所做的唯一事情就是：遮掩名称。至于名称是否应和相同或不同的类型，并不重要。比如全局变量是int，函数内局部变量是double，那么double的变量就会在函数内遮掩同名的int全局变量。
+
+现在导入继承。当D指涉B内的元素时，编译器可以找到我们所指的东西，而实际运作方式是，Derived class作用域被嵌套在base class作用域内。
+
+![image-20230202170518030](Effective_C++.assets/image-20230202170518030.png)
+
+```c++
+class Base {
+private:
+	int x;
+public:
+    virtual void mf1() = 0;
+    virtual void mf2();
+    void mf3();
+	...
+};
+class Derived: public Base {
+public:
+	virtual void mf1();
+	void mf4();
+	...
+};
+void Derived::mf4()
+{
+    ...
+    mf2();
+    ...
+}
+```
+
+这里Derived::mf4 调用了Base::mf2。
+
+当编译器看到这里使用mf2，必须估算它指涉refer to了什么东西，编译器的方法是按照作用域从内到外寻找：
+
+- 首先查找local作用域（也就是mf4覆盖的作用域）
+- 再找其外围作用域，也就是class Derived覆盖的作用域。
+- 再向外，本例是class Base，这里找到
+- 如果没找到，那么会接着找，首先找内含Base的那个namespace的作用域，最后往global作用域找去。
+
+但是，现在我们重载mf1和mf3，并且添加一个新版mf3到Derived去。这样整个设计就会显得十分混乱。
+
+![image-20230202172729873](Effective_C++.assets/image-20230202172729873.png)
+
+```c++
+class Base {
+private:
+    int x;
+    public:
+    virtual void mf1() = 0;
+    virtual void mf1(int);
+    virtual void mf2();
+    void mf3();
+    void mf3(double);
+	...
+};
+class Derived: public Base {
+public:
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+};
+
+
+Derived d;
+int x;
+...
+d.mf1(); // fine, calls Derived::mf1
+d.mf1(x); // error! Derived::mf1 hides Base::mf1
+d.mf2(); // fine, calls Base::mf2
+d.mf3(); // fine, calls Derived::mf3
+d.mf3(x); // error! Derived::mf3 hides Base::mf3
+```
+
+这样写，那么base class 内所有名为mf1和mf3 的函数都被derived class 的同名函数遮掩掉了。从名称查找观点来看，Base::mf1 和Base::mf3不再被Derived继承。
+
+As you can see, this applies even though the functions in the base and derived classes take different parameter types, and it also applies regardless of whether the functions are virtual or non-virtual. In the same way that, at the beginning of this Item, the double x in the function someFunc hides the int x at global scope, here the function mf3 in Derived hides a Base function named mf3 that has a different type.
+
+这些行为背后的基本理由是防止你在程序库或应用框架内建立新的derived class时附带地从疏远的base classes继承重载函数。但是你通常会想继承重载函数。实际上，如果你正在使用public继承，而又不继承那些重载函数，那就是**违背了base和derived 的“is-a”关系**。为此我们几乎总是会推翻 C++对继承而来的名称的缺省遮掩行为。（That being the case, you’ll almost always want to override C++’s default hiding of inherited names. ）
+
+```c++
+class Base {
+private:
+    int x;
+    public:
+    virtual void mf1() = 0;
+    virtual void mf1(int);
+    virtual void mf2();
+    void mf3();
+    void mf3(double);
+    ...
+};
+class Derived: public Base {
+public:
+    using Base::mf1; // make all things in Base named mf1 and mf3
+    using Base::mf3; // visible (and public) in Derived’s scope
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+};
+```
+
+当你继承base class 并加上重载函数，而你又希望重新定义或赋写其中一部分，那么你必须为那些原本会遮掩的每个名称引入一个using声明式，否则某些你希望继承的名称会被遮掩。
+
+有时候你不想继承Base下的所有函数，但是在public继承下，这不应该发生，因为这违背了所谓“is-a”关系。
+
+如果Derived以private形式继承Base，而Derived只想要无参数版本的mf1，那么using声明式会令继承而来的某给定名称之所有函数在derived class中都可见(会把别的也包括进去)。那么我们需要一个转交函数forwarding function。
+
+```c++
+class Base {
+public:
+virtual void mf1() = 0;
+virtual void mf1(int);
+... // as before
+};
+class Derived: private Base {
+public:
+virtual void mf1() // forwarding function; implicitly
+{ Base::mf1(); } // inline — see Item 30. (For info
+... // on calling a pure virtual
+}; // function, see Item 34.)
+...
+Derived d;
+int x;
+d.mf1(); // fine, calls Derived::mf1
+d.mf1(x); // error! Base::mf1() is hidden
+```
+
+转交函数对于某些旧版编译器（不支持using）的也有意义。
+
+【条款43】会介绍继承结合template的情况。
+
+
+
+> ### 如果Derived遮掩了public继承的Base类里的一些函数，导致Base和Derived的“is-a”关系被破坏，那么会有什么恶果？请用代码举例
+>
+> 假设我们有以下代码：
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> class Base {
+> public:
+>     virtual void foo() { cout << "Base::foo" << endl; }
+> };
+> 
+> class Derived : public Base {
+> public:
+>     void foo() { cout << "Derived::foo" << endl; }
+> };
+> 
+> int main() {
+>     Base *b = new Derived();
+>     b->foo();
+>     return 0;
+> }
+> ```
+>
+> 在这个例子中，Derived 类遮掩了从 Base 类继承的 foo 函数，并且在 Derived 类中实现了自己的版本。因此，如果我们定义一个指向 Derived 类的指针，并将其转换为指向 Base 类的指针，则在运行时调用的将是 Derived 类的版本，而不是 Base 类的版本：
+>
+> ```c++
+> Derived::foo
+> ```
+>
+> 这是一个简单的例子，但是它说明了在遮掩继承函数时可能会破坏 "is-a" 关系，因此可能会导致潜在的问题。例如，如果我们需要使用 Base 类的函数，但却调用了 Derived 类的版本，则可能导致意外的结果。因此，在遮掩继承函数时需要谨慎处理。
+>
+> 除了会破坏Base类和Derived类之间的“is-a”关系以外，还有可能影响多态性，导致代码难以维护。例如，当您在编写代码时需要对派生类调用一些基类的函数，但是因为该函数已被遮盖，导致代码执行了不正确的函数。此外，如果您在使用一些类库时发现一些意想不到的结果，也有可能是由于破坏了“is-a”关系所导致的。
+>
+> **本来我也不太理解，因为我经常覆盖基类的函数，后来看明白了，就是Public继承，就意味着Base里的函数除了重载的都应该被保留，即D可以正常使用B里的函数和成员变量。即is-a的关键。不能我D想用B的时候用不了。这是一个规则。所以你该加virual把它定义为重载就重载。别的base的就别动。**
+
+#### 总结：
+
+- derived classes内的名称会遮掩base classes内的名称。在public继承下不会如此。
+- 为了让被遮掩的名称重见天日，可使用using 声明或转交函数。
+
 ### 条款34 区分接口继承和实现继承
 
 Differentiate between inheritance of interface and inheritance of implementation
+
+
 
 ### 条款35 考虑virtual函数以外的其他选择
 
