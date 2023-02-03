@@ -936,7 +936,7 @@ Empty e2(e1); // copy constructor
 e2 = e1; // copy assignment operator 
 ```
 
-编译器为你写函数，default构造函数和析构函数主要是给编译器一个地方用来放置“藏身幕后”的代码，比如调用base classes和non-static 成员变量的构造函数和析构函数。注意，编译器产生的析构函数是non-virtual【条款07】，除非这个class的base class 自身声明有virual 析构函数，这时这个函数的虚属性主要来自base class。
+编译器为你写函数，default构造函数和析构函数主要是给编译器一个地方用来放置“藏身幕后”的代码，比如调用base classes和non-static 成员变量的构造函数和析构函数。注意，编译器产生的析构函数是non-virtual【条款07】，除非这个class的base class 自身声明有virtual 析构函数，这时这个函数的虚属性主要来自base class。
 
 至于copying构造函数，编译器创建的版本只是单纯地将来源对象的每一个non-static 成员变量拷贝到目标对象。
 
@@ -1040,8 +1040,6 @@ virtual ~AWOV() = 0; // declare pure virtual destructor
 };
 AWOV::~AWOV() {} // definition of pure virtual dtor
 ```
-
-
 
 #### 总结：
 
@@ -2031,7 +2029,7 @@ C++ 就像其他OOP语言一样，当你定义一个新class，也就是定义�
 
 - **<font color='#DB4437'>你的新type需要配合某个继承图系（inheritance graph）吗？</font>**             <font color='#4285F4'>继承</font>
 
-  如果你继承自某些既有的classes，那么你就会受到哪些classes设计的束缚，特别是受到它们的函数是virual或non-virtual的印象【条款34】【条款36】。如果你运行其他class，那会影响你所声明的函数--尤其是析构函数--是否为virual【条款7】。
+  如果你继承自某些既有的classes，那么你就会受到哪些classes设计的束缚，特别是受到它们的函数是virtual或non-virtual的印象【条款34】【条款36】。如果你运行其他class，那会影响你所声明的函数--尤其是析构函数--是否为virtual【条款7】。
 
 - **你的新type需要什么样的转换？**
 
@@ -3418,7 +3416,7 @@ Inline函数通常一定被置于头文件内，因为大多数build environment
 
 template通常被置于头文件内，其具现化与inlining无关。如果你正在写一个template而你认为所有根据此template生成的函数都应该inlined，那么就将这个template设为inline。否则就应该避免将模板设为inline。这对template尤其是如此，【条款44】会详细讲。
 
-编译器会拒绝inline太过复杂（比如带有递归和循环）的函数。绝大多数的virtual函数的inline也会落空，因为从逻辑上来说，virual意味着“等待，知道运行期才确定调用哪个函数”，而inline意味着“执行前，先将调用动作替换为函数的本体”。
+编译器会拒绝inline太过复杂（比如带有递归和循环）的函数。绝大多数的virtual函数的inline也会落空，因为从逻辑上来说，virtual意味着“等待，知道运行期才确定调用哪个函数”，而inline意味着“执行前，先将调用动作替换为函数的本体”。
 
 
 
@@ -3845,7 +3843,7 @@ d.mf1(x); // error! Base::mf1() is hidden
 >
 > 除了会破坏Base类和Derived类之间的“is-a”关系以外，还有可能影响多态性，导致代码难以维护。例如，当您在编写代码时需要对派生类调用一些基类的函数，但是因为该函数已被遮盖，导致代码执行了不正确的函数。此外，如果您在使用一些类库时发现一些意想不到的结果，也有可能是由于破坏了“is-a”关系所导致的。
 >
-> **本来我也不太理解，因为我经常覆盖基类的函数，后来看明白了，就是Public继承，就意味着Base里的函数除了重载的都应该被保留，即D可以正常使用B里的函数和成员变量。即is-a的关键。不能我D想用B的时候用不了。这是一个规则。所以你该加virual把它定义为重载就重载。别的base的就别动。**
+> **本来我也不太理解，因为我经常覆盖基类的函数，后来看明白了，就是既然选择Public继承，就意味着Base里的函数除了重载的都应该被保留，即D可以正常使用B里的函数和成员变量。即is-a的定义。不能我D想用B的时候用不了。这是一个规则。所以你该加virtual把它定义为重载就重载。别的base的函数就别动。**
 
 #### 总结：
 
@@ -3856,19 +3854,523 @@ d.mf1(x); // error! Base::mf1() is hidden
 
 Differentiate between inheritance of interface and inheritance of implementation
 
+看似直截了当的Public继承概念，分析发现它由两部分组成：函数接口继承和函数实现继承。这种差异很像之前的函数声明和函数定义之间的差异。
 
+```c++
+class Shape {
+public:
+    virtual void draw() const = 0;
+    virtual void error(const std::string& msg);
+    int objectID() const;
+    ...
+};
+class Rectangle: public Shape { ... };
+class Ellipse: public Shape { ... };
+```
+
+成员函数的接口总是会被继承。一如【条款32】来说，public继承意味着is-a，所以对base class为真的一定对其derived classes为真。
+
+这个类里哟三个非常典型的函数，分别是纯虚函数、虚函数和non-virtual函数。
+
+- Pure virtual
+
+  pure virtual函数有两个最突出的特性：
+
+  - 它们必须被任何继承了它们的具象class重新声明，
+  - 而且它们在抽象class中通常没有定义。
+
+  **声明一个pure virtual函数的目的是让derived classes只继承函数接口。**令人意外的是，我们可以为pure virtual函数提供定义。但是你想用的时候，得明确指出其class名称。
+
+- impure virtual
+
+  一如既往，derived classes继承其函数接口。但impure virtual函数会提供一份实现代码。
+
+  **声明简朴的非纯虚函数的目的是让derived classes继承该函数的接口和<u>缺省实现</u>。**
+
+  impure virtual提供的缺省实现需要谨慎使用，因为客户在继承时很可能忘记覆写虚函数，所以当你确定这个函数很重要，每个函数得有一个自己的版本，那么还是用纯虚函数。
+
+- non virtual
+
+  如果成员函数是个non-virtual函数，意味着它并不打算在derived classes中有不同的行为。实际上一个non-virtual成员函数所表现的不变性invariant凌驾于其特异性specialization。
+
+  **声明non-virtual函数的目的是令derived classes继承函数的接口以及一份强制性实现。**
+
+
+
+这三类接口定义方法可以让我们精准地声明我们的成员函数并避免经验不足的程序员最常犯的两个错误：
+
+- 将所有函数声明为non-virtual，这使得derived classes没有余裕空间进行特化工作。non-virtual析构函数尤其会带来问题【条款7】。这种声明可能是担心virtual的成本，但实际上你不必这么做。
+- 另一个常见错误是将所有成员函数声明为virtual。有时候是对的，比如【条款31】中的interface class。但是这也是class设计者缺乏坚定立场的前兆。有些函数就是不该在derived class中被重新定义。
+
+
+
+#### 总结：
+
+- 接口继承和实现继承不同。在public继承下，derived classes总是继承base classes的接口。
+- pure virtual函数只具体指定接口继承。
+- impure virtual 函数具体指定接口继承和缺省实现继承。
+- non virtual函数具体指定解耦继承好强制性实现继承。
 
 ### 条款35 考虑virtual函数以外的其他选择
 
 Consider alternatives to virtual functions
 
-### 条款36 绝不重新定义继承而来的non-virtual函数
+#### **通过NVI手法实现Template Method模式、**
+
+```c++
+class GameCharacter {
+public:
+    int healthValue() const // derived classes do not redefine
+    { // this — see Item 36
+        ... // do “before” stuff — see below 事前工作
+        int retVal = doHealthValue(); // do the real work 
+        ... // do “after” stuff — see below  事后工作
+        return retVal;
+    }
+...
+private:
+    virtual int doHealthValue() const // derived classes may redefine this
+    { 
+        ... // default algorithm for calculating
+    } // character’s health
+};
+```
+
+这种设计方式，是“令客户通过public non virtual 成员函数间接调用virtual函数”，称为**non-virtual interface（NVI）手法**。它是所谓**Template Method**设计模式（与c++ templates并无关联）的一个独特表现方式。我们将这个non-virtual函数称为virtual函数的外覆器wrapper。
+
+NVI手法的一个优点是在真正调用virtual的前后，可以进行一些事前事后工作，也就是说，wrapper确保virtual函数在被调用前可以设定好适当场景，并在调用结束之后清理场景。事前工作可以包括锁定互斥器locking a mutex、制造运转日志记录项log entry、验证class约束条件、验证函数先决条件等。事后工作可以包括互斥器解除锁定unlocking a mutex、验证函数的事后条件、在此验证class约束条件等等。直接调用virtual的话，就没法做这些事情。
+
+NVI涉及在Derived classes内重新定义private virtual函数。重新定义若干个derived classes并不会调用的函数。这里并不存在矛盾。重新定义virtual函数表示某些事情如何被完成，调用virual函数则表示它何时被完成。这些事情都是各自独立互不相干的。下面的代码很好的解释这一点。
+
+> ```c++
+> #include <iostream>
+> using namespace std;
+> class Shape {
+> private:
+>     virtual double area() const {
+>         return 0;
+>     }
+> public:
+>     double getArea() const {
+>         // "before" and "after" stuff goes here, if needed.
+>         return area();
+>     }
+> };
+> 
+> class Rectangle : public Shape {
+> public:
+>     double width,height;
+>     Rectangle(double w,double h):width(w),height(h){}
+> private:
+>     double area() const {
+>         // implementation of area calculation for Rectangle
+>         return width * height;
+>     }
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     double radius;
+>     Circle(double r):radius(r){}
+> private:
+>     double area() const {
+>         // implementation of area calculation for Circle
+>         return 3.14 * radius * radius;
+>     }
+> };
+> 
+> 
+> int main() {
+>     class Rectangle Rec(3,4);
+>     cout<<Rec.getArea()<<endl;
+>     Circle cir(3);
+>     cout<<cir.getArea()<<endl;
+> 
+>     std::cout << "Hello, World!" << std::endl;
+>     return 0;
+> }
+> ```
+
+在NVI手法下其实没有必要一定得是private。某些class继承体系要求derived class在virtual函数的实现内必须调用其base class的对应兄弟，而为了这样的调用合法，那么virtual函数就得是protected。有时候甚至得是public（比如如具备多态性质的base classes的析构函数）【条款7】，这样一来就不能使用NVI手法了。
+
+#### 藉由函数指针实现Strategy模式
+
+```c++
+class GameCharacter; // 前置声明
+// function for the default health calculation algorithm
+int defaultHealthCalc(const GameCharacter& gc);
+class GameCharacter {
+public:
+    typedef int (*HealthCalcFunc)(const GameCharacter&);
+    explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc)
+    : healthFunc(hcf )
+    {}
+    int healthValue() const 
+    { return healthFunc(*this); }
+    ...
+private:
+	HealthCalcFunc healthFunc;
+};
+class EvilBadGuy: public GameCharacter {
+public:
+    explicit EvilBadGuy(HealthCalcFunc hcf = defaultHealthCalc)
+    : GameCharacter(hcf )
+    { ... }
+    ...
+};
+int loseHealthQuickly(const GameCharacter&); // health calculation
+int loseHealthSlowly(const GameCharacter&); // funcs with different
+// behavior 
+EvilBadGuy ebg1(loseHealthQuickly); // same-type characters with different health-related behavior
+EvilBadGuy ebg2(loseHealthSlowly); // 
+```
+
+这种做法是常见的Strategy设计模式的简单应用。拿它和“植基于GameCharacter继承体系内之virtual函数”的做法比较，它提供了某些有趣的弹性。
+
+- 同一人物类型之不同实体可以有不同的健康计算函数
+- 某已知人物之健康指数计算函数可以在运行期变更。
+
+这种做法在不再访问类的non-public成分。实际上任何时候当你将class内的某个机能（也许来自某个成员函数）替换为class外部的某个等价机能（也许取道自某个non-member non-friend函数或另一个class的non-friend成员函数），这些都是潜在争议点。这个争议将持续至本条款其他篇幅，因为我们即将考虑的所有替代设计也都设计使用GameCharacter继承体系外的函数。
+
+一般而言，唯一能够解决“需要以non-member函数访问class的non-public成分”的办法就是：弱化class的封装。例如class可声明那个non-member函数为friends，或是为其实现的某一部分提供public访问函数。运用函数指针替换virtual函数，其优点（像是每个对象可各自拥有自己的健康计算函数以及可在运行期改变计算函数）是否足以弥补缺点（例如这样可能必须降低GameCharacter封装性），这是你必须根据每个设计情况的不同而抉择的。
+
+#### 藉由tr1::function实现Strategy模式（现在已经是Std::function）
+
+> `tr1::function`是C++中的一种类型，它可以存储任何可调用的对象，如函数、函数指针、绑定函数、或者是任何可以使用 operator() 运算符重载的对象（即仿函数）。
+>
+> 它属于C++ TR1（Technical Report 1）库，目的是为了提供一种标准的方法来使用函数对象。它已经被包含在C++11标准中，所以不需要额外的库。
+>
+> 因此，现在的说法是，`std::function`已经进入了C++标准
+>
+> `std::function`是C++中的一种通用函数包装器，用于存储任意可调用对象，例如函数、函数指针、绑定函数、或任意可调用的对象（如仿函数）。这个类模板的一个实例可以保存一个特定的函数，并可以在需要时调用它。
+>
+> ```c++
+> #include <iostream>
+> #include <functional>
+> 
+> int add(int a, int b) {
+>     return a + b;
+> }
+> 
+> int main() {
+>     std::function<int(int, int)> func = add;
+>     int result = func(3, 4);
+>     std::cout << "Result: " << result << std::endl;
+>     return 0;
+> }
+> ```
+
+一旦习惯了templates以及它们对隐式接口【条款41】的使用，基于函数指针的做法看起来就显得过于苛刻死板了。为什么“健康指数之计算”必须是个函数，而不能是某种“像函数的东西”（例如函数对象）呢。如果一定是函数，为什么不能是成员函数？为什么一定返回int而不是任何可也比转换为int的类型呢？
+
+如果我们不再使用函数指针，而是使用一个类型为tr1::function的对象，这些约束就都不见了。【条款54】所说，这样的对象可持有（保存）任何可调用物（callable entity，也就是函数指针、函数对象、或成员函数指针），只有其签名式兼容于需求端。以下将刚才的设计改为使用tr1::function。
+
+```c++
+class GameCharacter; // as before
+int defaultHealthCalc(const GameCharacter& gc); // as before
+class GameCharacter {
+public:
+    // HealthCalcFunc is any callable entity that can be called with
+    // anything compatible with a GameCharacter and that returns anything
+    // compatible with an int; see below for details
+    typedef std::tr1::function<int (const GameCharacter&)> HealthCalcFunc;
+    explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc): healthFunc(hcf ){}
+    int healthValue() const 
+    	{ return healthFunc(*this); }
+    ...
+private:
+	HealthCalcFunc healthFunc;
+};
+```
+
+` std::tr1::function<int (const GameCharacter&)> HealthCalcFunc;`这个签名代表的是接受一个reference指向const GameCharacter，并返回int。这个std::tr1::function类型产生的对象可以持有任何于此签名式兼容的可调用物callable entity。所谓兼容，意思是这个可调用物的参数可被隐式转换为const GameCharacter&，而其返回类型可被隐式转换为int。
+
+这种设计和之前的设计没什么不同，唯一不同的如今GameCharacter持有一个tr1::function对象，相当于一个指向函数的泛化指针。而这小小的变化会带来惊人的弹性。
+
+```c++
+#include <iostream>
+#include <functional>
+
+using namespace std;
+
+class GameCharacter; // 前置声明
+// function for the default health calculation algorithm
+int defaultHealthCalc(const GameCharacter &gc);
+
+class GameCharacter {
+public:
+    typedef std::function<int (const GameCharacter&)> HealthCalcFunc;
+
+    explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc)
+            : healthFunc(hcf) {}
+
+    int healthValue() const { return healthFunc(*this); }
+
+private:
+    HealthCalcFunc healthFunc;
+};
+
+class EvilBadGuy : public GameCharacter {
+public:
+    explicit EvilBadGuy(HealthCalcFunc hcf = defaultHealthCalc)
+            : GameCharacter(hcf) {}
+};
+
+short calcHealth(const GameCharacter &); // health calculation function; note non-int return type
+struct HealthCalculator { // class for health
+    int operator()(const GameCharacter &) const // calculation function objects
+    {}
+};
+
+class GameLevel {
+public:
+    float health(const GameCharacter &) const; // health calculation mem function; note non-int return type
+};
+
+class EyeCandyCharacter : public GameCharacter { // another character type; assume same constructor as EvilBadGuy
+    explicit EyeCandyCharacter(HealthCalcFunc hcf = defaultHealthCalc)
+    : GameCharacter(hcf) {}
+};
+
+
+int main() {
+    GameCharacter a;
+    EvilBadGuy ebg1(calcHealth); // character using a health calculation function
+    EyeCandyCharacter ecc1(HealthCalculator()); // character using a health calculation function object
+    GameLevel currentLevel;
+    EvilBadGuy ebg2(
+            std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 ) // character using a health calculation member function;
+    );
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+
+```
+
+> #### 上面代码发挥了什么作用？
+>
+> 这段代码演示了如何使用 `std::function` 和 `std::bind` 在C++中创建泛化指针。
+>
+> 具体地，它定义了一个类 `GameCharacter`，该类具有一个类型为 `std::function<int(const GameCharacter &)>` 的数据成员 `healthFunc`。这个类型的函数指针可以指向任意可以接受一个 `const GameCharacter &` 并返回 `int` 的函数。
+>
+> `EvilBadGuy` 和 `EyeCandyCharacter` 都是从 `GameCharacter` 派生而来，它们分别通过一个函数和一个函数对象初始化 `GameCharacter` 的 `healthFunc`。
+>
+> `GameLevel` 是一个普通的类，其中定义了一个成员函数 `health`。在 `EvilBadGuy` 的实例化中，通过使用 `std::bind` 来设置其 `healthFunc` 为 `currentLevel` 的 `health` 成员函数。
+>
+> 最终，可以看到这段代码说明了如何使用 `std::function` 和 `std::bind` 实现泛化指针的功能，以及如何将其用于函数、函数对象和成员函数的指针。
+>
+>
+> 
+>#### 使用 std::bind 来设置其 healthFunc 为 currentLevel 的 health 成员函数。这部分详细讲讲
+> 
+>std::bind 是 C++11 中新增的一个库函数，它可以用来将一个函数绑定到一个特定的对象上，使得该函数变为一个可调用的函数对象（functor）。在本段代码中，std::bind 用于绑定 GameLevel 的 health 成员函数到 currentLevel 对象上。
+> 
+>在代码中，std::bind 的调用如下：
+> 
+>```
+> rubyCopy code
+>std::bind(&GameLevel::health, currentLevel, std::placeholders::_1)
+> ```
+> 
+> 其中，&GameLevel::health 表示 health 成员函数的函数指针；currentLevel 表示该成员函数的调用对象；std::placeholders::_1 是占位符，用于表示绑定的函数的第一个参数。
+> 
+>因此，这段代码中的 std::bind 调用相当于创建了一个可调用的函数对象，该对象表示调用 currentLevel 的 health 成员函数，并且其第一个参数将自动被替换为调用该函数对象时传递的参数。
+> 
+>最后，该函数对象被传递给 EvilBadGuy 的构造函数，以设置 EvilBadGuy 对象的 healthFunc 成员变量，即以 currentLevel 的 health 成员函数作为该对象的 health 值的计算方法。
+> 
+>
+> 
+>#### Now, GameLevel::health is a function that is declared to take one parameter (a reference to a GameCharacter), but it really takes two, because it also gets an implicit GameLevel parameter — the one this points to. Health calculation functions for GameCharacters, however, take a single parameter: the GameCharacter whose health is to be calculated. If we’re to use GameLevel::health for ebg2’s health calculation, we have to somehow “adapt” it so that instead of taking two parameters (a GameCharacter and a GameLevel), it takes only one (a GameCharacter). In this example, we always want to use currentLevel as the GameLevel object for ebg2’s health calculation, so we “bind” currentLevel as the GameLevel object to be used each time GameLevel::health is called to calculate ebg2’s health. 结合这段话，再给我讲一下
+> 
+>
+>
+> std::bind 的作用。
+>
+> std::bind 是 STL 中的一个函数适配器，它可以将一个需要多个参数的函数适配成需要一个参数的函数。在本例中，GameLevel::health 是一个需要两个参数的函数，其中一个参数是 GameCharacter 类型的对象，另一个是隐含的 GameLevel 类型的对象 this，通过 std::bind 我们可以将其适配成需要一个参数的函数，即只需要一个 GameCharacter 类型的参数。
+>
+> 具体的，std::bind 的第一个参数是函数的地址，第二个参数是绑定的对象，即 currentLevel，第三个参数是占位符 std::placeholders::_1，表示函数的第一个参数，也就是 GameCharacter 类型的对象。
+>
+> 所以最终 std::bind 返回的是一个函数对象，它只需要一个 GameCharacter 类型的参数，而在内部它会自动调用 GameLevel::health，并将 currentLevel 绑定为 this 参数，从而实现了 GameLevel::health 的适配。
+>
+> 
+>
+> #### GameLevel::health 是一个需要两个参数的函数？他表面不是只要一个参数吗？
+>
+> GameLevel::health 声明时仅仅需要一个参数，即一个引用类型为 GameCharacter 的参数。但是实际上它需要两个参数：一个显式的 GameCharacter 参数和一个隐式的 GameLevel 参数（即 this 指针所指向的对象）。因此，如果我们想要在 EvilBadGuy 对象 ebg2 中使用 GameLevel::health 函数，我们需要适配它以使其不再需要两个参数，而只需要一个参数。在这个例子中，我们希望在每次计算 ebg2 的 health 时都使用 currentLevel 作为 GameLevel 对象，因此我们使用 std::bind 将 currentLevel 绑定到 GameLevel::health 中，以便在计算 ebg2 的 health 时使用它。
+>
+> 
+>
+>#### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )
+>  
+>#### EvilBadGuy ebg3(GameLevel::health);这两个声明有什么区别？为什么ebg3编译失败
+> 
+>这两个声明在定义 EvilBadGuy 对象时设置其 healthFunc 为不同的函数。
+> 
+>- `EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel, std::placeholders::_1));` 表示使用 `std::bind` 函数绑定 GameLevel::health 函数，并将其第一个参数固定为 `currentLevel`。在实际调用时，这个 std::function 对象就等价于调用 `GameLevel::health(currentLevel, x)`，其中 x 是传入的 GameCharacter 对象。
+> - `EvilBadGuy ebg3(GameLevel::health);` 尝试将一个成员函数指针直接赋值给一个 std::function 对象，但是这是不合法的，因此会编译失败。您需要使用 `std::bind` 或者一个函数对象来对其进行封装，以便满足 std::function 的要求。
+>
+> 
+>
+>#### 将一个成员函数指针直接赋值给一个 std::function 对象，为什么不合法
+> 
+>因为成员函数需要隐含的 this 指针，而 std::function 对象只能保存全局函数、静态成员函数和可调用对象（如函数对象）。直接使用成员函数指针会丢失 this 指针信息，导致编译错误。为了将成员函数正确地保存在 std::function 中，需要使用 std::bind 函数来绑定成员函数和其隐含的 this 指针。
+> 
+>
+> 
+>#### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )怎么绑定隐含的this指针了？
+> 
+>`std::bind` 可以用于将成员函数转换为可调用对象（即函数指针），并绑定隐式的 `this` 指针。在这里，使用了 `std::bind(&GameLevel::health, currentLevel,std::placeholders::_1)` 将 `GameLevel::health` 函数绑定到了 `currentLevel` 的 `this` 指针上，这样每次调用函数时就不需要再提供额外的 `GameLevel` 参数，而只需要提供一个 `GameCharacter` 参数。最后，这个绑定后的函数对象被赋值给了 EvilBadGuy 对象 `ebg2` 的 healthFunc。
+
+https://juejin.cn/post/7119772063174230047
+
+#### 古典的Strategy模式
+
+典型的Strategy会将健康计算函数做成一个分离的继承体系中的virtual成员函数。
+
+![image-20230203155311086](Effective_C++.assets/image-20230203155311086.png)
+
+```c++
+class GameCharacter; // forward declaration
+class HealthCalcFunc {
+public:
+    ...
+    virtual int calc(const GameCharacter& gc) const
+    { ... }
+    ...
+};
+HealthCalcFunc defaultHealthCalc;
+class GameCharacter {
+    public:
+    explicit GameCharacter(HealthCalcFunc *phcf = &defaultHealthCalc)
+    : pHealthCalc(phcf)
+    {}
+    int healthValue() const 
+    { return pHealthCalc->calc(*this); }
+    ...
+private:
+	HealthCalcFunc *pHealthCalc;
+};
+```
+
+这种方法的好处是，熟悉标准Strategy模式的人很容易辨识它，而且他还提供将一个既有的健康算法纳入使用的可能性--只要为HealthCalFunc继承体系加一个derived class即可。
+
+#### 总结：
+
+当你为解决问题而寻找设计方案时，不妨考虑virtual函数的替代方案。
+
+- NVI手法，这是Template Method设计模式的一种特殊形式。它以public non-virtual成员函数包裹较低访问性（private或Protected）的virtual函数。
+- 将virtual函数替换为函数指针成员变量，这是Strategy设计模式的一种分解表示形式
+- 以std::function 成员变量替换virtual函数，因而允许使用任何可调用物（callable entity）搭配一个兼容于需求的签名式。这也是Strategy设计模式的某种形式。
+- 将继承体系内的virtual函数替换为另一个继承体系内的virtual函数。这是Strategy设计模式的传统实现手法。
+
+> #### 为什么我设计类不直接用virtual函数，还得扯这么多，比如NVI手法，std::function，Strategy模式等等。
+>
+> 使用虚函数确实是一种常见的实现多态的方法，但是有时候不适用，比如：
+>
+> 1. 类的结构固定不能改变：有时候你无法更改已有类的结构，而必须使用额外的技巧来实现多态。
+> 2. 多种算法的需求：在某些场景中，你需要在运行时动态选择算法，而不是固定使用一种。
+> 3. 避免虚函数的性能问题：虚函数通常比其他技巧慢，如果你在性能敏感的场景中使用它，你可能会遇到问题。
+>
+> 因此，使用 NVI 技巧、std::function、策略模式等等是一种备选的实现多态的方法，满足了这些需求。
+
+### 条款36 绝不重新定义继承而来的non-virtual函数[我经常犯的错误]
 
 Never redefine an inherited non-virtual function
+
+```c++
+#include <iostream>
+#include <functional>
+
+using namespace std;
+
+class B {
+public:
+    void mf(){cout<<"B::mf"<<endl;};
+};
+class D: public B {
+public:
+    void mf(){cout<<"D::mf"<<endl;};;
+};
+
+
+int main() {
+    D x;
+    B *pB = &x;
+    D *pD = &x;
+    pB->mf();
+    pD->mf();
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+/*
+B::mf
+D::mf
+Hello, World!
+*/
+```
+
+non-virtual函数如B::mf和D::mf都是静态绑定（statically bound）【条款37】。因为pB被声明为一个pointer-to-B，通过pB调用的non-virtual函数永远是B所定义的版本，即使pB指向一个类型为D的对象。
+
+virtual函数确是动态绑定（dynamically bound）【条款37】，因为pB和pD指的都是一个类型为D的对象，所以不管通过哪个指针，都会导致调用D::mf。
+
+```c++
+#include <iostream>
+#include <functional>
+
+using namespace std;
+
+class B {
+public:
+    virtual  void mf(){cout<<"B::mf"<<endl;};
+};
+class D: public B {
+public:
+    void mf(){cout<<"D::mf"<<endl;};;
+};
+
+
+int main() {
+    D x;
+    B *pB = &x;
+    D *pD = &x;
+    pB->mf();
+    pD->mf();
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+
+/*
+D::mf
+D::mf
+Hello, World!
+*/
+```
+
+如果你正在编写D并重新定义了继承自B的non-virtual函数mf，D对象可能展现出不一致的行为。因为“指向该对象之指针”当初的声明类型，会导致调用的函数未必如你所愿。引用也会展现同样难以理解的行径。
+
+以上是实务性质的讨论，下面来详细说明为什么理论层面我们也应该“绝不重新定义继承而来的non-virtual函数”
+
+【条款32】已经说过，所谓public继承意味着is-a。【条款34】描述了为什么在class内声明一个non-virtual函数会为该class建立一个不变性invariant，凌驾其特异性。那么结合这两个观点，那么：
+
+- 适用于B的每一件事，也适用于D，因为D都是B
+- B的derived对象一定会继承mf的接口和实现，因为mf是B的一个non-virtual函数。
+
+现在，如果D重新定义mf，那么就出现了矛盾：
+
+- 如果D真有必要实现出与B不同的mf，并且每个B对象必须使用B所提供的mf实现码，那么D就为B不为真。那么D就不该以public继承B；
+- 如果D真的必须Public继承B，并且D真的有需要实现出与B不同的mf，那么mf就无法为B反映出“不变性凌驾于特异性”的性质，那么mf就不该是个non-virtual，而是个virtual函数。
+- 如果D真的是B，而且mf真的为B反映出“不变性凌驾特异性”的性质，那么D就不需要重新定义mf，也不应该。
+
+[条款7] (为多态基类声明virtual析构函数)实际上是本条款的一个特殊案例。
+
+#### 总结：
+
+- 绝对不要重新定义s继承而来的non-virtual函数。
 
 ### 条款37 绝不重新定义继承而来的缺省参数值
 
 Never redefine a function’s inherited default parameter value
+
+你只能继承两种函数：virtual和non-virtual函数。然而重新定义继承而来的non-virtual函数永远是错误的。
 
 ### 条款38 通过复合塑模出has-a 或“根据某物实现出“
 
