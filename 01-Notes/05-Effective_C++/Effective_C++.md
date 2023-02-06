@@ -4370,19 +4370,331 @@ Hello, World!
 
 Never redefine a function’s inherited default parameter value
 
-你只能继承两种函数：virtual和non-virtual函数。然而重新定义继承而来的non-virtual函数永远是错误的。
+你只能继承两种函数：virtual和non-virtual函数。然而重新定义继承而来的non-virtual函数永远是错误的【条款36】。所以我们可以安全地将本条款的限定范围限制于“继承一个带有缺省参数值的virtual函数”。
+
+这种情况下，本条款成立的理由就非常明显了：**virtual函数系动态绑定，而缺省（默认）参数值却是静态绑定。**
+
+对象所谓的静态类型（static type），就是它在程序中被声明时所采用的类型。
+
+对象所谓的动态类型（dynamic type），则是“目前所指对象的类型”。
+
+virtual函数系动态绑定而来，意思是调用的一个virtual函数时，究竟调用哪一份函数实现代码，取决于发出调用的那个对象的动态类型。
+
+virtual函数系动态绑定，而缺省（默认）参数值却是静态绑定。这一点会导致，用户可能会在“调用一个定义于derived class内的virtual函数”的同时，却使用base class为它指定的默认参数值。这就导致很奇怪的现象，即基类子类各出一半力气。
+
+```c++
+#include <iostream>
+#include <functional>
+
+using namespace std;
+
+class Shape {
+public:
+    enum ShapeColor { Red, Green, Blue };
+// all shapes must offer a function to draw themselves
+    virtual void draw(ShapeColor color = Red) const = 0;
+};
+class Rectangle: public Shape {
+public:
+// notice the different default parameter value — bad!
+    virtual void draw(ShapeColor color = Green) const;
+};
+
+void Rectangle::draw(Shape::ShapeColor color) const {
+    cout<<"Rectangle::draw "<<color<<endl;
+}
+
+class Circle: public Shape {
+public:
+    virtual void draw(ShapeColor color) const;
+};
+
+void Circle::draw(Shape::ShapeColor color) const {
+    cout<<"Circle::draw "<<color<<endl;
+}
+
+int main() {
+    Shape *ps; // static type = Shape*
+    Shape *pc = new Circle; // static type = Shape*
+    Shape *pr = new Rectangle; // static type = Shape*
+    pc->draw(Shape::Red); // calls Circle::draw(Shape::Red)
+    pr->draw(Shape::Red); // calls Rectangle::draw(Shape::Red)
+    pr->draw(); // calls Rectangle::draw(Shape::Red)!
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+/*
+Circle::draw 0
+Rectangle::draw 0
+Rectangle::draw 0
+Hello, World!
+*/
+```
+
+C++ 之所以坚持这种乖张的方式，是为了运行期的效率。如果缺省值数值是动态绑定，编译器就必须有办法在运行期为virtual函数决定适当的参数缺省值。这比目前实行的”在编译器决定“的机制更慢且更复杂。
+
+当你想令virtual函数表现出你想要的行为却遭遇到麻烦，聪明的做法是考虑替代设计。【条款35】列了不少virtual函数的替代设计，其中之一就是NVI手法。让base class内的一个public non-virtual函数调用private virtual函数，后者可被derived class重新定义。由于non-virtual函数绝对不应该被derived class覆写，所以这个设计可以很清楚的使得draw函数的缺省值总是red。
+
+``` c++
+class Shape {
+public:
+    enum ShapeColor { Red, Green, Blue };
+    void draw(ShapeColor color = Red) const // now non-virtual
+    {
+    doDraw(color); // calls a virtual
+}
+...
+private:
+	virtual void doDraw(ShapeColor color) const = 0; // the actual work is
+}; // done in this func
+class Rectangle: public Shape {
+public:
+    ...
+private:
+    virtual void doDraw(ShapeColor color) const; // note,lack of a default param val.
+    ... 
+    };
+```
+
+#### 总结：
+
+- 绝对不要重新定义一个继承而来的缺省参数值，因为缺省参数值都是静态绑定，而virtual函数--你唯一应该覆写的东西--却是动态绑定。
 
 ### 条款38 通过复合塑模出has-a 或“根据某物实现出“
 
 Model “has-a” or “is-implemented-in-terms-of” through composition
 
+复合composition是类型之间的一种关系，当某种类型的对象内含它种类型的对象，便是这种关系。
+
+```c++
+class Address { ... }; // where someone lives
+class PhoneNumber { ... };
+class Person {
+public:
+	...
+private:
+    std::string name; // composed object
+    Address address; // ditto
+    PhoneNumber voiceNumber; // ditto
+    PhoneNumber faxNumber; // ditto
+};
+```
+
+在程序员之间，复合composition有多个同义词，包括layering分层，containment内含，aggregation聚合和embedding内嵌。
+
+【条款32】曾说，public继承带有一种`is-a`（是一种）的意义、而复合则有两种含义。复合意味着`has-a`（有一个）或`is-implemented-in-terms-of`（根据某物实现出）。程序中的一些对象相当于你所塑造的世界中的一些事物，属于应用域`application domain`。而其他对象则是实现细节上的人工制品，相当于你的软件的实现域`implementation domain`。当复合发生于应用域内的对象之间，表现出`has-a`的关系；当它发生于实现域内则是表现`is-implemented-in-terms-of`的关系。
+
+`has-a` 和`is-a` 很容易区别，但是`is-a`和`is-implemented-in-terms-of`在实现功能时很容易混淆。比如set的底层可以通过list来实现，但是set是不能有重复元素的，而list可以，那么两者就不是is-a的关系。也不能用public继承。
+
+#### 总结：
+
+- 复合的意义与public继承（is-a）完全不同。
+- 在应用域，复合意味着has-a。在实现域，复合意味着is-implemented-in-terms-of。
+
 ### 条款39 明智而审慎地使用private继承
 
 Use private inheritance judiciously
 
+Private继承意味着implemented-in-terms-of（根据某物实现出）。如果你让class D以private形式继承class B，你的用意是为了采用class B内已经备妥的某些特性，而不是B和D有任何观念上的关系。private继承纯粹只是一种实现技术（继承自private base class后每一个东西在类里都是private），借用【条款34】提出的术语，private继承意味只有实现部分被继承，接口部分应略去。如果D以private形式继承B，意思是D对象根据B对象实现而得，再没有其他意涵。Private继承在软件设计层面没有意义，其意义只在软件实现层面。
+
+【条款38】刚指出复合的意义也是is-implemented-in-terms-of，那么如何取舍呢？答案很简单，尽量使用复合，必要时才使用private继承。何时为必要？主要是当Protected成员和/或virtual函数牵扯进来的时候。其实还有另一种情况，就是当空间方面的利害关系足以推翻private继承的支柱时。
+
+利用private继承，Timer的public onTick函数在Widget内变成private。
+
+```c++
+class Timer {
+public:
+    explicit Timer(int tickFrequency);
+     virtual void onTick() const; // automatically called for each tick
+    ...
+};
+class Widget: private Timer {
+private:
+    virtual void onTick() const; // look at Widget usage data, etc.
+    ...
+};
+```
+
+上面的设计很不错，但是也没什么特别的。因为private继承并非绝对必要。如果我们打算以composition取而代之，只要在Widget内声明一个嵌套式private class，后者以public形式继承Timer并重新定义onTick，然后放一个这个类型的对象在Widget内。
+
+```c++
+class Widget {
+private:
+	class WidgetTimer: public Timer {
+	public:
+        virtual void onTick() const;
+        ...
+	};
+    WidgetTimer timer;
+    ...
+};
+```
+
+这个设计比只用private继承要稍微复杂一些，因为它同时涉及public继承和复合，并导入一个新的class。
+
+至于多花这些功夫使用这种方法是因为两点：
+
+- 首先，你或许会想设计Widget使它得以拥有derived classes，但同时可能会想阻止derived classes重新定义onTick。如果Widget继承自Timer，那么就不可能实现。（但是C++11 可以定义final关键字了）
+- 你或许想要将Widget的编译依存性降至最低。如果Widget继承Timer，当Widget被编译时Timer的定义必须可见，所以定义Widget的那个文件必须#include Timer.h。但如果是WidgetTimer移出Widget之外而Widget内含指针指向一个WidgetTimer，Widget可以只带着一个简单的WidgetTimer声明式，不再需要#include任何与Timer有关的东西。对于大型系统而言，如此的解耦decouplings可能是重要的措施。
+
+
+还有一种情况，涉及到空间最优化，可能用到private继承。而这就是EBO（empty base optimization:空白基类最优化）
+
+```c++
+class Empty {}; // has no data, so objects should
+// use no memory
+class HoldsAnInt { // should need only space for an int
+    private:
+    int x;
+    Empty e; // should require no memory
+};
+//sizeof(HoldsAnInt) > sizeof(int);
+
+class HoldsAnInt: private Empty {
+private:
+	int x;
+};
+//sizeof(HoldsAnInt) == sizeof(int).
+```
+
+大多数的classes并非empty，所以EBO很少成为private继承的正当理由。
+
+当你面对并不存在is-a关系的两个classws，其中一个需要访问另一个的protected成员，或需要重新定义其一或多个virtual函数，private继承极有可能成为正统设计策略。
+
+#### 总结：
+
+- private继承意味着 is-implemented-in-terms-of。它通常比复合composition的级别低。但是当derived class需要访问protected base class的成员，或需要重新定义继承而来的virtual函数时，这么设计是合理的。
+- 和复合composition不同，Private继承可以造成empty class最优化，这对致力于对象尺寸最小化的程序库开发者来说，可能很重要。
+
 ### 条款40 明智而审慎地使用多重继承
 
 Use multiple inheritance judiciously
+
+一旦涉及多重继承（multiple inheritance MI），C++社群就分为两个基本阵营，其一认为单一继承（single inheritance；SI）是好的，多重继承一定更好。另一派则主张，单一继承是好的，但多重继承不值得使用。
+
+多重继承的意思是继承一个以上的base classes，但这些base classes并不常在继承体系中又有更高级的base classes，因为这会导致要命的钻石型多重继承。
+
+```c++
+class File { ... };
+class InputFile: public File { ... };
+class OutputFile: public File { ... };
+class IOFile: public InputFile,
+public OutputFile
+{ ... };
+```
+
+![image-20230206152540765](Effective_C++.assets/image-20230206152540765.png)
+
+任何时候如果你有一个继承体系而其中某个base class和某个derived class之间有一条以上的相通路线，那么你就必须面对这样一个问题，即是否让base class内的成员变量经由每一条路径被复制。
+
+简单的逻辑告诉我们，IO对象只应该有一个文件名称，所以它继承自两个base classes而来的filename不应该重复。
+
+C++同时支持这两种方案。其缺省做法是执行复制。如果那不是你想要的，你必须令带有这个数据成为一个virtual base class。
+
+```c++
+class File { ... };
+class InputFile: virtual public File { ... };
+class OutputFile: virtual public File { ... };
+class IOFile: public InputFile,
+public OutputFile
+{ ... };
+```
+
+![image-20230206154100060](Effective_C++.assets/image-20230206154100060.png)
+
+从正确行为的观点来看，public继承应该总是virtual。但是，正确性并不是唯一的观点，virtual继承是有代价的。使用virtual继承的class往往体积大且访问慢。
+
+virtual继承的成本还包括在其他方面，支配virtual base classes初始化的规则比起non-virtual bases的情况远为复杂且不直观。这就暗示（1）classes若派生自virtual bases而需要初始化，必须认知其virtual bases--无论那些bases距离多远；（2）当一个新的derived class加入继承体系中，它必须承担其virtual bases（无论直接或间接）的初始化责任。
+
+我对virtual base classes的忠告很简单：
+
+- 第一，非必要不适应virtual bases。平常请使用non-virtual继承。
+
+- 第二，如果你必须使用virtual base classes，尽可能避免在其中放置数据。这样一来你就不需担心这些classes身上的初始化（和赋值）所带来的诡异事情了。
+
+
+
+一种比较通情达理的应用就是：将“public继承自某接口”和“private继承自某实现”结合在一起。
+
+```c++
+class IPerson { // this class specifies the 
+public: // interface to be implemented
+    virtual ~IPerson();
+    virtual std::string name() const = 0;
+    virtual std::string birthDate() const = 0;
+};
+class DatabaseID { ... }; // used below; details are
+// unimportant
+class PersonInfo { // this class has functions
+public: // useful in implementing 
+    explicit PersonInfo(DatabaseID pid); // the IPerson interface
+    virtual ~PersonInfo();
+    virtual const char * theName() const;
+    virtual const char * theBirthDate() const; ...
+private:
+    virtual const char * valueDelimOpen() const;
+    virtual const char * valueDelimClose() const; ...
+};
+class CPerson: public IPerson, private PersonInfo { // note use of MI
+public:
+    explicit CPerson(DatabaseID pid): PersonInfo(pid) {}
+    virtual std::string name() const // implementations
+    { return PersonInfo::theName(); } // of the required
+    // IPerson member
+    virtual std::string birthDate() const // functions
+    { return PersonInfo::theBirthDate(); }
+private: // redefinitions of
+    const char * valueDelimOpen() const { return ""; } // inherited virtual
+    const char * valueDelimClose() const { return ""; } // delimiter
+};
+```
+
+![image-20230206155854665](Effective_C++.assets/image-20230206155854665.png)
+
+多重继承只是面向对象工具箱里的一个工具而已。和单一继承比较，它比较复杂，使用上也比较难以理解，所以如果你有一个单一继承的设计方案，而它大约等价于一个多重继承设计方案，那么单一继承的设计方案几乎一定比较受欢迎。如果你唯一能够提出的设计方案设计多重继承，你应该更努力想想能不能让它变成单一继承。然而多重继承有时候的确是完成任务之最简洁、最易维护、最合理的做法，果真如此就别害怕使用它。只要确定，你的确是在明智而审慎的情况下使用它。
+
+```c++
+#include <iostream>
+using namespace std;
+class Interface {
+public:
+    virtual void func1() = 0;
+    virtual void func2() = 0;
+};
+
+class Implementation {
+private:
+    void helperFunc() { /* implementation */ }
+protected:
+    void func1() { cout<<"func1"<<endl; }
+    void func2() { cout<<"func2"<<endl;  }
+};
+
+class DerivedClass : public Interface, private Implementation {
+public:
+    using Implementation::func1;
+    using Implementation::func2;
+
+    void func1() { Implementation::func1(); }
+    void func2() { Implementation::func2(); }
+};
+
+int main() {
+    DerivedClass D;
+    D.func1();
+    D.func2();
+    return 0;
+}
+//Interface 类是一个抽象类，它定义了一组公共接口，没有实际的实现。使用抽象类作为接口可以明确表示应该实现哪些函数，并且可以确保所有实现接口的类都具有相同的公共接口。如果不使用抽象类作为接口，也可以使用上面的多重继承技术，但使用抽象类作为接口更明确，并且可以提供更好的代码组织。
+```
+
+
+
+#### 总结：
+
+- 多重继承比单一继承复杂，它可能导致新的歧义性，以及对virtual继承的需要
+- virtual继承会增加大小、速度、初始化（及赋值）复杂度等等成本。如果virtual base classes不带任何数据，将是最具实用价值的情况
+- 多重继承的确有正当用途，其中一个情节涉及“public继承某个Interface class”和“private 继承某个协助实现的class”的两相组合。
 
 ## 第七章 模板与泛型编程
 
@@ -4392,7 +4704,7 @@ Use multiple inheritance judiciously
 
 Understand implicit interfaces and compile-time polymorphism
 
-### 条款42 了解typename的双重意义
+### -条款42 了解typename的双重意义
 
 Understand the two meanings of typename
 
