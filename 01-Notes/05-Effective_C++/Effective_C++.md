@@ -4700,13 +4700,253 @@ int main() {
 
 **[Templates and Generic Programming]**
 
+C++ templates的最初发展动机很直接：让我们得以建立“类型安全”的容器如vector、list和map。然而当越多人用上templates，他们发现templates有能力完成越多可能的变化。容器当然很好，但泛型编程（generic programming）写出的代码和其所处理的对象类型彼此独立更好。STL算法如for_each，find和merge就是这一类编程的成果。最终人们发现，**C++ template机制自身是图灵完备：它可以被用来计算任何可计算的值**。于是导出模板元编程的概念（template meta programming），创造出“在C++编译器内执行并于编译完成时停止执行”的程序。进来这些日子，容器反倒只成为C++ template馅饼上的一小部分。然而尽管template的应用如此宽广，有一组核心观念一直支撑着基于template的编程。那些观念就是本章焦点。
+
 ### 条款41 了解隐式接口和编译期多态
 
 Understand implicit interfaces and compile-time polymorphism
 
-### -条款42 了解typename的双重意义
+面向对象编程世界总是以显式接口（explicit interfaces）和运行期多态（runtime polymorphism）解决问题。
+
+```c++
+class Widget {
+public:
+    Widget();
+    virtual ~Widget();
+    virtual std::size_t size() const;
+    virtual void normalize();
+    void swap(Widget& other); // see Item 25
+    ...
+};
+void doProcessing(Widget& w)
+{
+    if (w.size() > 10 && w != someNastyWidget) {
+        Widget temp(w);
+        temp.normalize();
+        temp.swap(w);
+	}
+}
+```
+
+- 由于w的类型被声明为Widget，所以w必须支持Widget接口。我们可以在源码中找出这个接口，所以我们可以称此为一个显式接口explicit interface，也就是它在源码中明确可见。
+- 由于Widget的某些成员函数是virtual，w对那些函数的调用将表现出运行期多态，也就是说将于运行期根据w的动态类型决定究竟调用哪个函数。
+
+Templates及泛型编程的世界，与面向对象有根本的不同。在此世界中显式接口和运行期多态仍然存在，但重要性降低。反倒是隐式接口（implicit Interface）和编译期多态（compile-time polymorphism）移到前头了。
+
+若想知道那是什么，看看当我们将doProcessing从函数转变为函数模板function template时发生什么事：
+
+```c++
+template<typename T>
+void doProcessing(T& w)
+{
+    if (w.size() > 10 && w != someNastyWidget) {
+        T temp(w);
+        temp.normalize();
+        temp.swap(w);
+    }
+}
+```
+
+这时候我们来讨论一下doProcessing内的w：
+
+- w必须支持哪一种接口，系由template中执行w支持的操作来决定。譬如支持size，normalize，swap成员函数，copy构造函数，不等比较等等。这些操作便是T必须支持的一组隐式接口。
+- 凡涉及w的任何函数调用，例如`operator>` 和`operator!=` ，有可能造成template具现化，使这些调用得以成功。这样的具现行为发生在编译期。“以不同的template参数具现化function templates”会导致调用不同的函数，这便是所谓的编译期多态。
+
+隐式接口并不基于函数签名式，而是有有效表达式（valid expression）组成。
+
+T（w的类型）的隐式接口看起来有这些约束：
+
+* 它必须提供一个名为size的成员函数，该函数返回一个整数值。
+* 它必须支持一个`operator!=`函数，用来比较两个T对象。这里我们假设someNastyWidget的类型为T。
+
+由于操作符重载和隐式转换，这两个约束都并不很紧：
+
+- T的确必须支持size成员函数，然而这个函数也可能从base class继承而得。这个成员函数不需返回一个整数值，甚至不需返回一个数值类型。就此而言，它甚至不需要返回一个定义有`operator>`的类型！它唯一需要做的是返回一个类型为X的对象，而X对象加上一个int就可以调用这里的`operator>`（All it needs to do is return an object of some type X such that there is an operator> that can be called with an object of type X and an int (because 10 is of type int)这个`operator>`不需要非得加上一个类型为X的参数不可，它也可以取得类型Y的参数，只要存在一个隐式转换能够将类型X的对象转换为类型Y的对象！
+- 同理，T并不需要支持`operator!=`，因为也可以这样：`operator!=`接受一个X，一个Y的对象，T可被转化为X，而someNastyWidget可被转为Y，这样就可以有效调用`operator!=`。
+
+关于函数size，operator>等函数上的约束条件，我们很难就此说得太多，但整体确认表达式约束条件却很容易。if语句的条件式必须是个布尔表达式。无论“w.size() > 10 && w != someNastyWidget”导致失什么，它都必须与bool兼容。
+
+加诸template 参数上的隐式接口，就像加诸于class对象身上的显式接口一样真实，且两个都在编译器完成检查。
+
+#### 总结：
+
+- classes和templates 都支持接口interfaces和多态polymorphism
+- 对classes而言，接口是显式的，以函数签名为中心。多态则是通过virtual函数发生于运行期。
+- 对template参数而言，接口是隐式的，奠基于有效表达式。多态则是通过template具现化和函数重载解析function overloading resolution发生于编译期。
+
+### 条款42 了解typename的双重意义
 
 Understand the two meanings of typename
+
+声明template类型参数，class和typename的意义完全相同。很多程序员喜欢在接受任何类型时使用typename，而在只接受用户自定义类型时保留旧式的class。但是从c++的角度来看，声明template参数时，两种关键字完全相同。
+
+```c++
+template<class T> class Widget; // uses “class”
+template<typename T> class Widget; // uses “typename”
+```
+
+然而C++并不总是将class和typename视为等价。有时候一定得使用typename。为了解其时机，我们必须先谈谈你可以在template内指涉refer to 的两种名称。
+
+下面我们来看一个函数，这个函数目的是为了打印第二个元素，这个函数甚至不能通过编译。
+
+```c++
+template<typename C> // print 2nd element in
+void print2nd(const C& container) // container;
+{ // this is not valid C++!
+    if (container.size() >= 2) {
+        C::const_iterator iter(container.begin()); // get iterator to 1st element
+        ++iter; // move iter to 2nd element
+        int value = *iter; // copy that element to an int
+        std::cout << value; // print the int
+    }
+}
+```
+
+这里有两个local变量，iter和value：
+
+- iter的类型是C::const_iterator，实际是什么取决于template参数C。template内出现的名称如果相依于某个template参数，称为从属名称（dependent names）。如果从属名称在class内呈嵌套状，我们称它为嵌套从属名称（nested dependent name）。C::const_iterator就是这样一个名称。实际上它还是一个嵌套从属类型名称（nested dependent type name），也就是个嵌套从属名称并且指涉某类型。
+- value其类型为int。int是一个并不依赖任何template参数的名称。这样的名称是谓非从属名称（non-dependent names）。
+
+>  C++ 中，模板是一种非常强大的特性，允许在不知道具体数据类型的情况下定义类和函数。
+>
+> 1. 从属名称：指的是模板类型参数，在模板内部可以被引用，例如：
+>
+> ```c++
+> template <typename T>
+> class MyClass {
+> public:
+>     T data;
+> };
+> ```
+>
+> 其中，`T` 就是从属名称。
+>
+> 2. 嵌套从属名称：指的是一个模板在内部再定义一个模板，例如：
+>
+> ```c++
+> template <typename T>
+> class MyClass {
+> public:
+>     template <typename U>
+>     class InnerClass {
+>         T data1;
+>         U data2;
+>     };
+> };
+> ```
+>
+> 其中，`U` 就是嵌套从属名称。
+>
+> 3. 嵌套从属类型名称：指的是在模板内部使用模板参数定义类型的名称，例如：
+>
+> ```c++
+> template <typename T>
+> class MyClass {
+> public:
+>     using Type = T;
+> };
+> ```
+>
+> 其中，`Type` 就是嵌套从属类型名称。
+>
+> 4. 非从属名称：指的是不是模板参数的名称，例如：
+>
+> ```c++
+> template <typename T>
+> class MyClass {
+> public:
+>     T data;
+>     int size = 10;
+> };
+> ```
+>
+> 其中，`size` 就是非从属名称。
+
+嵌套从属名称可能导致解析（parsing）困难。比如C::const_iterator在我们理解是个类型，但是如果C有个static成员变量被命名为const_iterator，或者x是个global变量名称。就会导致很多疯狂的结果。C++有个规则可以解析（resolve）这一个歧义状态：如果解析器在template遭遇一个嵌套从属名称。它便假设这名称不是个类型，除非你告诉它是。默认情况下，缺省情况下嵌套从属名称不是类型。此规则有个例外，稍后会提到。
+
+```c++
+template<typename C>
+void print2nd(const C& container)
+{
+if (container.size() >= 2) {
+    C::const_iterator iter(container.begin()); // this name is assumed to 
+    ... // not be a type
+};    
+template<typename C> // this is valid C++
+void print2nd(const C& container)
+{
+if (container.size() >= 2) {
+typename C::const_iterator iter(container.begin());
+...
+}    
+```
+
+**一般性规则很简单：任何时候当你想要在template中指涉一个嵌套从属类型名称，就必须在紧邻它的前一个位置上放上关键字typename。**
+
+typename只被用来验明嵌套从属类型名称；其他名称不该有它存在。C并不是嵌套从属类型名称，所以container时并不需要typename为前导，但C::iterator是个嵌套从属类型名称，所以必须以typename为前导。
+
+**typename必须作为嵌套类型名称的前缀词这一规则的例外是：**
+
+typename不可以出现在base classes list内的嵌套从属类型之前，也不可在member initialization list（成员初值列）中作为base class修饰符。
+
+> 因为继承列表和成员初始化列表不是模板代码，而是编译时需要确定类型的代码。在编译时，编译器需要知道确切的类型，而不是模板类型。
+>
+> 如果在继承列表或成员初始化列表中使用了 `typename`，编译器就无法确定要继承或初始化的类型，从而导致编译错误。因此，在继承列表和成员初始化列表中不允许使用 `typename` 关键字。
+
+```c++
+template<typename T>
+class Derived: public Base<T>::Nested { // base class list: typename not allowed
+public: 
+    explicit Derived(int x): Base<T>::Nested(x) // base class identifier in mem.
+    { // init. list: typename not allowed
+    	typename Base<T>::Nested temp; // use of nested dependent type
+    ... // name not in a base class list or
+    } // as a base class identifier in a 
+    ... // mem. init. list: typename 
+required
+};
+```
+
+最后一个typename例子，譬如我们作为一个迭代器所指对象做个local复件副本。
+
+```c++
+template<typename IterT>
+void workWithIterator(IterT iter)
+{
+	typename std::iterator_traits<IterT>::value_type temp(*iter);
+...
+}
+```
+
+`std::iterator_traits<IterT>::value_type temp(*iter);`看似很复杂，但其实这是【条款47】的一种运用，相当于说“类型为IterT之对象所指之物的类型”。因为`std::iterator_traits<IterT>::value_type`是个嵌套从属类型名称，所以前面必须加typename。
+
+<u>todo，感觉这部分还是没太理解透。</u>
+
+> Nested dependent type names 指的是在模板代码中，某个类型的成员是其他类型的嵌套类型。举个例子：
+>
+> ```c++
+> c++Copy codetemplate <typename T>
+> struct A {
+>     typename T::type data;
+> };
+> 
+> struct B {
+>     using type = int;
+> };
+> 
+> int main() {
+>     A<B> a;
+>     a.data = 42;
+>     return 0;
+> }
+> ```
+>
+> 在上面的代码中，结构体 `A` 定义了一个类型为 `T::type` 的成员 `data`。结构体 `B` 定义了一个 `type` 嵌套类型，类型为 `int`。最后，在主函数中，我们创建了一个类型为 `A<B>` 的对象，该对象的 `data` 成员的类型为 `int`，说明 `T::type` 是一个嵌套从属类型名称。因此，在这种情况下，我们需要在模板代码中使用 `typename` 明确说明 `T::type` 是一个类型。
+
+#### 总结：
+
+- 声明template参数时，前缀class typename是同一的。
+- 请使用typename表示嵌套从属类型名称；但不得在base class lists（基类列）或member initialization list（成员初值列）内以它作为base class修饰符。
 
 ### 条款43 了解处理模板化基类内的名称
 
