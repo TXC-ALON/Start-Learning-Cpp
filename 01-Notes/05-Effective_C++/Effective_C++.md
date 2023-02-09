@@ -2723,7 +2723,7 @@ w = some value dependent on i; 					Widget w(some value dependent on i);
 
 - 尽可能延后变量定义式的出现，这样做可以增加程序的清晰度并改善程序效率。
 
-### **条款27 尽量少做转型动**作
+### 条款27 尽量少做转型动作
 
 Minimize casting
 
@@ -3915,7 +3915,7 @@ class Ellipse: public Shape { ... };
 
 Consider alternatives to virtual functions
 
-#### **通过NVI手法实现Template Method模式、**
+#### 通过NVI手法实现Template Method模式
 
 ```c++
 class GameCharacter {
@@ -4191,33 +4191,25 @@ int main() {
 >
 > 所以最终 std::bind 返回的是一个函数对象，它只需要一个 GameCharacter 类型的参数，而在内部它会自动调用 GameLevel::health，并将 currentLevel 绑定为 this 参数，从而实现了 GameLevel::health 的适配。
 >
-> 
->
 > #### GameLevel::health 是一个需要两个参数的函数？他表面不是只要一个参数吗？
 >
 > GameLevel::health 声明时仅仅需要一个参数，即一个引用类型为 GameCharacter 的参数。但是实际上它需要两个参数：一个显式的 GameCharacter 参数和一个隐式的 GameLevel 参数（即 this 指针所指向的对象）。因此，如果我们想要在 EvilBadGuy 对象 ebg2 中使用 GameLevel::health 函数，我们需要适配它以使其不再需要两个参数，而只需要一个参数。在这个例子中，我们希望在每次计算 ebg2 的 health 时都使用 currentLevel 作为 GameLevel 对象，因此我们使用 std::bind 将 currentLevel 绑定到 GameLevel::health 中，以便在计算 ebg2 的 health 时使用它。
 >
-> 
+> #### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )
 >
->#### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )
->  
->#### EvilBadGuy ebg3(GameLevel::health);这两个声明有什么区别？为什么ebg3编译失败
-> 
+> #### EvilBadGuy ebg3(GameLevel::health);这两个声明有什么区别？为什么ebg3编译失败
+>
 >这两个声明在定义 EvilBadGuy 对象时设置其 healthFunc 为不同的函数。
-> 
+>  
 >- `EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel, std::placeholders::_1));` 表示使用 `std::bind` 函数绑定 GameLevel::health 函数，并将其第一个参数固定为 `currentLevel`。在实际调用时，这个 std::function 对象就等价于调用 `GameLevel::health(currentLevel, x)`，其中 x 是传入的 GameCharacter 对象。
 > - `EvilBadGuy ebg3(GameLevel::health);` 尝试将一个成员函数指针直接赋值给一个 std::function 对象，但是这是不合法的，因此会编译失败。您需要使用 `std::bind` 或者一个函数对象来对其进行封装，以便满足 std::function 的要求。
 >
-> 
+> #### 将一个成员函数指针直接赋值给一个 std::function 对象，为什么不合法
 >
->#### 将一个成员函数指针直接赋值给一个 std::function 对象，为什么不合法
-> 
->因为成员函数需要隐含的 this 指针，而 std::function 对象只能保存全局函数、静态成员函数和可调用对象（如函数对象）。直接使用成员函数指针会丢失 this 指针信息，导致编译错误。为了将成员函数正确地保存在 std::function 中，需要使用 std::bind 函数来绑定成员函数和其隐含的 this 指针。
-> 
+> 因为成员函数需要隐含的 this 指针，而 std::function 对象只能保存全局函数、静态成员函数和可调用对象（如函数对象）。直接使用成员函数指针会丢失 this 指针信息，导致编译错误。为了将成员函数正确地保存在 std::function 中，需要使用 std::bind 函数来绑定成员函数和其隐含的 this 指针。
 >
-> 
->#### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )怎么绑定隐含的this指针了？
-> 
+> #### EvilBadGuy ebg2(std::bind(&GameLevel::health, currentLevel,std::placeholders::_1 )怎么绑定隐含的this指针了？
+>
 >`std::bind` 可以用于将成员函数转换为可调用对象（即函数指针），并绑定隐式的 `this` 指针。在这里，使用了 `std::bind(&GameLevel::health, currentLevel,std::placeholders::_1)` 将 `GameLevel::health` 函数绑定到了 `currentLevel` 的 `this` 指针上，这样每次调用函数时就不需要再提供额外的 `GameLevel` 参数，而只需要提供一个 `GameCharacter` 参数。最后，这个绑定后的函数对象被赋值给了 EvilBadGuy 对象 `ebg2` 的 healthFunc。
 
 https://juejin.cn/post/7119772063174230047
@@ -4952,9 +4944,301 @@ void workWithIterator(IterT iter)
 
 Know how to access names in templatized base classes
 
+假设我们需要撰写一个传送信息到若干公司去的程序。如果在编译期间我们有足够的信息来决定哪一个信息传至哪一家公司，那么就可以采用基于template的解法。
+
+```c++
+class CompanyA {
+public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+};
+class CompanyB {
+public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+};
+... // classes for other companies
+class MsgInfo { ... }; // class for holding information used to create a message
+
+template<typename Company>
+class MsgSender {
+public:
+    ... // ctors, dtor, etc.
+    void sendClear(const MsgInfo& info)
+    {
+        std::string msg;
+        create msg from info;
+        Company c;
+        c.sendCleartext(msg);
+    }
+    void sendSecret(const MsgInfo& info) // similar to sendClear, except
+    { ... } // calls c.sendEncrypted
+};
+```
+
+以上都没问题，但假设我们有时候想要在每次送出信息时加上log。使用derived class可以很容易做到这一点，似乎是个合理的解法。但是实际上这段代码无法通过编译。编译器会说sendClear不存在。
+
+```c++
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company> {
+public:
+    ... // ctors, dtor, etc.
+    void sendClearMsg(const MsgInfo& info)
+    {
+        write "before sending" info to the log;
+        sendClear(info); // call base class function;
+        // this code will not compile!
+        write "after sending" info to the log;
+    }
+    ...
+};
+```
+
+因为当编译器遇到`class template LoggingMsgSender`定义式时，编译器并不知道它继承自什么样的class。因为它继承的是`MsgSender<Company>`，但其中的company是一个template参数，而`LoggingMsgSender`被具象化之前，我不知道`MsgSender<company>`是什么，也就不知道它是否有个sendClear函数。
+
+再说的详实一些，假设我们有个公司，想用加密方式传输信息。
+
+```cpp
+class CompanyZ { // this class offers no
+public: // sendCleartext function
+    ...
+    void sendEncrypted(const std::string& msg);
+    ...
+};
+template<> // a total specialization of 
+class MsgSender<CompanyZ> { // MsgSender; the same as the
+public: // general template, except 
+    ... // sendClear is omitted
+    void sendSecret(const MsgInfo& info)
+    { ... }
+};
+```
+
+这里MsgSender针对CompanyZ做了全特化，那么再考虑回之前的代码，base class被指定为CompanyZ时，代码就不合理，因为CompanyZ没有sendClear函数。这也就是为什么C++拒绝这个调用的原因：它知道base class template可能被特化，而特化版本可能不提供和一般性template相同的接口。一次它往往拒绝再templatized base classes（模板化基类）内寻找继承得来的名称。这也反映了【条款1】所说的，当我们从OOC++跨入Template C++，继承就不像以前那样畅行无阻了。
+
+我们有三种方法让C++“不进入templatized base classes 观察”的行为失效。
+
+- 在base class函数调用动作之前加上`this->`：
+
+  ```c++
+  template<typename Company>
+  class LoggingMsgSender: public MsgSender<Company> {
+  public:
+      ...
+      void sendClearMsg(const MsgInfo& info)
+      {
+          write "before sending" info to the log;
+          this->sendClear(info); // okay, assumes that
+          // sendClear will be inherited
+          write "after sending" info to the log;
+      }
+      ...
+  };
+  ```
+
+  
+
+- 使用using声明式：
+
+  类似【条款33】，利用using 声明式将“被掩盖的base class”带入一个derived classes作用域内。
+
+  但是这里的情况并不是base class每次被derived class名称遮掩，而是编译器不进入base class作用域查找，所以我们通过using 告诉它，请它那么做。
+
+  ```c++
+  template<typename Company>
+  class LoggingMsgSender: public MsgSender<Company> {
+  public:
+      using MsgSender<Company>::sendClear; // tell compilers to assume
+      ... // that sendClear is in the
+      // base class
+      void sendClearMsg(const MsgInfo& info)
+      {
+          ...
+          sendClear(info); // okay, assumes that
+          ... // sendClear will be inherited
+      }
+      ...
+  };
+  ```
+
+- 明确指出被调用的函数位于base class内：
+
+  ```c++
+  template<typename Company>
+  class LoggingMsgSender: public MsgSender<Company> {
+  public:
+      ...
+      void sendClearMsg(const MsgInfo& info)
+      {
+          ...
+          MsgSender<Company>::sendClear(info); // okay, assumes that
+          ... // sendClear will be 
+      } // inherited
+      ...
+  };
+  ```
+
+  但这种方式往往是最不令人满意的做法，因为如果被调用的是virtual函数，上述的明确资格修饰explicit qualification会关闭virtual绑定行为。
+
+从名称可视点（visibility point）的角度出发，上述每一个解法做的事情都相同：对编译器承诺base class template 的任何特化版本都将支持其一般（泛化）版本所提供的接口。但如果最后这个承诺并没有实现，那么最后的编译也会证实这一点。
+
+比如稍后的源码含有下面的调用，那么其中sendClearMsg的调用动作将无法通过编译。因为在那里，编译器知道base class是个template特化版本MsgSender<CompanyZ>，而且它们知道那个class不提供sendClear函数，而后者是sendClearMsg尝试调用的函数。
+
+```c++
+LoggingMsgSender<CompanyZ> zMsgSender;
+MsgInfo msgData;
+... // put info in msgData
+zMsgSender.sendClearMsg(msgData); // error! won’t compile
+```
+
+根本而言，本条款探讨的是，面对“指涉base class members“之无效references，编译器的诊断时间可能发生在早期（当解析derived class template 的定义式时），有可能发生在晚期（当那些templates被特定之template实参具现化时）。C++政策是宁愿较早诊断，这就是为什么“当base classes 从templates中被具现化时”，它假设它对那些base classes的内容毫无所悉的缘故。
+
+#### 总结：
+
+- 可在derived class templates 内通过“this->”指涉base class templates内的成员名称，或藉由一个明白写明的”base class资格修饰符“完成。
+
+
+
 ### 条款44 将与参数无关的代码抽离templates
 
 Factor parameter-independent code out of templates
+
+template可以帮助方便地生成很多函数模板，但可能会有导致很多冗余代码。
+
+我们得使用共性与变性分析“commonality and variability analysis”。来厘清如何生成模板。
+
+编写templates也是做这种分析，不同的是，再non-template代码中，重复十分明确；而在template 代码中，重复是隐晦的，毕竟只存在一份template源码，所以你必须训练自己去感受当template被具现化多次时可能发生的重复。
+
+比如说为一个矩阵编写一个templete求逆矩阵（matrix inversion）
+
+```c++
+template<typename T, // template for n x n matrices of
+	std::size_t n> // objects of type T; see below for info
+class SquareMatrix { // on the size_t parameter
+public:
+    ...
+    void invert(); // invert the matrix in place
+};
+SquareMatrix<double, 5> sm1;
+sm1.invert(); // call SquareMatrix<double, 5>::invert
+SquareMatrix<double, 10> sm2;
+sm2.invert(); // call SquareMatrix<double, 10>::invert
+```
+
+这份template会具现化出两份invert，但是除了常量5,10，这两个函数的其他部分完全相同，看到这，我们会本能地为他们建立一个带数值参数的函数，然后用5,10来调用这个带参数的函数，而不必重复生成代码。
+
+```c++
+template<typename T> // size-independent base class for
+class SquareMatrixBase { // square matrices
+protected:
+    ...
+    void invert(std::size_t matrixSize); // invert matrix of the given size
+    ...
+};
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T> {
+private:
+	using SquareMatrixBase<T>::invert; //避免遮掩base版本的invert see Items 33 and 43
+public:
+    ...
+    void invert() { invert(n); } //制造一个inline调用，调用base class版本的invert。并且需要使用this->
+}; 
+```
+
+如你所见，带参数的invert位于base class SquareMatrixBase中。不同的是它只对矩阵元素对象的类型参数化，不对矩阵的尺寸参数化。因此对于某给定元素类型，所有矩阵共享同一个（也是唯一一个）SquareMatrixBase class。它们也会因此共享这唯一一个invert。
+
+SquareMatrixBase::invert只是企图成为避免derived classes代码重复的一种方法。所以它以protected替换public。 并且调用它造成的额外成本是0，因为derived classes 的inverts调用base class版本时用了inline调用（隐晦inline）。这些函数使用“this->”，因为若不如此，如【条款43】所说，模板化基类里的函数名称会被子类覆盖，而且也需要注意，SquareMatrix和SquareMatrixBase之间的关系是private继承，这意味着这里的base class只是为了帮助derived实现。不是表现is-a关系。
+
+> `this->invert(n)` 使用了 `this` 指针来调用子类的 `invert` 函数，而不是父类的同名函数。
+>
+> 在这种情况下，子类的 `invert` 函数重载了父类的同名函数，并且调用了父类的实现。在调用父类的函数时，通常需要使用 `this` 指针，以确保调用的是当前对象的函数。
+>
+> 在这种情况下，使用 `private` 继承是因为需要隐藏父类的实现细节，只暴露子类的接口。这种继承方式是实现组合继承的常用方法，即将一个类的功能集成到另一个类中，而不影响其外观。
+>
+> 例如，`SquareMatrix` 类可能需要访问父类 `SquareMatrixBase` 的实现，但是不希望对外暴露这些实现细节。在这种情况下，可以使用 `private` 继承，以保护父类的实现，并仅暴露子类的接口。
+>
+> 使用 `private` 继承可以使代码更加安全和可靠，并且更加符合设计意图。但是，在使用 `private` 继承时需要注意，子类不能访问父类的私有成员，因此需要使用不同的技巧来实现继承。例如，在这种情况下，使用 `using SquareMatrixBase<T>::invert` 语句，来允许子类访问父类的成员函数。
+
+迄今为止一切都还好，不过另一个问题也浮出水面，那就是SquareMatrixBase::invert如何知道该操作什么数据？想来只有Derived class知道某个特定的矩阵在内存的位置。
+
+一种做法是为SquareMatrixBase::invert添加另一个参数，也许是个指向一块放在矩阵数据的内存起点的指针。但是invert未必是唯一与尺寸无关的函数，那样的话所有的函数都得加一个参数，太麻烦了。
+
+另一种做法就是令SquareMatrixBase储存一个指针，指向矩阵数值所在的内存，并且只要它储存了那些东西，也就可能储存矩阵尺寸。这允许derived classes决定内存分配方式。
+
+```c++
+template<typename T>
+class SquareMatrixBase {
+protected:
+    SquareMatrixBase(std::size_t n, T *pMem) // store matrix size and a
+    : size(n), pData(pMem) {} // ptr to matrix values
+    void setDataPtr(T *ptr) { pData = ptr; } // reassign pData
+    ...
+private:
+    std::size_t size; // size of matrix
+    T *pData; // pointer to matrix values
+};
+```
+
+这种做法的另一种实现会将矩阵数据存储在SquareMatrix对象内部，这种类型的对象不需要动态分配内存，但对象自身可能很大。
+
+```c++
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T> {
+public:
+    SquareMatrix() // send matrix size and 
+    : SquareMatrixBase<T>(n, data) {} // data ptr to base class
+    ...
+private:
+	T data[n*n];
+};
+```
+
+还有一种实现，是将每个句子数据都放入heap（通过new来分配内存）
+
+```c++
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T> {
+public:
+    SquareMatrix() // set base class data ptr to null,
+    : SquareMatrixBase<T>(n, 0), // allocate memory for matrix
+    pData(new T[n*n]) // values, save a ptr to the
+    { this->setDataPtr(pData.get()); } // memory, and give a copy of it
+    ... // to the base class
+private:
+	boost::scoped_array<T> pData; // see Item 13 for info on
+};
+```
+
+不管数据存储在哪里，现在我们达成了两个成就：
+
+- SquareMatrix成员函数可以单纯以inline方式调用base class版本，后者被“持有同型元素”（不管矩阵大小）的所有矩阵共享。
+- 不同的矩阵大小导致SquareMatrix有着不同类型，这样两个不同类型的对象尽管使用相同的成员函数，也不会错传参数。
+
+但是一切都是有代价的，之前的绑定矩阵尺寸的那个代码，可能生成比共享版本（尺寸以函数参数传递或存储在对象内）更好的代码。例如在尺寸专属版中，尺寸是个编译期常量，因此可以藉由常量的广传达到最优化，包括把他们放进被生成指令中成为直接操作数，这是在“与尺寸无关”的版本中做不到的。
+
+而反过来看来看，不同大小的矩阵只拥有单一版本的invert，可减少执行文件大小，也就因此降低程序的working set大小，并强化指令高速缓存区的引用集中化（locality of reference）。也许运行时比起尺寸专属版更快。这些只有测试过才有结论。
+
+> 所谓working set是指对一个在“虚内存环境”下执行的进程process而言，其所使用的那一组内存页pages。
+
+另一个效能评比所关心的是对象大小，如果将“与矩阵大小无关的函数版本”搬到base class内，会增加每一个对象的大小。哪怕你只是放了一个指针，也会增加一个指针的大小。况且令base class存一个protected指针会导致丧失封装性【条款22】。而且如果数据空间通过动态分配获得， 那么什么时候删除这片空间呢？越想越复杂，有时候不如直接开摆，一些代码重复也不是不能接受。
+
+
+
+本条款只讨论有非类型模板参数带来的膨胀，其实type parameters类型参数也会导致膨胀bloat。有的平台上，int和long是相同的类型表述，而有的linker可能会合并完全相同的实现码，但有的不会，那么就意味着某些template会被具现化为int 和long两个版本。
+
+再比如说，在大多数平台上，所有指针类型（比如指向整数的指针、指向常整数的指针、指向 SquareMatrix<long, 3> 的指针等）都有着相同的二进制表示，因此实现包含指针类型的模板（比如 `list<int*>`、`list<const int*>`、`list<SquareMatrix<long, 3>*>`）时，可以使用相同的代码。
+
+为了实现这样的模板，通常可以在处理强类型指针（T*指针）的成员函数中调用处理无类型指针（void*指针）的函数，从而避免了多次重复实现相同的代码。标准C++库的一些实现（比如vector、deque、list）就是这样做的。如果你担心代码体积过大，可以考虑使用类似的实现方式。
+
+#### 总结：
+
+- template生成多个classes和多个函数，所以任何template代码都不该与某个会造成膨胀的template参数产生关系。
+- 因非类型模板参数而造成的代码膨胀，往往可以消除，做法是以函数参数或class成员变量替换template参数。
+- 因类型参数而造成的代码膨胀，往往可降低，做法是让带有完全相同二进制表述的具现类型共享实现码。
 
 ### 条款45 运用成员函数模板接受所有兼容类型
 
