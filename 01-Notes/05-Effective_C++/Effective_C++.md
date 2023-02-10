@@ -5232,7 +5232,7 @@ private:
 
 再比如说，在大多数平台上，所有指针类型（比如指向整数的指针、指向常整数的指针、指向 SquareMatrix<long, 3> 的指针等）都有着相同的二进制表示，因此实现包含指针类型的模板（比如 `list<int*>`、`list<const int*>`、`list<SquareMatrix<long, 3>*>`）时，可以使用相同的代码。
 
-为了实现这样的模板，通常可以在处理强类型指针（T*指针）的成员函数中调用处理无类型指针（void*指针）的函数，从而避免了多次重复实现相同的代码。标准C++库的一些实现（比如vector、deque、list）就是这样做的。如果你担心代码体积过大，可以考虑使用类似的实现方式。
+为了实现这样的模板，通常可以在处理强类型指针（`T*指针`）的成员函数中调用处理无类型指针（`void*指针`）的函数，从而避免了多次重复实现相同的代码。标准C++库的一些实现（比如vector、deque、list）就是这样做的。如果你担心代码体积过大，可以考虑使用类似的实现方式。
 
 #### 总结：
 
@@ -5243,6 +5243,135 @@ private:
 ### 条款45 运用成员函数模板接受所有兼容类型
 
 Use member function templates to accept “all compatible types.”
+
+所谓智能指针，是行为像指针的对象，且提供普通指针没有的机能，譬如自动释放heap资源。STL容器的迭代器几乎都是智能指针。你不可能通过++将一个内置指针从链表的一个节点移到另一个节点，但是在list::itertors上可以做到。
+
+普通指针有一个好处，就是很方便地进行隐式转换（implicit conversions）。Derived class 指针可以很自然地转换为Base class 指针，指向non-const对象的指针可以转为指向const对象等等。
+
+```c++
+class Top { ... };
+class Middle: public Top { ... };
+class Bottom: public Middle { ... };
+Top *pt1 = new Middle; // convert Middle* ⇒ Top*
+Top *pt2 = new Bottom; // convert Bottom* ⇒ Top*
+const Top *pct2 = pt1; // convert Top* ⇒ const Top*
+```
+
+而使用智能指针做如此转换则不是那么容易。比如说我们希望下面的代码通过编译。
+
+```c++
+template<typename T>
+class SmartPtr {
+public: // smart pointers are typically
+	explicit SmartPtr(T *realPtr); // initialized by built-in pointers 
+...
+};
+SmartPtr<Top> pt1 = // convert SmartPtr<Middle> ⇒
+SmartPtr<Middle>(new Middle); // SmartPtr<Top>
+SmartPtr<Top> pt2 = // convert SmartPtr<Bottom> ⇒
+SmartPtr<Bottom>(new Bottom); // SmartPtr<Top>
+SmartPtr<const Top> pct2 = pt1; // convert SmartPtr<Top> ⇒
+// SmartPtr<const Top>
+```
+
+但是，同一个tempalte的不同具现instantiations之间并不存在什么与生俱来的固有关系（以带有继承关系的B D分别具现化某个template，产生的两个具现体也不会有类似的继承关系）。
+
+所以为了我们的智能指针获得类似普通指针能做到的转换关系，我们需要将它明确地写出来。
+
+
+
+#### Templates 和泛型编程（Generic Programming）
+
+表面上看我们需要写一个构造函数，但是实际上因为继承体系是可以无限扩充，我们实际上应该写的是一个构造函数模板。
+
+```c++
+template<typename T>
+class SmartPtr {
+public:
+    template<typename U> // member template 
+    SmartPtr(const SmartPtr<U>& other); // for a ”generalized
+    ... // copy constructor”
+};
+```
+
+以上代码的意思是，对任何类型T和任何类型U，这里可以根据`SmartPtr<U>`生成一个`SmartPtr<T>`。我们称之为泛化copy函数。
+
+上面的泛化copy构造函数并未被声明为explicit。这是故意的，因为原始指针类型之间的转换是隐式转换，无需写明转型动作，所以让智能指针仿效这种行为也是合理的。
+
+在写出这个泛化构造函数后，我们发现它能做的比我们想要它做的多得多，比如我们希望根据bottom生成top，却不想用top生成bottom。这与public继承矛盾。也不希望从double 到 int，因为现实中也没用double指针转为int指针的隐式行为。那么就需要我们对这一个member template所创建的成员函数群进行挑选和删除。
+
+假设SmartPtr提供一个get函数，返回智能指针对象持有的那个原始指针的副本，那么我们可以在“构造模板”实现代码中约束转换行为。
+
+**实际上就是利用get来给heldPtr赋值，原始指针支持隐式转换才能实现初始化**
+
+```c++
+template<typename T>
+class SmartPtr {
+public:
+    template<typename U>
+    SmartPtr(const SmartPtr<U>& other) // initialize this held ptr
+    : heldPtr(other.get()) { ... } // with other’s held ptr
+    T* get() const { return heldPtr; }
+    ...
+private: // built-in pointer held
+	T *heldPtr; // by the SmartPtr
+};
+```
+
+这里使用成员初值列来初始化`SmartPtr<T>`之内类型为`T*`的成员变量，并以类型为`U*`的指针，这个行为只有当“存在某个隐式转换可将一个`U*`指针转为`T*`指针”时才能通过编译。最终就是`SmartPtr<T>`现在有了一个泛化copy构造函数，这个构造函数只有在他获得的实参隶属适当（兼容）类型时才通过编译。
+
+
+
+member function templates（成员函数模板）的作用不限于构造函数，它们常扮演的另一个角色是支持赋值操作。例如TR1::shared_ptr支持所有“来自兼容之内置指针、tr1::shared_ptrs，auto_ptrs和tr1::weak_ptrs【条款54】”的构造行为，以及所有来自上述各类指针（tr1::weak_ptrs除外）的赋值操作。下面是TR1规范中关于tr1::shared_ptr的一份摘录。
+
+```c++
+template<class T> class shared_ptr {
+public:
+    template<class Y> // construct from
+    	explicit shared_ptr(Y * p); // any compatible
+    template<class Y> // built-in pointer,
+    	shared_ptr(shared_ptr<Y> const& r); // shared_ptr,
+    template<class Y> // weak_ptr, or
+    	explicit shared_ptr(weak_ptr<Y> const& r); // auto_ptr
+    template<class Y>
+    	explicit shared_ptr(auto_ptr<Y>& r);
+    
+    template<class Y> // assign from
+    	shared_ptr& operator=(shared_ptr<Y> const& r); // any compatible
+    template<class Y> // shared_ptr or
+    	shared_ptr& operator=(auto_ptr<Y>& r); // auto_ptr ...
+};
+```
+
+以上的构造函数都是explicit，惟有泛化copy构造函数除外，那意味着从某个shared_prt类型转为另一个shared_ptr是允许的。但从某个内置类型或从其他智能指针类型进行隐式转换则不被认可（若是显式转换入cast强制转型动作倒是可以）。另一个有趣的点是传递给tr1::shared_ptr构造函数和assignment操作符的auto_ptrs并未被声明为const，与之形成对比的则是tr1::shared_ptrs tr1::weak_ptrs 都以const传递。【条款13】说过，当你复制一个auto_ptr，它们其实已经被改动了。（**注意！C++11都已经取消auto_ptr了**）
+
+之前我们有了一个泛化拷贝函数，但是如果Y和T一样，按理来说泛化拷贝函数就应该生成一个“正常的”拷贝构造函数。所以问题来了，编译器会暗自生成一个拷贝构造函数呢？还是将泛型构造函数具象化呢？（这里是会具象化）
+
+member function templates 成员函数模板是个奇妙的东西，但它们并不改变语言基本规则。如果程序需要一个copy构造函数，你却没有声明它，编译器会为你暗自生成一个。在class内声明泛化copy泛化函数（template）并不会组织编译器生成它们自己的copy构造函数，所以你想要控制copy构造的方方面面，你必须同时声明泛化copy构造函数和正常的copy构造函数。相同的规则也适用于赋值操作。
+
+```c++
+template<class T> class shared_ptr {
+public:
+    shared_ptr(shared_ptr const& r); // copy constructor 
+    template<class Y> 
+    shared_ptr(shared_ptr<Y> const& r); // generalized copy constructor
+    
+    shared_ptr& operator=(shared_ptr const& r); // copy assignment
+    template<class Y> 
+    shared_ptr& operator=(shared_ptr<Y> const& r); // generalized copy assignment ...
+};
+```
+
+> 声明一个普通的拷贝构造函数可以让你更好地控制对象的拷贝行为。如果你只声明了泛型的拷贝构造函数模板，编译器将自动生成一个默认的拷贝构造函数。
+>
+> 但是，默认的拷贝构造函数可能不满足你的需求，并且可能导致不符合预期的行为。因此，通常最好将普通的拷贝构造函数也声明在类中，以便于更好地控制对象的拷贝行为。
+
+#### 总结：
+
+- 请使用member function template（成员函数模板）生成“可接受所有兼容类型”的函数
+- 如果你上面member templates 用于“泛化 copy构造”或“泛化 assignment 操作”，你最好还是需要声明正常的copy构造函数和copy assignment操作符。
+
+
 
 ### 条款46 需要类型转换时请为定义非成员函数
 
