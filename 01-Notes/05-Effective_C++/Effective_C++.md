@@ -5377,6 +5377,124 @@ public:
 
 Define non-member functions inside templates when type conversions are desired
 
+【条款24】讨论过为什么惟有non-member函数才有能力“在所有实参身上实施隐式类型转换”（是为了保证混合乘法2*SomeRational或者SomeRational*2都可以通过编译，2不能同时进行隐式类型转换成某个Rational，再作this用）。而在本条款首先以一个看似无害化的改动扩充【条款24】的讨论，本条款将`Rational`和`operator*`模板化了。
+
+```c++
+template<typename T>
+class Rational {
+public:
+    Rational(const T& numerator = 0, // see Item 20 for why params
+    const T& denominator = 1); // are now passed by reference
+    const T numerator() const; // see Item 28 for why return
+    const T denominator() const; // values are still passed by value,
+    ... // Item 3 for why they’re const
+};
+template<typename T>
+const Rational<T> operator*(const Rational<T>& lhs, const Rational<T>& rhs)
+{ ... }
+```
+
+类似条款24，我们希望支持混合式算术运算，但是下面的并未通过编译
+
+```c++
+Rational<int> oneHalf(1, 2); // this example is from Item 24, // except Rational is now a template
+Rational<int> result = oneHalf * 2; // error! won’t compile
+```
+
+在模板版本下，编译器不知道我们想要调用哪个函数，取而代之的是，它们试图想出函数被名为`operator*`的template具现化出来。它们知道它们应该可以具现化某个“名为`operator*`”并接受两个`Rational<T>`参数”的函数，但是它们不知道T是什么。
+
+为了推导T，它们看了看`operator*`调用动作中的实参类型，本例中分别是`Rational<int>`(OneHalf)和`int`(2)，每个参数分开讨论。第一个参数很容易看出T为int，但是第二个int就使得T不太好被推断了，或许你会期望编译器使用`Rational<int>`的non-explicit构造函数将2转为`Rational<int>`,进而将T推断为int，但是**编译器在template实参推导过程中从不将隐式类型转换函数纳入考虑！**这样的转换在函数调用过程中的确被使用，但是在能调用一个函数前，首先必须知道那个函数存在，而为了知道它，必须先为相关的function template推导出参数类型（然后才可以将它们具现出来）。然而template实参推导过程中并不考虑“通过构造函数而发生的”隐式类型转换。
+
+只要利用一个事实，我们就可以缓和编译器在template实参推导方面受到的挑战：template class内的friend 声明式可以指涉某个特定函数。通过将`operator*`声明为`Rational<T>`作为友元函数。类模板不依赖于模板实参推导（后者只用于functional template上），所以编译器总是能够在class `Rational<T> `具现化时得知T。
+
+下面的代码可以通过编译了，因为当对象oneHalf被声明为一个`Rational<int>`，class `Rational<int>` 被具现化出来，而friend函数也被自动声明出来，后者身为一个函数而非函数模板，因此编译器可在调用它是使用隐式转换函数。
+
+```c++
+#include <iostream>
+#include <string>
+#include <sstream>
+using namespace std;
+
+template <class T>
+class Rational
+{
+private:
+    T Numerator;
+    T Denominator;
+
+public:
+    Rational(const T& Num = 0, const T& Den = 1) : Numerator(Num), Denominator(Den){}
+    const T GetNumerator() const
+    {
+        return Numerator;
+    }
+
+    const T GetDenominator() const
+    {
+        return Denominator;
+    }
+
+    string ToString() const
+    {
+        stringstream ss;
+        ss << Numerator << "/" << Denominator;
+        return ss.str();
+    }
+
+    friend const Rational operator* (const Rational& a, const Rational& b)
+    {
+        return Rational(a.Numerator * b.Numerator, a.Denominator*b.Denominator);
+    }
+};
+
+int main()
+{
+    Rational<int> a(3, 5);
+    Rational<int> c = a * 2;
+    c = 2 * a;
+    cout << c.ToString() << endl;
+    return 0;
+}
+
+```
+
+上面的技术一个趣味是我们虽然使用了friend，但是和friend的传统用途（访问class的non-public成分）毫不相干。为了让类型转换kn发生于所有实参上，我们需要一个non-member函数；而为了令这个函数被自动具现化，我们需要将它声明在class内部，而在class内部声明non-member函数的唯一办法就是令它成为一个friend。不习惯，但是确实有效。
+
+这里可以将friend函数设成inline，因为它的实现就一行，但是对于更复杂的函数，可以让这个friend函数调用一个class外部的辅助函数。因为Rational是个template，所以这样的辅助函数通常也是个template。
+
+```c++
+template<typename T> class Rational;
+template<typename T> // declare
+const Rational<T> doMultiply( const Rational<T>& lhs, const Rational<T>& rhs); // // helper template
+
+template<typename T>
+class Rational {
+public:
+	...
+friend
+    const Rational<T> operator*(const Rational<T>& lhs,
+    const Rational<T>& rhs) // Have friend
+    { return doMultiply(lhs, rhs); } // call helper
+    ...
+};
+
+template<typename T> // define
+const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs) // template in
+{ // header file,
+	return Rational<T>(lhs.numerator() * rhs.numerator(), lhs.denominator() * rhs.denominator());
+}
+```
+
+
+
+#### 总结：
+
+- 当我们编写一个class template，而它所提供之“与之template相关的”函数支持“所有参数之隐式类型转换”时，请将那些函数定义为“class template 内部的friend 函数”
+
+  （When writing a class template that offers functions related to the template that support implicit type conversions on all parameters,define those functions as friends inside the class template）
+
+
+
 ### 条款47 请使用traits classes表现类型信息
 
 Use traits classes for information about types
