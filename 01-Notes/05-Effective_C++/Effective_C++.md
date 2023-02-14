@@ -4917,7 +4917,7 @@ void workWithIterator(IterT iter)
 > Nested dependent type names 指的是在模板代码中，某个类型的成员是其他类型的嵌套类型。举个例子：
 >
 > ```c++
-> c++Copy codetemplate <typename T>
+> template <typename T>
 > struct A {
 >     typename T::type data;
 > };
@@ -5499,13 +5499,360 @@ const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs) // 
 
 Use traits classes for information about types
 
+STL迭代器分类有五种分类，对应这它们支持的操作：
+
+- Input	迭代器只能向前移动，一次一步，客户只可读取（不能涂写）它们所指的东西，而且只能读取一次。（它们模仿指向输入文件的阅读指针） istream_iterators是这一类的代表
+
+- Output   迭代器情况类似，但只为了输出：只能向前移动，一次一步，客户只可涂写它们所指的东西，而且只能涂写一次。（它们模仿指向输出文件的涂写指针） ostream_iterators是这一类的代表
+
+  由于这两种迭代器都只能向前移动，且只能读或写所指物最多一次，所以它们只适合“一次性操作算法”。
+
+- forward 迭代器，这种迭代器key做前述两种分类所能做的每一件事，而且可以读或写其所指物一次以上。这使得它们可施行与多次性操作算法“multi-pass algorithms）。STL并未提供单向linked-list，但某些程序库有，而指入这种容器的迭代器就是属于forward迭代器。指入TR1 hashed容器【条款54】也可能是这一分类（hashed迭代器可为单向也可为双向，取决于实现版本）。
+
+- Bidirectional迭代器比之前一个更强，可以前后移动，STL的list、set、multiset、map、multimap迭代器就属于这一类。
+
+- random access迭代器是最有威力的，它可以在常量时间内向前或向后任意距离。类似内置指针。vector、deque、string提供的迭代器都是这一类。
+
+对于这5种迭代器，C++标准程序库分别提供专属的卷标结构tag struct加以确认。
+
+```c++
+struct input_iterator_tag {};
+struct output_iterator_tag {};
+struct forward_iterator_tag: public input_iterator_tag {};
+struct bidirectional_iterator_tag: public forward_iterator_tag {};
+struct random_access_iterator_tag: public bidirectional_iterator_tag {};
+```
+
+这些structs之间的继承关系是is-a关系。所有的forward迭代器都是input迭代器。
+
+STL 主要由“用以表现容器、迭代器和算法”的templates构成，但也覆盖若干工具性templates，其中一个名为advance，用来将某个迭代器移动某个给定距离。
+
+```c++
+template<typename IterT, typename DistT> // move iter d units
+void advance(IterT& iter, DistT d); // forward; if d < 0,
+// move iter backward
+```
+
+观念上advance只是做iter+=d动作，实际上不可以全然那么时间，因为只有random access迭代器才支持+=操作，面对其他威力不那么大的迭代器种类，advance必须反复施行`++`或`--`，共d次。
+
+下面是我们期待的实现advance的方式。
+
+```c++
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+    if (iter is a random access iterator) {
+        iter += d; // use iterator arithmetic
+    } // for random access iters
+    else {
+    	if (d >= 0) 
+        { 
+            while (d--) 
+            ++iter; 
+        } // use iterative calls to
+        else { 
+            while (d++) 
+            --iter; 
+        } // ++ or -- for other
+    } // iterator categories
+}
+```
+
+这种做法首先判断iter是否为random access迭代器，也就是说需要知道类型IterT是否为random access迭代器分类。换句话说我们需要取得类型的某些信息，也就是traits让我们做的事情：它们允许你在编译期间取得某些类型信息。
+
+Traits并不是C++关键字或一个预先定义好的构建；它们是一种技术，一个C++程序员共同遵守的协议。这个技术的要求之一是，它对内置类型和用户自定义类型的表现必须一样好(更强调内置类型)。更进一步地，traits技术必须也能够施行于内置类型譬如指针上。
+
+（Traits aren’t a keyword or a predefined construct in C++; they’re a technique and a convention followed by C++ programmers. One of the demands made on the technique is that it has to work as well for built-in types as it does for user-defined types. For example, if advance is called with a pointer (like a const char*) and an int, advance has to work, but that means that the traits technique must apply to built-in types like pointers.）
+
+“traits必须能够施行于内置类型”意味着类型的traits信息必须位于类型自身之外，因为不可能把信息嵌套进原始指针内。标准技术是把trait放进一个template以及一或多个特化版本中。这样的templates在标准库中有若干个，其中针对迭代器的被命名为iterator_traits：
+
+```c++
+template<typename IterT> // template for information about
+struct iterator_traits; // iterator types
+```
+
+习惯上traits总是被实现为struct，但它们又往往被称为traits classes。
+
+iterator_traits的运行方式是，针对每一个类型IterT，在struct `Iterator_traits<IterT>`内一定声明某个typedef名为Iterator_category。这个typedef用来确认IterT的迭代器分类。
+
+iterator_traits以两个部分来实现上述所言：
+
+- 首先它要求每一个“用户自定义的迭代器类型”必须嵌套一个typedef，名为iterator_category，用来确认适当的卷标结构。
+
+  下面是两种容器不同的typedef
+
+  ```c++
+  template < ... > // template params elided
+  class deque {
+  public:
+      class iterator {
+      public:
+          typedef random_access_iterator_tag iterator_category;
+          ...
+      };
+      ...
+  };
+  template < ... >
+  class list {
+  public:
+      class iterator {
+      public:
+          typedef bidirectional_iterator_tag iterator_category; ...
+      };
+      ...
+  };
+  
+  ```
+
+  至于iterator_traits，只是鹦鹉学舌般响应iterator class的嵌套式typedef。
+
+  ```c++
+  template<typename IterT>
+  struct iterator_traits {
+  	typedef typename IterT::iterator_category iterator_category;//typename 参见【条款42】
+  ...
+  };
+  ```
+
+  
+
+- 第二部分是专门用来对付指针的。专门为其提供一个偏特化版本。
+
+  ```c++
+  template<typename T> // partial template specialization
+  struct iterator_traits<T*> // for built-in pointer types
+  {
+  	typedef random_access_iterator_tag iterator_category;
+  ...
+  };
+  ```
+
+简单总结一下，设计并实现一个trait class需要做到以下几点：
+
+- 确认若干你希望将来可取得的类型相关信息。例如对迭代器而言，我们希望将来可取得其分类。
+- 为该信息选择一个名称，比如说iterator_category。
+- 提供一个template和一组特化版本（例如稍早说的iterator_traits），内含你希望支持的类型相关信息。
+
+> 完整的 `iterator_traits` 代码如下：
+>
+> ```c++
+> template <typename IterT>
+> struct iterator_traits {
+>     using iterator_category = typename IterT::iterator_category;
+>     using value_type = typename IterT::value_type;
+>     using difference_type = typename IterT::difference_type;
+>     using pointer = typename IterT::pointer;
+>     using reference = typename IterT::reference;
+> };
+> ```
+>
+> 这个模板类作为一个元编程工具，提供了迭代器类型的特征，可以帮助模板编写者编写更加灵活、泛化的代码，可以将不同类型的迭代器（比如随机访问迭代器和双向迭代器）统一处理，从而使得 STL 中的算法和容器类更加通用。
+>
+> 其中，`iterator_category` 表示迭代器的分类，`value_type` 表示迭代器所指元素类型，`difference_type` 表示迭代器之间的距离类型，`pointer` 表示迭代器所指元素的指针类型，`reference` 表示迭代器所指元素的引用类型。这些类型都是 C++ STL 中常见的迭代器相关的类型。
+>
+> 需要注意的是，模板参数 `IterT` 必须满足定义了 `iterator_category`、`value_type`、`difference_type`、`pointer` 和 `reference` 等成员类型才能使用该模板类，否则编译会失败。
+
+现在我们有了iterator_traits，那么可以对advance实践之前的伪码pseudocode：
+
+```c++
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+	if (typeid(typename std::iterator_traits<IterT>::iterator_category) == typeid(std::random_access_iterator_tag)) ...
+}
+```
+
+上面的代码过不了编译，【条款48】会讨论这一点，但是现在我们来讨论另一个问题，IterT类型在编译期间被获知，所以`iterator_traits<IterT>::iterator_category`也可在编译期间确定。但if语句实在运行期才会确定。我们不应该把可在编译器确定的事情放在运行期来做。这样不仅浪费时间，还会造成可执行文件膨胀。
+
+我们可以通过**重载override**，来做到这种if-else的效果，而且在编译期就能确定。
+
+```c++
+template<typename IterT, typename DistT> // use this impl for
+void doAdvance(IterT& iter, DistT d, // random access
+               std::random_access_iterator_tag) // iterators
+{
+    iter += d;
+}
+template<typename IterT, typename DistT> // use this impl for
+void doAdvance(IterT& iter, DistT d, // bidirectional
+               std::bidirectional_iterator_tag) // iterators
+{
+    if (d >= 0) { while (d--) ++iter; }
+    else { while (d++) --iter; }
+}
+template<typename IterT, typename DistT> // use this impl for
+void doAdvance(IterT& iter, DistT d, // input iterators
+               std::input_iterator_tag)
+{
+    if (d < 0 ) {
+        throw std::out_of_range("Negative distance"); // see below
+    }
+    while (d--) ++iter;
+}
+```
+
+这里还有某种“巧合”,因为forward_iterator_tag继承自input_iterator_tag，所以上述doAdvance的input_iterator_tag版本也能够处理forward迭代器。这是iterator_tag structs public继承关系带来的一项红利。
+
+有了这些doAdvance重载版本，advance需要做的只是调用它们并额外传递一个对象，后者必须带有适当的迭代器分类。于是编译器运用重载解析机制调用适当的实现代码：
+
+```c++
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+    doAdvance( // call the version
+            iter, d, // of doAdvance 
+            typename // that is 
+            std::iterator_traits<IterT>::iterator_category() // appropriate for
+    ); // iter’s iterator
+} // category
+```
+
+现在我们总结一下，如何使用一个traits class了。
+
+- 建立一组重载函数（身份像劳工）或函数模板（例如doAdvance），彼此之间的差异只在于各自的traits参数，令每个函数实现码与其接受的traits信息相应和。
+- 建立一个控制函数（身份像公投）或函数模板（例如advance），它调用上述那些劳工函数，并传递traits class所提供的信息。
+
+#### 总结：
+
+- Traits classes 使得类型相关信息在编译期可用，它们以template 和template 特化完成实现。
+- 整合重载技术后，traits classeskn在编译期对类型执行if-else测试。
+
 ### 条款48 认识template元编程 
 
 Be aware of template metaprogramming
 
+Template metaprogramming（TMP）模板元编程时编写Template-based C++程序并执行于编译器的过程。所谓模板元编程是以C++写成，执行于C++编译器内的程序。一旦TMP程序结束执行，其输出，也就是从Templates具现出来的若干C++源码，便会一如往常地被编译。
+
+TMP是被发现而不是被发明出来的，当templates 加入C++时，TMP的底层特性也就被引进了。
+
+TMP有两个伟大的效力：
+
+- 第一，它让某些事情更加容易。
+- 第二，由于template metaprogramming执行于C++编译期，因此可将工作从运行期转移到编译器。
+  - 这导致一个好处，就是原本某些错误可以在编译期就被揪出来了。
+  - 使用TMP的C++程序可能在每一个方面都更加高效：较小的可执行文件、较短的运行期、较少的内存需求。但是编译时间会变长。
+
+TMP已被证明是图灵完备的，通过TMP你可以声明变量、执行循环、编写及调用函数。但其构建与正常的C++对应的很是不同。比如【条款47】通过template和它的特化版本构建if-else条件句。而它的循环是通过递归来实现的。TMP是个函数式语言，而它的递归甚至不是正常种类，因为TMP的递归并不涉及递归函数调用，而是涉及“递归模板具现化”recursive template instantiation。
+
+TMP的入门程序实在编译期计算阶乘factorial。
+
+```c++
+template<unsigned n> // general case: the value of 
+struct Factorial { // Factorial<n> is n times the value
+// of Factorial<n-1>
+enum { value = n * Factorial<n-1>::value };
+};
+
+template<>
+struct Factorial<0>{
+    enum {value = 1};
+}
+```
+
+通过上面的template metafunction ，你只要使用`Factorial<n>::value`就可以得到n阶乘值。
+
+每一个Factorial template具现体都是一个struct，每个struct都使用enum hack【条款2】声明一个value的TMP变量，用来保存当前计算所得的阶乘值。如果TMP具有真正的循环构建，value应该在每次循环中获得更新。但由于TMP通过递归模板具现化取代循环，每个具现体有自己的一个value。而每个value有其循环内的适当值。
+
+TMP目前还未成为主流，比如在编译过程中debug十分困难。但是对于某些程序员，特别是程序库开发人员，几乎肯定会成为它们的主要粮食。
+
+#### 总结：
+
+- TMP可将工作由运行期移往编译期，因而得以实现早期错误侦测和更高的执行效率。
+- TMP可被用来生成“基于政策选择组合”（based on combination of policy choices）的客户定制代码，也可用来避免生成对某些特殊类型并不适合的代码。
+
+> #### 模板元编程实现的阶乘和普通版本的阶乘在时空复杂度上有什么区别？
+>
+> 模板元编程实现的阶乘和普通版本的阶乘在时空复杂度上有很大的区别。
+>
+> 模板元编程实现的阶乘是在编译期间完成计算，因此它的时间复杂度是O(1)，即不需要运行时计算就可以得到结果。同时，模板元编程的阶乘实现也不需要分配内存，因此空间复杂度也是O(1)。
+>
+> 相比之下，普通版本的阶乘需要在运行时进行计算，因此它的时间复杂度是O(n)，其中n是要计算的阶乘数。此外，普通版本的阶乘在计算过程中需要使用变量来存储中间结果，因此空间复杂度是O(1)。
+>
+> 因此，模板元编程实现的阶乘在时空复杂度上都要优于普通版本的阶乘，尤其是在需要进行大量计算的情况下，模板元编程可以提供更高的计算效率和更小的内存消耗。
+>
+> #### 为什么时空复杂度都是1？
+>
+> 在模板元编程中，由于模板代码是在编译期间被展开和计算的，因此其时间复杂度和空间复杂度都是常量级别，即O(1)。
+>
+> 在上面的阶乘例子中，模板元编程的实现方式是通过递归模板结构体来计算阶乘。每次递归都会在编译期间展开为一次常量计算，因此不会带来任何额外的时间复杂度。
+>
+> 此外，模板元编程不需要在运行时分配内存，因此其空间复杂度也是常量级别，即O(1)。
+>
+> 综上所述，由于模板元编程是在编译期间完成计算，因此其时间复杂度和空间复杂度都是常量级别，即O(1)。
+>
+> #### 那么所有的模板元编程都是时空复杂度为1吗？如果不是举例说明
+>
+> 并非所有的模板元编程都可以保证时空复杂度为1。这取决于具体的模板元编程实现方式和应用场景。
+>
+> 例如，如果模板元编程使用了大量的递归结构，那么在编译期间会产生大量的展开和实例化过程，可能会导致编译器生成的代码量过大，增加编译时间和内存消耗。
+>
+> 另外，模板元编程也可能会使用一些特殊的技巧来优化性能，例如使用SFINAE（Substitution Failure Is Not An Error）技术来实现条件编译，或者使用template template参数来实现更灵活的模板参数传递等。这些技巧虽然可以提高代码的效率，但也可能会增加代码的复杂度和维护成本。
+>
+> 因此，在实际应用中，我们需要根据具体情况综合考虑模板元编程的优缺点，选择合适的实现方式和应用场景，以实现更高效、更灵活、更易维护的代码。
+
+
+
+> 快速排序是一种常见的排序算法，可以使用模板元编程进行实现。
+>
+> 以下是一个使用模板元编程实现快速排序的示例代码：
+>
+> ```c++
+> #include <iostream>
+> 
+> // 定义快速排序模板结构体
+> template <typename T, int N>
+> struct QuickSort {
+>     static void sort(T (&arr)[N], int left, int right) {
+>         if (left < right) {
+>             T pivot = arr[right];
+>             int i = left - 1;
+>             for (int j = left; j <= right - 1; j++) {
+>                 if (arr[j] < pivot) {
+>                     i++;
+>                     std::swap(arr[i], arr[j]);
+>                 }
+>             }
+>             std::swap(arr[i + 1], arr[right]);
+>             int pivotIndex = i + 1;
+>             QuickSort<T, N>::sort(arr, left, pivotIndex - 1);
+>             QuickSort<T, N>::sort(arr, pivotIndex + 1, right);
+>         }
+>     }
+> };
+> 
+> // 测试快速排序
+> int main() {
+>     int arr[] = {3, 5, 2, 7, 6, 1, 4};
+>     QuickSort<int, 7>::sort(arr, 0, 6);
+>     for (int i = 0; i < 7; i++) {
+>         std::cout << arr[i] << " ";
+>     }
+>     std::cout << std::endl;
+>     return 0;
+> }
+> ```
+>
+> 在上面的示例代码中，我们定义了一个快速排序的模板结构体`QuickSort`，其中模板参数`T`表示数组元素类型，模板参数`N`表示数组长度。快速排序的实现采用了递归的方式，每次递归都会在编译期间被展开和计算，以实现高效的排序。
+>
+> 在`sort`函数中，我们首先选择一个枢轴（即数组中的一个元素），然后将数组分为小于枢轴的部分和大于等于枢轴的部分。接着，我们对小于枢轴的部分和大于等于枢轴的部分分别进行递归排序，最终得到一个有序的数组。
+>
+> 在`main`函数中，我们定义了一个整型数组，并使用`QuickSort`模板结构体进行排序。由于模板元编程是在编译期间完成计算的，因此排序的过程也是在编译期间完成的。最终，我们输出排序后的结果。
+>
+> 需要注意的是，模板元编程虽然可以实现高效的计算和排序，但其代码可读性和可维护性较差，因此在实际应用中需要根据具体情况综合考虑，选择合适的实现方式。
+
 ## 第八章 定制new 和delete
 
 **[Customizing new and delete]**
+
+不同于Java，C++对内存管理是手动的。不过也有人选用C++正是因为它“老气”的内存管理方式。这些开发人员研究并学习它们软件使用内存的行为特征，然后修改分配和归还工作，以求获得其所建构的系统的最佳效率。
+
+这么做的前提在于了解C++内存管理例程的行为。其中两个主角是分配例程和归还例程：allocation and deallocation routines，也就是operator new 和operator delete。配角是new-handler，这是当operator new 无法满足客户的内存需求时所调用的函数。
+
+多线程环境下的内存管理总是会让人抓狂，因为heap是一个可被改动的全局性资源。需要适当的同步控制synchronization。一旦使用无锁lock-free算法或精心防止并发访问时，调用内存例程kn很容易导致管理heap的数据结构内容败坏。
+
+new、delete、new[]、delete[] 的异同
+
+STL容器所使用的heap内存是由容器所拥有的分配器对象管理，不是被new和delete直接管理。
 
 ### 条款49 了解new-handler的行为
 
