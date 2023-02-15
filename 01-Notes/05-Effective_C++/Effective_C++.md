@@ -5852,11 +5852,237 @@ TMP目前还未成为主流，比如在编译过程中debug十分困难。但是
 
 new、delete、new[]、delete[] 的异同
 
-STL容器所使用的heap内存是由容器所拥有的分配器对象管理，不是被new和delete直接管理。
+STL容器所使用的heap内存是由容器所拥有的分配器对象管理，不是被new和delete直接管理。这里暂时先不讨论STL分配器。
 
 ### 条款49 了解new-handler的行为
 
 Understand the behavior of the new-handler
+
+当operator new无法满足某一内存分配需求时，它会抛出异常，它会先调用一个客户指定的错误处理函数，一个所谓的new-handler。（这其实并非全部事实。operator new真正做的事情更加复杂一些，详见【条款51】）。为了指定这个“用以处理内存不足”的函数，客户必须调用set_new_handler，那是声明于`<new>`的一个标准库程序。
+
+```c++
+namespace std {
+	typedef void (*new_handler)();
+	new_handler set_new_handler(new_handler p) throw();
+}
+
+```
+
+new_handler是个typedef，定义出一个指针指向函数，该函数没有参数也不返回任何东西。set_new_handler则是“获得一个new_handler并返回一个new_handler”的函数。set_new_handler声明式尾端的“throw()”是一份明细，表示该函数不抛出任何异常【条款29】。
+
+set_new_handler的参数是个指针，指向operator new 无法分配足够内存时该被调用的函数。其返回值也是个指针，指向set_new_handler被调用前正在执行（但马上就要被替换）的那个new-handler函数。
+
+下面是使用set_new_handler的一种方式：
+
+```c++
+// function to call if operator new can’t allocate enough memory
+void outOfMem()
+{
+    std::cerr << "Unable to satisfy request for memory\n";
+    std::abort();
+}
+int main()
+{
+	std::set_new_handler(outOfMem);
+	int *pBigDataArray = new int[100000000L]; ...
+}
+```
+
+一个设计良好的new-handler函数必须做以下事情中的一种：todo这里翻译疵了
+
+- 让更多的内存可被使用。以便使得operator new内的下一次内存分配动作可能成功。实现次策略的一个做法就是，程序一开始执行就分配一大块内存，而后当new-handler第一次被调用，将它们释还给程序使用。
+- 安装另一个new-handler。如果目前这个new-handler无法取得更多可用内存，或许它知道另外哪个new-handler可以做到，那么它就安排另外那个new-handler替换自己。做法就是令new-handler修改会影响new-handler行为的static数据、namespace数据或global数据。
+- 卸除new-handler，也就是将null指针传给set_new_handler。一旦没有安装任何new-handler，operator new 会在内存分配不成功时抛出异常。
+- 抛出bad_alloc(或派生自bad_alloc)的异常，这样的异常不会被operator new捕捉，因此会被传播到内存索求处。
+- 不返回，通常调用abort或exit。
+
+这些选择让你在实现new-handler时有很大的弹性。
+
+
+
+有时候你希望以不同的方式处理内存分配失败的情况，你希望视分配物属于哪个class而定：
+
+```c++
+class X {
+public:
+	static void outOfMemory();
+	...
+};
+class Y {
+public:
+	static void outOfMemory();
+	...
+};
+X* p1 = new X; // if allocation is unsuccessful,
+// call X::outOfMemory
+Y* p2 = new Y; // if allocation is unsuccessful,
+// call Y::outOfMemory	
+```
+
+C++ 并不支持class专属之new-handlers，但其实也不重要。你只需令每一个class提供自己的set_new_handler 和 operator new 即可。其中set_new_handler使客户得以指定class专属的new-handler(就像标准的set_new_handler允许客户指定global new-handler)，至于operator new 则确保在分配class对象内存的过程中以class专属之new-handler 替换global new-handler。
+
+
+
+现在你打算处理Widget class的内存分配失败的情况，
+
+首先你必须登录“operator new无法为一个Widget对象分配足够内存时”调用的函数，所以你需要声明一个类型为new_handler的static成员，用以指向class Widget的new-handler。
+
+Widget内的set_new_handler函数会将它获得的指针存储起来，然后返回先前（在此调用之前）存储的指针，这也正是标准版set_new_handler的作为。
+
+```c++
+class Widget {
+public:
+	static std::new_handler set_new_handler(std::new_handler p) throw();
+	static void* operator new(std::size_t size) throw(std::bad_alloc);
+private:
+	static std::new_handler currentHandler;
+};
+
+std::new_handler Widget::currentHandler = 0; // init to null in the class Static成员必须在class定义式之外被定义，除非它们是const而且是整数型【条款2】
+// impl. file
+std::new_handler Widget::set_new_handler(std::new_handler p) throw()
+{
+    std::new_handler oldHandler = currentHandler;
+    currentHandler = p;
+    return oldHandler;
+}
+```
+
+最后，Widget的operator new将会做下面的事情：
+
+1. 调用标准set_new_handler，参数为Widget的错误处理函数。这就将Widget的new-handler安装成为了全局的new-handler。
+2. 调用全局的operator new来执行实际的内存分配。如果分配失败，全局的operator new会触发Widget的new-handler，因为这个函数才刚被安装为全局new-handler。如果全局的operator new最终不能分配内存，它会抛出bad_alloc异常。在这种情况下，Widget的operator new必须恢复原来的全局new-handler，然后传播异常。为了确保原new-handler总是能被恢复，Widget将全局new-handler作为资源来处理，遵循【条款13】的建议，使用资源管理对象来防止资源泄漏。
+3. 如果全局operator new能够为Widget对象分配足够的内存。Widget的operator new就会返回指向被分配内存的指针。管理全局new-handler的对象的析构函数会自动恢复调用Widget的operator new之前的new-handler。
+
+下面以C++代码再描述一下：
+
+我通过资源处理类开始，那里面只有基础性RAII操作，在构造过程中获得一笔资源，在析构过程中释还。
+
+```c++
+class NewHandlerHolder {
+public:
+    explicit NewHandlerHolder(std::new_handler nh) // acquire current new-handler 
+            : handler(nh) {} 
+    ~NewHandlerHolder() // release it
+    { std::set_new_handler(handler); }
+private:
+    std::new_handler handler; // remember it
+    NewHandlerHolder(const NewHandlerHolder&); // 【条款14】阻止拷贝
+    NewHandlerHolder& operator=(const NewHandlerHolder&);
+};
+```
+
+这就使得Widget operator new的实现非常简单。而Widget的客户应该这样使用其new-handling。
+
+```c++
+
+void* Widget::operator new(std::size_t size) throw(std::bad_alloc)
+{
+    NewHandlerHolder // install Widget’s
+    h(std::set_new_handler(currentHandler)); // new-handler
+    return ::operator new(size); // allocate memory
+// or throw
+} // restore global
+// new-handler
+void outOfMem(); // decl. of func. to call if mem. alloc.
+// for Widget objects fails
+Widget::set_new_handler(outOfMem); // set outOfMem as Widget’s
+// new-handling function
+Widget *pw1 = new Widget; // if memory allocation
+// fails, call outOfMem
+std::string *ps = new std::string; // if memory allocation fails,
+// call the global new-handling
+// function (if there is one)
+Widget::set_new_handler(0); // set the Widget-specific
+// new-handling function to 
+// nothing (i.e., null)
+Widget *pw2 = new Widget; // if mem. alloc. fails, throw an 
+// exception immediately. (There is
+// no new- handling function for
+// class Widget.)
+```
+
+实现这一方案的代码并不因class的不同而不同，因此在它处加以复用。一种解决方式就是建立一个最小风格的base class。这种class允许子类继承某一单一能力—“本例中是设定class专属之new-handler”的能力。然后将这个base class转换为template，如此一来每个derived class将获得各异的class data复件。
+
+这种设计的base class部分让子类继承它们所需的set_new_handler 和 operator new，而template部分则确保每一个derived class获得一个各异的currentHandler成员变量。这样它现在可被任何有所需要的class使用。
+
+```c++
+template<typename T> // “mixin-style” base class for 
+class NewHandlerSupport { // class-specific set_new_handler
+public: // support
+    static std::new_handler set_new_handler(std::new_handler p) throw();
+    static void* operator new(std::size_t size) throw(std::bad_alloc);
+    ... // other versions of op. new — 
+// see Item 52
+private:
+    static std::new_handler currentHandler;
+};
+
+template<typename T>
+std::new_handler
+NewHandlerSupport<T>::set_new_handler(std::new_handler p) throw()
+{
+    std::new_handler oldHandler = currentHandler;
+    currentHandler = p;
+    return oldHandler;
+}
+template<typename T>
+void* NewHandlerSupport<T>::operator new(std::size_t size)
+throw(std::bad_alloc)
+{
+    NewHandlerHolder h(std::set_new_handler(currentHandler));
+    return ::operator new(size);
+}
+// 这句将每一个currentHandler初始化为null
+template<typename T>
+std::new_handler NewHandlerSupport<T>::currentHandler = 0;
+```
+
+有这个class template，为Widget添加set_new_handler支持能力就非常容易了。就如下面。
+
+```c++
+class Widget: public NewHandlerSupport<Widget> {
+... // as before, but without declarations for
+}; // set_new_handler or operator new
+```
+
+你应该注意到，Widget继承了`NewHandlerSupport<Widget>`，另外`NewHandlerSupport template`从未使用其类型参数T。
+
+- Widget继承了`template<Widget>`，这种写法被叫做怪异的循环模板模式(curiously recurring template pattern;CRTP)。作者建议叫做“do it for me”。
+
+- 实际上T确实不需要被使用，我们只是希望继承自NewHandlerSupport的每一个class，拥有实体互异的NewHandlerSupport复件（更进一步说是其static成员变量currentHandler）。类型参数T只是用来区分不同的derived class。Template机制会自动为每个T生成一份currentHandler。
+
+
+
+直到1993年，当不能满足分配内存的要求时，C++要求operator new要返回null。现在指定operator new要抛出bad_alloc异常，但是大量的C++是在编译器支持修订版本之前写出来的。C++标准委员会也不想废弃test-for-null的代码，所以它们为operator new提供了一种替代形式，它能够提供传统的“失败产生null（failure-yields-null）”行为。这些形式被叫做“nothrow”形式，某种程度上是因为他们使用了不会抛出异常的对象（定义在头文件<new>中），new在这种情况下被使用：
+
+```c++
+class Widget { ... };
+Widget *pw1 = new Widget;                        // throws bad_alloc if
+// allocation fails
+
+if (pw1 == 0) ...                                             // this test must fail
+
+Widget *pw2 = new (std::nothrow) Widget;   // returns 0 if allocation for
+// the Widget fails
+
+if (pw2 == 0) ...                                             // this test may succeed
+```
+
+nothrow new 对异常的强制保证性不高。对于表达式“new (std::nothrow) Widget”，会发生两件事情。首先，通过调用nothrow版本的operator new来为一个Widget 对象分配足够的内存。如果分配失败了，operator new会返回null指针。然而如果分配成功了，Widget构造函数会被调用，到这个时候，就会世事难料了。Widget构造函数能够做任何它想做的。它自己可能new一些内存，如果是这样，并没有强迫它使用nothrow版本的new。虽然在”new (std::nothrow) Widget”中的operator new不会抛出异常，但是Widget构造函数却可能抛出来。如果是这样，异常会像平时一样传播出去。结论是什么？使用nothrow new只能保证operator new不会抛出异常，不能保证像“new(std::nothrow) Widget”这样的表达式不抛出异常。十有八九，你将永远不会有使用nothrow new的需要。
+
+不论你是使用”普通的”（也就是抛出异常的）new还是nothrow版本的new，重要的是你需要明白new-handler的行为，因为在两种new中都会使用到它。
+
+
+
+
+
+#### 总结：
+
+- set_new_handler 允许客户指定一个函数，在内存分配无法获得满足时被调用
+- Nothrow new 是一个颇为局限的工具，因为它只适用于内存分配，后继的构造函数可能还是可能调用抛出异常。
+
+
 
 ### 条款50 了解new和delete的合理替换时机
 
