@@ -220,11 +220,25 @@ inline void callWithMax(const T& a, const T& b) // know what T is, we
 
 Use const whenever possible
 
+#### Const可以修饰什么？
+
 const的一个妙处在于，他允许你指定一个语义约束，而编译器会强制实施这项约束。它允许你告诉编译器和其他程序员某值应该保持不变。只要存在这个事实，那么就应该说出来，这样可以获得编译器的帮助，确保这条约束不被违反。
 
 关键字const多才多艺，你可以用它在classes外部修饰global或namespace作用域中的常量，或修饰文件、函数、或区块作用域中被声明为static的对象。也可以用它修饰classes内部的static和non-static成员变量。面对指针，你也可以指出指针自身、指针所指物，或者两者都（或都不）是const。
 
+```c++
+char greeting[]=”Hello”;
+char *p = greeting;//non-const pointer non-const data 
+const char *p = greeting; //non-const pointer const data
+char *const p = greeting;//const pointer non-const data
+const char *const p = greeting;//const pointer const data.
+```
+
+
+
 const语法虽然变化多端，但是并不复杂。
+
+##### 	在指针中const的位置说明
 
 - 如果关键字const出现在星号左边，表示被指物是常量。如果出现在星号右边，表示指针自身是常量。如果出现在星号两边，表示被指物和指针两者都是常量。
 
@@ -235,6 +249,8 @@ const语法虽然变化多端，但是并不复杂。
   // constant Widget object
   void f2(Widget const *pw); // so does f2
   ```
+
+##### 	Const在迭代器中应用
 
 
 - STL迭代器系以指针为根据塑模出来，所以迭代器的作用就像个T*指针。声明迭代器为const就像声明指针为const一样。表示这个迭代器不得指向不同的东西，但它所指的对象的值是可以改动的。如果想指的东西也不可以改动，那么就需要const_iterator。
@@ -250,6 +266,8 @@ const语法虽然变化多端，但是并不复杂。
   *cIter = 10; // error! *cIter is const
   ++cIter; // fine, changes cIter
   ```
+
+##### Const修饰函数返回值和函数参数
 
 - const 最具威力的是面对函数声明时的应用。在一个函数声明式内，const可以和函数返回值、各参数、函数自身（如果是成员函数）产生关联。
 
@@ -330,20 +348,22 @@ int main(){
 
 
 
-成员函数为const意味着什么？
+#### Const成员函数的两个派别
 
-- **bitwise constness**（physical constness）
+- ##### **bitwise constness**（physical constness）
 
   成员函数只有在不改变对象值任何成员变量（static除外）时，才可以说是const。也就是说不改变对象内的任意一个bit。
 
   这样好处是编译器方便侦测违反点，但是不幸的是许多函数 不十分具备const性质也能通过bitwise测试。具体的说，就是一个更改了“指针所指物”的成员函数，虽然严格意义上不算是const，但是可以说是bitwise const。
 
-- **logical constness**
+- ##### **logical constness**
+
+  ###### 问题一
 
   一个const成员函数可以修改它所处理的对象内的某些bits，但只有在客户端侦测不出的情况下才得如此。
 
-  这时候就需要使用`mutable`，mutable会释放掉non-static成员变量的bitwise constness约束。（take advantage of C++’s const-related wiggle room known as mutable. mutable frees non-static data members from the constraints of bitwise constness:）,
-
+  这时候就需要使用`mutable`，mutable会释放掉non-static成员变量的bitwise constness约束。（take advantage of C++’s const-related wiggle room known as mutable. mutable frees non-static data members from the constraints of bitwise constness:）
+  
   ```c++
   class CTextBlock {
   public:
@@ -381,69 +401,67 @@ int main(){
       return textLength;
   }
   ```
-
-
-
-#### 在const 和  non-const成员函数中避免重复
-
-```c++
-class TextBlock {
-public:
-...
-const char& operator[](std::size_t position) const
-{
-... // do bounds checking 边界检查
-... // log access data	日志数据访问
-... // verify data integrity //检验数据完整性
-return text[position];
-}
-char& operator[](std::size_t position) 
-{
-... // do bounds checking
-... // log access data
-... // verify data integrity
-return text[position];
-}
-private:
- std::string text;
-};
-```
-
-这样会重复大量的代码，你真正应该做的是实现operator[]的机能，并令一个调用另外一个。这促使我们将常量性移除（casting away constness)
-
-一般来说，转型(casting)是一个糟糕的想法【条款27】。但是代码重复也令人厌烦。本例中，常量版本做到了非常量版本的一切功能，只是多了个const修饰。这样把返回值的const去除就是安全的。
-
-```c++
-class TextBlock {
-public:
-...
-const char& operator[](std::size_t position) const // same as before
-{
-...
-...
-...
-return text[position];
-}
-char& operator[](std::size_t position) // now just calls const op[]
-{
-return
-const_cast<char&>( // cast away const on
-// op[]’s return type;
-static_cast<const TextBlock&>(*this) // add const to *this’s type;
-[position] // call const version of op[]
-);
-}
-...
-};
-```
-
-这里有两个转型动作，首先是为this添加const，这样在调用operator[]时得以调用const版本。第二则是从const operator[]的返回值中移除const。
-
-添加const使用static_cast做了一次安全转型，而移除const的动作只能由const_cast完成（C-style的转型也行，不过【条款27】会说，这种转型很少是正确的选择）。
-
-另外注意，使用const生成non-const版本是可以的，但是反之不行，因为non-const成员函数不承诺绝不改变对象的逻辑状态。
-
-
+  
+  ###### 问题二
+  
+  Mutable对于对bitwise-constness不是很介意的问题是一个好的解决方法，但是它不能够解决所有的const相关的难题。例如：假设TextBlock中的operator[]不仅返回一个指向合适字符的引用，它同时执行边界检查，为访问信息打印日志，可能甚至会检查数据完整性。将所有这些同时放在const和non-const operator[]（Item30）函数中,产生了下面这种怪胎：
+  
+  ```c++
+  class TextBlock {
+  public:
+  ...
+  const char& operator[](std::size_t position) const
+  {
+  ... // do bounds checking 边界检查
+  ... // log access data	日志数据访问
+  ... // verify data integrity //检验数据完整性
+  return text[position];
+  }
+  char& operator[](std::size_t position) 
+  {
+  ... // do bounds checking
+  ... // log access data
+  ... // verify data integrity
+  return text[position];
+  }
+  private:
+   std::string text;
+  };
+  ```
+  
+  这种操作重复大量的代码，你真正应该做的是实现operator[]的机能，并令一个调用另外一个。这促使我们将**常量性移除（casting away constness)**
+  
+  一般来说，转型(casting)是一个糟糕的想法【条款27】。但是代码重复也令人厌烦。本例中，常量版本做到了非常量版本的一切功能，只是多了个const修饰。这样把返回值的const去除就是安全的。
+  
+  ```c++
+  class TextBlock {
+  public:
+  ...
+  const char& operator[](std::size_t position) const // same as before
+  {
+  ...
+  ...
+  ...
+  return text[position];
+  }
+  char& operator[](std::size_t position) // now just calls const op[]
+  {
+  return
+  const_cast<char&>( // cast away const on
+  // op[]’s return type;
+  static_cast<const TextBlock&>(*this) // add const to *this’s type;
+  [position] // call const version of op[]
+  );
+  }
+  ...
+  };
+  ```
+  
+  这里有两个转型动作，首先是为this添加const，这样在调用operator[]时得以调用const版本。第二则是从const operator[]的返回值中移除const。
+  
+  添加const使用static_cast做了一次安全转型，而移除const的动作只能由const_cast完成（C-style的转型也行，不过【条款27】会说，这种转型很少是正确的选择）。
+  
+  另外注意，使用const生成non-const版本是可以的，但是反之不行，因为non-const成员函数不承诺绝不改变对象的逻辑状态。
 
 #### 总结：
 
@@ -455,9 +473,23 @@ static_cast<const TextBlock&>(*this) // add const to *this’s type;
 
 Make sure that objects are initialized before they're used
 
+####  使用未初始化对象的坏处 
+
+读取未初始化的值会产生未定义的行为。在一些平台中，仅仅读取未初始化的值就会让你的程序停止。更有可能读入一些半随机的bits,这会污染你的对象，最终导致不可思议的程序行为和很多不愉快的程序调试。
+
+
+
+#### 对于内建类型和非内建类型初始化的说明
+
+##### 如何保证内建类型进行初始化
+
 读取为初始化的值会导致不明确的行为。所以永远在使用对象之前将它初始化。
 
+##### 如何保证非内建类型进行初始化
+
 至于内置类型之外的，初始化责任落在构造函数身上，即确保每个构造函数都将对象的每个成员初始化。
+
+#### 构造函数中的初始化列表和赋值
 
 **使用成员初值列(member initialization list)来替换赋值动作。**哪怕你想要用default构造一个成员变量，都用，只需要指定无物就行。
 
@@ -471,6 +503,8 @@ numTimesConsulted(0) // but explicitly initialize
 ```
 
 如果成员变量是const或references，它们就一定需要初值，而不能被赋值【条款05】。
+
+#### 关于初始化顺序的说明
 
 C++有着十分固定的“成员初始化次序”：
 
@@ -489,7 +523,7 @@ C++有着十分固定的“成员初始化次序”：
 
 内含static对象会让它在多线程下运行时有不确定性，解决方法是在程序的单线程启动阶段手动调用所有reference-returning 函数。这就会消除与初始化有关的竞速形式。
 
-
+#### 拓展研究：单例模式
 
 > # 单例模式
 >
@@ -912,6 +946,8 @@ C++有着十分固定的“成员初始化次序”：
 
 Know what functions C++ silently writes and calls
 
+#### 编译器会默认生成哪些函数？
+
 当C++ 处理过它后，是的，如果你自己没有声明，编译器就会为它声明（编译器版本的）一个copy构造函数，一个拷贝操作符，一个析构函数。如果你连构造函数，编译器也会为你声明一个default构造函数。所有这些函数都是public且inline的【条款30】
 
 ```c++
@@ -936,13 +972,19 @@ Empty e2(e1); // copy constructor
 e2 = e1; // copy assignment operator 
 ```
 
+####  默认生成的函数会做些什么
+
 编译器为你写函数，default构造函数和析构函数主要是给编译器一个地方用来放置“藏身幕后”的代码，比如调用base classes和non-static 成员变量的构造函数和析构函数。注意，编译器产生的析构函数是non-virtual【条款07】，除非这个class的base class 自身声明有virtual 析构函数，这时这个函数的虚属性主要来自base class。
 
-至于copying构造函数，编译器创建的版本只是单纯地将来源对象的每一个non-static 成员变量拷贝到目标对象。
+#####  默认拷贝构造函数
 
+至于copying构造函数（拷贝构造函数和拷贝构造符），编译器创建的版本只是单纯地将来源对象的每一个non-static 成员变量拷贝到目标对象。
 
+##### 默认拷贝赋值运算符
 
-不会为类生成默认拷贝赋值运算符的几种情况：
+编译器为NamedObject<int>生成的拷贝赋值运算符的行为同拷贝构造函数基本上是一样的。但是一般来说，编译器生成的拷贝赋值运算符只有在生成的代码合法，并且有合理的机会证明其有意义，行为同拷贝构造函数才是一样的。如果不满上述任何一个条件，编译器都会拒绝为你的类生成operator=。
+
+**不会为类生成默认拷贝赋值运算符的几种情况：**
 
 因为编译器生成的拷贝赋值运算符需要对所有的非静态成员变量进行赋值
 
@@ -960,7 +1002,11 @@ e2 = e1; // copy assignment operator
 
 Explicitly disallow the use of compiler-generated
 
+#### 阻止对象的拷贝
+
 通过明确声明一个成员函数，你阻止了编译器暗自创建其专属版本，而令这些函数为private，使得阻止别人调用这些函数。
+
+##### 阻止对象拷贝方法一-将拷贝构造函数和赋值运算符声明为private,并且不去实现它们
 
 一般来说，这样做并不是完全安全。因为成员函数和友元函数还是可以调用你的private 函数。除非你不去定义它们。
 
@@ -995,6 +1041,8 @@ class ios_base
 };
 ```
 
+##### 阻止对象拷贝方法二-将函数的私有声明提到特定基类
+
 更进一步，可以将copy构造函数和copy assignment操作符写在一个专门为了阻止copying动作而设计的base类里，且声明为private
 
 ```c++
@@ -1023,15 +1071,61 @@ class HomeForSale: private Uncopyable { // class no longer
 
 Declare destructors virtual in polymorphic
 
+#### 继承体系中关于对象释放遇到的问题描述
+
 实际情况中，常常会发生一种灾难，即derived class对象经由一个base class指针被删除，而base class带着一个non-virtual析构函数。实际执行结果就是对象的derived部分没有被销毁。
 
+#### 如何解决问题-声明虚析构函数
+
 解决方法也很简单，给基类设置一个virtual析构函数，之后就会调用derived自己客制化的析构函数。
+
+#### 不要在不当作基类的类中声明虚析构函数
 
 当类里有virtual函数，对象必须携带vptr指针，指向一个由函数指针指向的vtbl（virtual table），每一个带有virtual函数的class都有一个相应的vtbl。因此，对象的体积会增加。不足以直接塞入指定bit的缓存器，也不再能和别的语言直接互通（除非明确补偿vptr）。
 
 因此一般的心得，除非当类里含有至少一个virtual函数，才会为它声明virtual析构函数。
 
-令一个类带一个pure virtual析构函数，但是你也得为证析构函数提供一份定义。因为析构函数的运作方式是，最深层派生类的那个类的析构函数最先被调用，然后是每一个base class的析构函数被调用，编译器会在AWOV的子类的析构函数中创建对~AWOV的调用动作，所以你必须为这个函数提供给一个定义。
+##### 不要继承析构函数为非虚的类
+
+在虚函数完全缺席的情况下，非虚析构函数的问题同样会导致只释放部分内存的问题。举个例子，标准string类型不包含虚函数，但是一些被误导的程序员有时会将其当作基类：
+
+```c++
+ class SpecialString: public std::string { // bad idea! std::string has a
+ 
+ ... // non-virtual destructor
+ 
+ };
+```
+
+乍一看这么实现也许无伤大雅，但是如果在一个应用中的某个地方，你以某种方式将指向SpecialString的指针转换成指向string的指针，然后你在string指针上使用delete，你马上会被转到未定义行为的领地：
+
+```c++
+SpecialString *pss =new SpecialString("Impending Doom");
+
+std::string *ps;
+
+...
+
+ps = pss; // SpecialString* ⇒ std::string*
+
+...
+
+delete ps; // undefined! In practice,
+
+// *ps’s SpecialString resources
+
+// will be leaked, because the
+
+// SpecialString destructor won’t
+
+// be called
+```
+
+同样的分析适用于任何缺少虚析构函数的类，包含所有的STL容器类型（例如 vector,list,set,tr1::unordered_map()。如果你曾经受到诱惑，从一个标准容器类或其他没有虚析构函数的类中继承，你需要抵抗这种诱惑！（不幸的是，c++没有提供不能继承的机制，java中有final类，c#中有sealed类）
+
+##### 纯虚析构函数
+
+令一个类带一个pure virtual析构函数，但是你也必须得为这个析构函数提供一份定义。因为析构函数的运作方式是，最深层派生类的那个类的析构函数最先被调用，然后是每一个base class的析构函数被调用，编译器会在AWOV的子类的析构函数中创建对~AWOV的调用动作，所以你必须为这个函数提供给一个定义。
 
 ```c++
 class AWOV { // AWOV = “Abstract w/o Virtuals”
@@ -1040,6 +1134,12 @@ virtual ~AWOV() = 0; // declare pure virtual destructor
 };
 AWOV::~AWOV() {} // definition of pure virtual dtor
 ```
+
+##### 其他一些需要注意的地方
+
+ **为基类提供虚析构函数的法则只适用于多态基类**，多态基类也就是将基类设计成允许通过基类接口来操作派生类型的类。TImeKeeper是一个多态基类，因为我们想能够操作AtomicClokc和WaterClock对象，在即使只有TimeKeeper指针指向这些派生类对象的情况下。
+
+**并不是所有的基类都被设计成能够使用多态**。举个例子，标准string类型还有STL容器类型并没有被设计成基类，更不用说多态了。**一些类被设计成当基类使用，但是没有被设计成使用多态**。举个例子，【条款6】中的UnCopyable和来自标准库中的input_iterator_tag【条款47】,这样的类没有被设计成通过基类接口操作派生类。因此，也不需要虚析构函数。
 
 #### 总结：
 
@@ -1050,7 +1150,15 @@ AWOV::~AWOV() {} // definition of pure virtual dtor
 
 Prevent exceptions from leaving destructors
 
+#### 为什么c++不喜欢析构函数抛出异常
+
 C++ 并不禁止在析构函数吐出异常，但是并不鼓励你这样做，譬如一个vector<tempclass>v，如果v[0]的析构抛出异常，那么v后面的类也应该被销毁。
+
+
+
+#### 一个例子-DB资源管理类
+
+为了确保客户端不会忘记调用DBConnection对象的close函数，为DBConnestion创建一个资源管理类是一个理想的方法，close函数会在资源管理类的析构函数中被调用。这样的资源管理类将在第三章有详细的讲述，在这里，考虑这样一个类的析构函数会长成什么样子就足够了：
 
 ```c++
 class DBConnection
@@ -1086,7 +1194,9 @@ private:
   // the DBConnection object
 ```
 
+只要close函数的调用成功了这个实现就是很好的，但是如果调用产生一个异常，DBConn的析构函数会传播这个异常，也就是允许异常离开析构函数。这是一个问题，因为在析构函数中发生throw就意味这麻烦。
 
+#### 如何阻止析构函数中的异常被传播出去
 
 对于这种问题一般有两种解决方法
 
@@ -1118,6 +1228,8 @@ private:
   ```
 
   一般而言，将异常吞掉都是一个坏主意，因为它压制了某些动作失败的重要信息，然而有时候吞下异常比“草率结束程序”或“不明确行为带来的风险”好。当程序必须能够继续可靠的运行，即使在遭遇并忽略一个异常后。
+
+#### 一个更好的方法-使类能够对异常做出反应
 
 但是这两种方法都无法对“导致close抛出异常的情况”作出反应
 
@@ -1166,11 +1278,117 @@ private:
 
 Never call virtual functions during construction or destruction
 
-因为子类中的基类成分会先在子类自身成分被构造前构造妥当，所以你在derived类构造函数里调用virtual函数，这时候调用的版本并非是derived版本，而是base  类版本。
+#### 关于构造函数的一个违反直觉的行为
+
+假设你已经有一个为股票交易建模的类继承体系，它可以买卖股票等。这些交易的可审计性很重要，所以每次交易对象被创建的时候，需要在审计日志中创建一个合适的记录。这看上去是解决问题的合理方法：
+
+```c++
+class Transaction { // base class for all
+
+public: // transactions
+
+Transaction();
+
+virtual void logTransaction() const = 0; // make type-dependent
+
+// log entry
+
+...
+
+};
+
+Transaction::Transaction() // implementation of
+
+{ // base class ctor
+
+...
+
+logTransaction(); // as final action, log this
+
+} // transaction
+
+class BuyTransaction: public Transaction { // derived class
+
+public:
+
+virtual void logTransaction() const; // how to log trans-
+
+// actions of this type
+
+...
+
+};
+
+class SellTransaction: public Transaction { // derived class
+
+public:
+
+virtual void logTransaction() const; // how to log trans-
+
+// actions of this type
+
+...
+
+};
+```
+
+考虑执行下面的代码会发生什么：
+
+```c++
+BuyTransaction b;
+```
+
+BuyTransaction的构造函数会被调用，但是在这之前，Transaction的构造函数必须被调用：派生类的基类部分的构建要早于派生类部分。Transaction构造函数的最后一行调用虚函数logTransaction,这个地方会让你感到惊讶。被调用的logTransaction版本是Transaction中的版本而不是BuyTransaction中的版本，即使对象被创建的类型是BuyTransaction.**在基类的构造函数中，虚函数永远不会下降到派生类中**。相反，对象的行为看上去会像一个基类类型。比较传神的说法就是，**在基类构建期间，虚函数不再是虚函数**。
+
+#### 这种行为为什么会出现（一）
+
+因为子类中的基类成分会先在子类自身成分被构造前构造妥当，所以你在derived类构造函数里调用virtual函数，这时候调用的版本并非是derived版本，而是base版本。
+
+#### 这种行为为什么会出现（二）
 
 在derived  class对象的base class构造期间，对象的类型是base class而不是derived class。不只是virtual 函数会被编译器解析至base class。若使用运行期类型信息（runtime type information，例如dynamic_cast【条款27】和typeid），也会把对象视为base class类型。
 
+#### 上面的行为析构函数也会出现 
+
 同理也适用于析构函数，一旦derived class 析构函数开始执行，对象内的derived class成员变量便呈现为未定义值。
+
+#### 如何防止这个行为出现？
+
+在上面的示例代码中，Transaction构造函数直接调用虚函数，很容易看到它违反了这个条款。这个违反是如此容易被发现，一些编译器会发出警告。（其他的则不会，关于warning的讨论见Item53）.即使在没有警告的情况下，这个问题在运行时之前很容易显现出来，因为logTransaction函数是Transaction中的纯虚函数。除非它被定义（不太有希望，但是可能，见Item34），否则程序链接会出现问题：链接器将找不到Transaction::logTransaction的定义。
+
+在构造和析构期间对虚函数的调用不总是这么容易能够被发现。如果Transaction有多个构造函数，每个构造函数必须执行相同的工作，防止代码重复的一个好的软件工程是将普通的初始化代码，包含对logTransaction的调用，放到一个私有的非虚初始化函数中，也即是 Init:
+
+```c++
+class Transaction {
+
+public:
+
+Transaction()
+
+{ init(); } // call to non-virtual...
+
+virtual void logTransaction() const = 0;
+
+...
+
+private:
+
+void init()
+
+{
+
+...
+
+logTransaction(); // ...that calls a virtual!
+
+}
+
+};
+```
+
+这段代码和早一点的那个版本从概念上来说是相同的，但是它更加阴险，因为它能够被成功的编译和链接。在这种情况下，因为logTransaction是Transaction的纯虚函数，大多数运行的系统会在调用纯虚函数的时候终止程序（通常会发出一个消息）。然而，如果logTransaction是一个“普通的”虚函数（也就是不是纯虚函数），并且在Transaction中有一个实现，如果这个版本的logTransaction被调用，程序会愉快的执行下去，让你百思不得其解为什么创建派生类对象的时候会调用错误的logTransaction版本。防止这个问题的**唯一方法是确定你在创建和销毁对象的时候，你的构造函数和虚构函数不会去调用虚函数，并且它们调用的所有函数也需要遵守这个约定**。
+
+#### 如何保证调用到继承体系中正确的函数版本
 
 想要保证Transaction继承体系上的对象被创建，就有适当版本的logTransaction被调用。一种方法就是在class Transaction内将logTransaction改为non-virtual，然后要求derived class构造函数传递必要的信息给Transaction构造函数。
 
@@ -1231,7 +1449,9 @@ createLogString 是 BuyTransaction 类的一个私有的、静态的函数，因
 
 #### 总结：
 
-- 在构造和析构期间不要调用virtual函数，因为这类调用从不下降至derived class（比起当前指向构造函数和析构函数的那层）[Don’t call virtual functions during construction or destruction, because such calls will never go to a more derived class than that of the currently executing constructor or destructor.]
+- **在构造和析构期间不要调用virtual函数**，因为这类调用从不下降至derived class（比起当前指向构造函数和析构函数的那层）
+
+  [Don’t call virtual functions during construction or destruction, because such calls will never go to a more derived class than that of the currently executing constructor or destructor.]
 
 ### 条款10 令operator = 返回一个 reference to *this
 
@@ -1485,7 +1705,7 @@ Copy all parts of an object
 
 设计良好的面向对象系统（OO-systems）会将对象的内部封装起来，只留两个函数负责对象拷贝（复制），那就是带着适当名称的copy构造函数和copy assignment 操作符。并称为copying函数。
 
-编译器会在必要时为我们的类创建copying函数，如果你自己声明自己的copying函数，意思就是告诉编译器你并不喜欢缺省实现中的某些行为。编译器就好像被冒犯一样，会以一种奇怪的方式回敬：当你代码几乎必然出错时却不提醒你。
+编译器会在必要时为我们的类创建copying函数，如果你自己声明自己的copying函数，意思就是告诉编译器你并不喜欢默认实现中的某些行为。编译器就好像被冒犯一样，会以一种奇怪的方式回敬：当你代码几乎必然出错时却不提醒你。
 
 当你新添加新的成员函数时，copying函数也应该同时更新。而编译器不会告诉你这一点。也不会为你补全。
 
@@ -2074,7 +2294,7 @@ C++ 就像其他OOP语言一样，当你定义一个新class，也就是定义�
 
 Prefer pass-by-reference-to-const to pass-by-value
 
-缺省情况下C++以 by value（一个继承自C的方式）传递对象至（或来自）函数。除非指定，否则函数参数都是以实参的复件为初值，而调用端所获得的亦是函数返回值的一个复件。这些复件是由对象的copy构造函数产出，这可能使得传值成为昂贵费事的操作。
+默认情况下C++以 by value（一个继承自C的方式）传递对象至（或来自）函数。除非指定，否则函数参数都是以实参的复件为初值，而调用端所获得的亦是函数返回值的一个复件。这些复件是由对象的copy构造函数产出，这可能使得传值成为昂贵费事的操作。
 
 参数的传递成本是“一次copy构造函数调用，一次析构函数调用”。但是！如果这个类有若干父类等等，那么每一次调用动作都回调用构造析构，成本很大。
 
@@ -2403,7 +2623,7 @@ swap(_Tp& __a, _Tp& __b)
 */
 ```
 
-只要类型T支撑copying函数，缺省的swap实现代码就会帮你置换类型为T的对象。你不需要为此另外再做任何工作。
+只要类型T支撑copying函数，默认的swap实现代码就会帮你置换类型为T的对象。你不需要为此另外再做任何工作。
 
 这一种swap设计三个对象的复制，但是对于某些类型（最主要的就是以指针指向一个对象，内含真正数据）。
 
@@ -2481,7 +2701,7 @@ delete times is 12
 */
 ```
 
-这种实现下，置换两个widget值，实际上只需要置换其pimpl指针即可。但缺省的swap操作不知道这一点，它不只复制三个widgets，还复制三个WidgetImpl对象，非常缺乏效率。
+这种实现下，置换两个widget值，实际上只需要置换其pimpl指针即可。但默认的swap操作不知道这一点，它不只复制三个widgets，还复制三个WidgetImpl对象，非常缺乏效率。
 
 为此我们需要告诉std::swap针对Widget进行特化。
 
@@ -3195,7 +3415,7 @@ void PrettyMenu::changeBackground(std::istream& imgSrc)
 
 首先我们来了解一下异常安全函数（Exception-safe function） 提供以下三个保证之一：
 
-- 基本承诺：如果抛出异常，程序内的任何事物仍然保持在有效状态下，没有任何对象或数据结构会因此而败坏，所有对象都处于一种内部前后一致的状态（例如所有class约束条件都继续获得满足），然而程序的显式状态恐怕不可预料。举例，我们可以撰写changeBackground使得当抛出异常是，PrettyMenu对象可以继续拥有原背景图像，或是令它拥有某个缺省背景图像，但客户无法预期哪一种情况。
+- 基本承诺：如果抛出异常，程序内的任何事物仍然保持在有效状态下，没有任何对象或数据结构会因此而败坏，所有对象都处于一种内部前后一致的状态（例如所有class约束条件都继续获得满足），然而程序的显式状态恐怕不可预料。举例，我们可以撰写changeBackground使得当抛出异常是，PrettyMenu对象可以继续拥有原背景图像，或是令它拥有某个默认背景图像，但客户无法预期哪一种情况。
 - 强烈保证：如果异常被抛出。程序状态不改变。调用这样的函数需有这样的认识：如果函数成功，就是完全成功。如果函数失败，程序会回复到调用函数之前的状态。（强烈保证比起基本承诺，让人放心多了，因为只有两种可能，而基本承诺下玩意出现异常，程序可能处于任何合法但不合理的状态）
 - 不抛保证：承诺绝不抛出异常，因为它们总是能够完成它们原先承诺的功能，作用于内置类型身上所有操作都提供nothrow保证。这是异常安全码中一个必不可少的关键基础材料。
 
@@ -3650,7 +3870,7 @@ Handle classes 和 Interface classes解除了接口和实现之间的耦合关�
 - 每一个继承链接link可以是public、protected或private，也可以是virtual或non-virtual。
 - 然后是成员函数的各个选项：virtual？non-virtual？pure-virtual？
 - 成员函数和其他语言的特性的交互影响：
-  - 缺省参数值与virtual函数有什么交互影响？
+  - 默认参数值与virtual函数有什么交互影响？
   - 继承如何影响C++的名称查找规则？
   - 设计选项有哪些？
   - 如果class的行为需要修改，virtual函数会是最佳选择吗？
@@ -3751,7 +3971,7 @@ d.mf3(x); // error! Derived::mf3 hides Base::mf3
 
 As you can see, this applies even though the functions in the base and derived classes take different parameter types, and it also applies regardless of whether the functions are virtual or non-virtual. In the same way that, at the beginning of this Item, the double x in the function someFunc hides the int x at global scope, here the function mf3 in Derived hides a Base function named mf3 that has a different type.
 
-这些行为背后的基本理由是防止你在程序库或应用框架内建立新的derived class时附带地从疏远的base classes继承重载函数。但是你通常会想继承重载函数。实际上，如果你正在使用public继承，而又不继承那些重载函数，那就是**违背了base和derived 的“is-a”关系**。为此我们几乎总是会推翻 C++对继承而来的名称的缺省遮掩行为。（That being the case, you’ll almost always want to override C++’s default hiding of inherited names. ）
+这些行为背后的基本理由是防止你在程序库或应用框架内建立新的derived class时附带地从疏远的base classes继承重载函数。但是你通常会想继承重载函数。实际上，如果你正在使用public继承，而又不继承那些重载函数，那就是**违背了base和derived 的“is-a”关系**。为此我们几乎总是会推翻 C++对继承而来的名称的默认遮掩行为。（That being the case, you’ll almost always want to override C++’s default hiding of inherited names. ）
 
 ```c++
 class Base {
@@ -3885,9 +4105,9 @@ class Ellipse: public Shape { ... };
 
   一如既往，derived classes继承其函数接口。但impure virtual函数会提供一份实现代码。
 
-  **声明简朴的非纯虚函数的目的是让derived classes继承该函数的接口和<u>缺省实现</u>。**
+  **声明简朴的非纯虚函数的目的是让derived classes继承该函数的接口和<u>默认实现</u>。**
 
-  impure virtual提供的缺省实现需要谨慎使用，因为客户在继承时很可能忘记覆写虚函数，所以当你确定这个函数很重要，每个函数得有一个自己的版本，那么还是用纯虚函数。
+  impure virtual提供的默认实现需要谨慎使用，因为客户在继承时很可能忘记覆写虚函数，所以当你确定这个函数很重要，每个函数得有一个自己的版本，那么还是用纯虚函数。
 
 - non virtual
 
@@ -3908,7 +4128,7 @@ class Ellipse: public Shape { ... };
 
 - 接口继承和实现继承不同。在public继承下，derived classes总是继承base classes的接口。
 - pure virtual函数只具体指定接口继承。
-- impure virtual 函数具体指定接口继承和缺省实现继承。
+- impure virtual 函数具体指定接口继承和默认实现继承。
 - non virtual函数具体指定解耦继承好强制性实现继承。
 
 ### 条款35 考虑virtual函数以外的其他选择
@@ -4358,13 +4578,13 @@ Hello, World!
 
 - 绝对不要重新定义s继承而来的non-virtual函数。
 
-### 条款37 绝不重新定义继承而来的缺省参数值
+### 条款37 绝不重新定义继承而来的默认参数值
 
 Never redefine a function’s inherited default parameter value
 
-你只能继承两种函数：virtual和non-virtual函数。然而重新定义继承而来的non-virtual函数永远是错误的【条款36】。所以我们可以安全地将本条款的限定范围限制于“继承一个带有缺省参数值的virtual函数”。
+你只能继承两种函数：virtual和non-virtual函数。然而重新定义继承而来的non-virtual函数永远是错误的【条款36】。所以我们可以安全地将本条款的限定范围限制于“继承一个带有默认参数值的virtual函数”。
 
-这种情况下，本条款成立的理由就非常明显了：**virtual函数系动态绑定，而缺省（默认）参数值却是静态绑定。**
+这种情况下，本条款成立的理由就非常明显了：**virtual函数系动态绑定，而默认（默认）参数值却是静态绑定。**
 
 对象所谓的静态类型（static type），就是它在程序中被声明时所采用的类型。
 
@@ -4372,7 +4592,7 @@ Never redefine a function’s inherited default parameter value
 
 virtual函数系动态绑定而来，意思是调用的一个virtual函数时，究竟调用哪一份函数实现代码，取决于发出调用的那个对象的动态类型。
 
-virtual函数系动态绑定，而缺省（默认）参数值却是静态绑定。这一点会导致，用户可能会在“调用一个定义于derived class内的virtual函数”的同时，却使用base class为它指定的默认参数值。这就导致很奇怪的现象，即基类子类各出一半力气。
+virtual函数系动态绑定，而默认（默认）参数值却是静态绑定。这一点会导致，用户可能会在“调用一个定义于derived class内的virtual函数”的同时，却使用base class为它指定的默认参数值。这就导致很奇怪的现象，即基类子类各出一半力气。
 
 ```c++
 #include <iostream>
@@ -4423,9 +4643,9 @@ Hello, World!
 */
 ```
 
-C++ 之所以坚持这种乖张的方式，是为了运行期的效率。如果缺省值数值是动态绑定，编译器就必须有办法在运行期为virtual函数决定适当的参数缺省值。这比目前实行的”在编译器决定“的机制更慢且更复杂。
+C++ 之所以坚持这种乖张的方式，是为了运行期的效率。如果默认值数值是动态绑定，编译器就必须有办法在运行期为virtual函数决定适当的参数默认值。这比目前实行的”在编译器决定“的机制更慢且更复杂。
 
-当你想令virtual函数表现出你想要的行为却遭遇到麻烦，聪明的做法是考虑替代设计。【条款35】列了不少virtual函数的替代设计，其中之一就是NVI手法。让base class内的一个public non-virtual函数调用private virtual函数，后者可被derived class重新定义。由于non-virtual函数绝对不应该被derived class覆写，所以这个设计可以很清楚的使得draw函数的缺省值总是red。
+当你想令virtual函数表现出你想要的行为却遭遇到麻烦，聪明的做法是考虑替代设计。【条款35】列了不少virtual函数的替代设计，其中之一就是NVI手法。让base class内的一个public non-virtual函数调用private virtual函数，后者可被derived class重新定义。由于non-virtual函数绝对不应该被derived class覆写，所以这个设计可以很清楚的使得draw函数的默认值总是red。
 
 ``` c++
 class Shape {
@@ -4450,7 +4670,7 @@ private:
 
 #### 总结：
 
-- 绝对不要重新定义一个继承而来的缺省参数值，因为缺省参数值都是静态绑定，而virtual函数--你唯一应该覆写的东西--却是动态绑定。
+- 绝对不要重新定义一个继承而来的默认参数值，因为默认参数值都是静态绑定，而virtual函数--你唯一应该覆写的东西--却是动态绑定。
 
 ### 条款38 通过复合塑模出has-a 或“根据某物实现出“
 
@@ -4581,7 +4801,7 @@ public OutputFile
 
 简单的逻辑告诉我们，IO对象只应该有一个文件名称，所以它继承自两个base classes而来的filename不应该重复。
 
-C++同时支持这两种方案。其缺省做法是执行复制。如果那不是你想要的，你必须令带有这个数据成为一个virtual base class。
+C++同时支持这两种方案。其默认做法是执行复制。如果那不是你想要的，你必须令带有这个数据成为一个virtual base class。
 
 ```c++
 class File { ... };
@@ -4854,7 +5074,7 @@ void print2nd(const C& container) // container;
 >
 > 其中，`size` 就是非从属名称。
 
-嵌套从属名称可能导致解析（parsing）困难。比如C::const_iterator在我们理解是个类型，但是如果C有个static成员变量被命名为const_iterator，或者x是个global变量名称。就会导致很多疯狂的结果。C++有个规则可以解析（resolve）这一个歧义状态：如果解析器在template遭遇一个嵌套从属名称。它便假设这名称不是个类型，除非你告诉它是。默认情况下，缺省情况下嵌套从属名称不是类型。此规则有个例外，稍后会提到。
+嵌套从属名称可能导致解析（parsing）困难。比如C::const_iterator在我们理解是个类型，但是如果C有个static成员变量被命名为const_iterator，或者x是个global变量名称。就会导致很多疯狂的结果。C++有个规则可以解析（resolve）这一个歧义状态：如果解析器在template遭遇一个嵌套从属名称。它便假设这名称不是个类型，除非你告诉它是。默认情况下，默认情况下嵌套从属名称不是类型。此规则有个例外，稍后会提到。
 
 ```c++
 template<typename C>
@@ -6082,23 +6302,442 @@ nothrow new 对异常的强制保证性不高。对于表达式“new (std::noth
 - set_new_handler 允许客户指定一个函数，在内存分配无法获得满足时被调用
 - Nothrow new 是一个颇为局限的工具，因为它只适用于内存分配，后继的构造函数可能还是可能调用抛出异常。
 
-
+> 在 C++ 中，`new-handler` 是一个回调函数，它会在内存分配失败时被调用。当内存分配失败时，标准库的 `new` 操作符会调用 `new-handler` 函数，以尝试释放一些内存，使得后续的内存分配操作可以成功。
+>
+> `new-handler` 可以用 `set_new_handler` 函数来设置，这个函数接受一个指向 `new-handler` 回调函数的指针作为参数。如果内存分配失败时没有设置 `new-handler`，`new` 操作符将会抛出一个 `std::bad_alloc` 异常。
+>
+> `new-handler` 的主要作用是帮助我们在内存分配失败时执行一些定制的操作。例如，当内存分配失败时，我们可以尝试释放一些不必要的内存，或者向用户显示一条错误信息并退出程序。如果没有 `new-handler`，`new` 操作符会默默地失败，导致程序可能会出现奇怪的行为或者崩溃。
 
 ### 条款50 了解new和delete的合理替换时机
 
 Understand when it makes sense to replace new and delete
 
+我们先回顾一下基本原理。为什么人们一开始就想去替换编译器提供的operator new和operator delete版本？有三个最常见的原因：
+
+- **为了检测内存使用错误**。不能成功delete new出来的内存会造成内存泄漏。在new出来的内存上使用多于一次的delete会产生未定义行为。
+
+  如果operator new持有一份内存分配的列表，并且operator delete从列表中移除地址，那么就很容易侦测出这种使用错误。类似的，不同种类的编程错误能够导致数据右越界（overrun）（越过分配内存块的结尾写数据）或者左越界(underrun)（在分配内存块的开始之前写数据）。自定义的operator new能够分配额外的内存块，所以在客户申请内存前后就有空间存放已知的字节模式（“签名signatures”）。Operato delete能够检查签名是否发生了变化，如果变了，那么就意味着在分配区的某个生命时间点发生了overrun或underrun，operator delete会记录这个事实，并且将违规指针的值记录下来。
+
+- **为了强化效能**。编译器提供的operator new和operator delete的版本是供大众使用的。它们必须能被长时间运行的程序所用（例如 web server），也能被执行时间小于1秒的程序所使用。它们必须要处理对大内存块，小内存块以及大小混合内存块的请求。它们必须要适应不同的内存分配模式，从为持续运行的程序提供内存块的动态分配到为大量短暂存在对象提供的常量大小的内存块分配和释放。它们必须考虑内存碎片问题，如果不做内存碎片的检查，最后有可能发生内存充足却因为分布在不同的小内存块中而导致内存请求失败的问题。考虑以上在内存管理上的不同要求，编译器版本的operator new和operator delete为你提供一个大众化内存分配策略就不足为奇了。它们能够为每个人都工作的很好，但是对于这些人来说都不是最优的。如果你对程序的动态内存运用模式有一个很好的理解，你就会发现使用自定义版本的operator new和operator delete会胜过默认版本。“胜过”的意思就是它们运行的更快——有时速度提升是数量级的,它们使用的内存会更少——最高能减少50%的内存。对于一些应用来说，能够很容易的替换默认operator new和operator delete版本，却能够收获很大的性能提升。
+
+- **为了收集内存使用的统计信息**。在沿着自定义new和delete这条小路前进之前，对你的软件是如何使用动态分配内存的相关信息进行收集是很精明的。内存分配块的大小是如何分布的？内存块的生命周期是如何分布的？内存的分配和释放是使用FIFO（先进先出）的顺序，还是使用LIFO（后进先出）的顺序？或者有时候更加趋近于随机的顺序？内存使用的模式是不时地发生变化的么？例如，你的软件在不同的执行阶段是不是有不同的内存分配和释放模式？一次能够使用的动态分配内存的最大容量是多少？自定义版本的operator new和operator delete使得收集这些信息变得容易。
+
+
+
+从概念上来说，实现一个自定义operator new是非常容易的。例如，我们快速的实现一个全局operator new，它能够很容易的检测内存越界。它也有很多小的错误，但是我们稍后再去完善它。
+
+```c++
+static const int signature = 0xDEADBEEF;
+typedef unsigned char Byte;
+// this code has several flaws — see below
+void* operator new(std::size_t size) throw(std::bad_alloc)
+{
+    using namespace std;
+    size_t realSize = size + 2 * sizeof(int); // 增加内存以存放两个签名
+    void *pMem = malloc(realSize); // call malloc to get the actual
+    if (!pMem) throw bad_alloc(); // memory
+// 将签名写入内存的最前和最后段落
+    *(static_cast<int*>(pMem)) = signature;
+    *(reinterpret_cast<int*>(static_cast<Byte*>(pMem)+realSize-sizeof(int))) = signature;
+// 返回指针，指向恰位于第一个签名之后的内存位置。
+    return static_cast<Byte*>(pMem) + sizeof(int);
+}
+```
+
+这个operator new的大多数毛病是因为它不符合C++惯例。例如，【条款51】中解释了所有的operator new都应该包含一个反复调用new-handling函数的循环，但是这个函数里没有。然而，因为在【条款51】有解释，在这里我们将其忽略。现在想关注一个更加微妙的问题：**对齐（alignment）**。
+
+对于许多计算机架构来说，在内存中替换特定类型的数据时，需要在特定种类的地址上进行。例如，一种架构可能需要指针定义的开始地址为4的整数倍（也就是4字节对齐的）或者定义double的开始地址必须为8的整数倍（也就是8字节对齐的）。不遵守这个约束条件在运行时就会导致硬件异常。其他架构可能更加宽松，也即是如果满足对齐会有更好的性能。例如，在英特尔X86架构中double可以被对齐在任何字节边界上，但是如果它们是8字节对齐的，访问它们的速度会大大加快。
+
+Operator new和对齐（alignment）是相关的，因为C++需要所有operator new返回的指针都能够被恰当的对齐，malloc工作在同样的需求下，所以让operator new返回从malloc得到的指针是安全的。然而，在上面的operator new中，我们没有返回从malloc得到的指针，我们返回的是从malloc得到的指针加上int大小的偏移量。这就在安全上没有保证了！如果客户通过调用operator new来为double获取足够的内存（或者如果我们实现了operator new[]，为double数组申请内存），并且我们工作在int为4字节大小但是double需要8字节对齐的机器上，我们可能返回一个没有恰当的对齐的指针。这可能会导致程序崩溃。或者它只会导致程序运行更加缓慢。不管哪种结果，都不是我们想要的。
+
+像齐位这类技术细节，正可以区分出具有专业质量的管理器。写一个总是能够运作的内存管理器并不难，难的是它能够优良地运作。一般而言只有在必要时才试着写写看。
+
+在许多情况下，你不必这么做。在一些编译器的内存管理函数中有控制调试和记录日志功能的开关。快速瞥一眼你的编译器文档可能就能消除你自己来实现New和delete的想法。在许多平台中，商业产品能够替换编译器自带的内存管理函数。它们的增强的功能和改善的性能能够使你受益，你所需要做的就是重新链接（前提是你必须买下这个产品。）
+
+另外一个选择是开源的内存管理器。在许多平台上都能找到这样的管理器，所以你可以下载和尝试。其中一个开源的内存分配器是来自Boost的Pool库【条款55】。这个Pool库提供的内存分配器对自定义内存管理很有帮助：也就是在有大量的小对象需要分配的时候。许多C++书籍中，包含本书的早期版本，展示出了高性能小对象内存分配器的源码，但他们通常都会忽略一些细节，像可移植性，对于对齐的考虑，线程安全等等。真正的库提供的源码都是更加健壮的。即使你自己决定去实现你自己的new和delete，看一下这些开源的版本能够让你对容易忽略的细节有了深刻洞察力，而这些细节就将“基本工作”和“真正工作”区分开来。（鉴于对齐是这样一个细节，因此注意一下TR1是很有价值的，其中包含了对特定类型对齐的支持。）
+
+
+
+本条款的主题是，了解何时可在“全局性的”或“class专属的”基础上合理替换默认的new和delete。挖掘更多细节之前，让我先对答案做一些摘要。
+
+- 检测内存使用错误。
+- 收集使用动态分配内存的统计信息。
+- 提高内存分配和释放的速度。泛用的的分配器通常情况下比自定义版本要慢的多，特别是在自定义版本是专门为特定类型对象所设计的情况下。类特定的分配器是固定大小分配器的一个实例应用，例如在Boost的Pool库中提供的分配器。如果你的应用是单线程的，但是你的编译器默认版本内存管理器具备线程安全的，你或许可以写个不具备线程安全的分配器来获得可观的速度提升。当然，在下决定要提升operator new和operator delete的速度之前，研究一下你的程序来确定这些函数真的是瓶颈所在。
+- 减少默认内存管理的空间开销。大众内存管理器通常情况下不仅慢，而且使用更多的内存。因为它们会为每个内存分配块引入一些额外的开销。为小对象创建的分配器从根本上消除了这些开销。
+- 能够补偿在默认分配器中的非最佳齐位(suboptimal alignment)。正如我先前提到的，在X86架构的机器上访问double，在8字节对齐的情况下速度是最快的。但是一些编译器中的operator new不能够保证对于动态分配的double是8字节对齐的。在这种情况中，用能够保证8字节对齐的版本替换默认版本可以很大程度的提高性能。
+- 将相关对象集中起来。如果你知道一些特定的数据结构通常情况下会被放在一起被使用，当在这些数据上进行工作时你想让页错误出现的频率最小化，为这些数据结构创建一个单独的堆就有意义了，这样它们就能够聚集在尽可能少的内存页中。new和delete的placement【条款52】可以达到这种聚集。
+- 可以获得非常规的行为。有时候你想让operator new和delete能够做一些编译器版本不能做的事。例如，你可能想在共享内存中进行内存分配和释放，但是你只有一个C API来进行内存管理。实现自定义版本的new 和delete（可能是placement 版本——见Item 52）允许你为C API穿上C++的外衣。另外一个例子，你可以自己实现一个operator delete来为释放的内存填充数据0以达到增强应用数据安全性的目的。
+
+
+
+#### 总结：
+
+- 有许多理由需要写一个自定的new和delete，包括改善效能、对heap运用错误进行调试、收集heap使用信息。
+
+
+
 ### 条款51 编写new和delete时需固守常规
 
 Adhere to convention when writing new and delete
+
+#### 定义operator new的约定
+
+##### 约定列举
+
+【条款50】提供了一些自定义operator new delete的理由。但是还未解释你那么做时必须遵守什么规则。
+
+让我们从operator new开始。实现一个一致性的operator new需要返回正确的值、内存不足时必须调用new-handling【条款49】，必须有对付零内存需求的准备，还得避免不慎掩盖正常形式的new。（尽管这更像一个类的接口的问题而不是一个实现的需求问题【条款52】）。
+
+operator new实现的效果十分单纯。如果它有能力供应客户申请的内存，就返回一个指针指向那个内存。如果没有那个能力，就遵循【条款49】描述的规则，并抛出一个bad_alloc异常。
+
+但是它的实现也并不是很简单，因为operator new不止一次地分配内存，在每次分配内存失败都会调用new-handling函数。这里的假设是new-handling函数或许会做些事将某些内存释放出来。只有当new-handling函数的指针是null，operator new 才会抛出异常。
+
+有趣的是，C++规定，即使客户要求0bytes，operator new也得返回一个合法指针。这种看似诡异的行为其实是为了简化语言其他部分。下面是一个non-member operator new伪代码：
+
+```c++
+void* operator new(std::size_t size) throw(std::bad_alloc)
+{ // your operator new might
+    using namespace std; // take additional params
+    if (size == 0) { // 处理0-byte申请
+        size = 1; // by treating them as
+    } // 1-byte requests
+    while (true) {
+        //attempt to allocate size bytes;
+        if (the allocation was successful)
+        return (a pointer to the memory);
+// allocation was unsuccessful; find out what the
+// 分配失败：找出目前的new-handling 函数
+        new_handler globalHandler = set_new_handler(0);
+        set_new_handler(globalHandler);
+        if (globalHandler) (*globalHandler)();
+        else throw std::bad_alloc();
+    }
+}
+```
+
+这里的伎俩是将0bytes申请量视为1byte申请量。虽然看着有些油滑，但是做法简单、合法、可行。而且考虑到客户很久才会发出一个0bytes申请，也就无妨了。
+
+你还可能会带着怀疑的眼光来看这段代码，因为其中将new-handling函数指针设为null而后又立刻回复原样。（set_new_handler会返回一个当前函数指针）。那是因为我们很不幸没有直接取得new-handling函数指针的方法，所以必须通过set_new_handler来找到它，拙劣但有效，至少在单线程下是有效的。多线程环境你或许需要某种lock以便安全处置new-handling函数背后的global数据结构。
+
+【条款49】谈到operator new内含一个无穷循环，上述伪码也表现出来了，退出此循环的唯一办法是：内存被重新分配或new-handling函数做了描述的事情中的其中一件：有更多的内存可供分配，安装一个不同的new-handler，卸载new-handler，抛出一个异常，这个异常来自或继承自bad_alloc，因失败返回。现在你应该清楚为什么new-handler必须做到这些事情中的一件的了，如果做不到，operator new中的循环永远不会终止。
+
+##### 由继承导致的问题
+
+许多人没有意识到operator new成员函数是要被派生类继承的。这可能会导致一些有趣的复杂情况。在上面的operator new的伪代码中，函数尝试分配size个bytes。这再合理不过了，因为这是传递到函数中的参数。然而，正如【条款50】中解释的，实现一个自定义内存管理器的最一般的原因就是为**特定类的对象**进行内存分配优化，而不是为类或者它的任何派生类。也即是，我们为类X提供了一个operaor new，这个函数的行为是为大小正好为sizeof(X)的对象进行调整，即不大也不小。然而由于继承的存在，可能发生通过调用基类中的operator new来为派生类对象分配内存：
+
+```c++
+class Base {
+public:
+	static void* operator new(std::size_t size) throw(std::bad_alloc);
+	...
+};
+class Derived: public Base // Derived doesn’t declare 
+{ ... }; // operator new
+Derived *p = new Derived; // calls Base::operator new!
+```
+
+
+
+如果Base class专属的operator new并非用于对付上述情况（实际上往往如此），处理这种情况最好的做法是将“内存申请量错误”的调用改为使用标准operator new
+
+```c++
+void* Base::operator new(std::size_t size) throw(std::bad_alloc)
+{
+    if (size != sizeof(Base)) // if size is “wrong,”
+        return ::operator new(size); // have standard operator
+    // new handle the request
+    ... // otherwise handle
+    // the request here
+}
+```
+
+“等一下”我听见你大叫，“你忘记检查病态但是可能发生的情况，也就是size为0的情况了！”事实上，我没有忘记。测试仍然在那里，只不过是将测试并入size同sizeof(size)的测试之中了。C++用神秘的方式进行工作，其中之一的方式就是规定所有独立对象的大小不能为0（见【条款39】）。根据定义，sizeof(Base)永远不会为0，所以如果size为0，内存请求将由::operator new来处理，它会以一种合理的方式来处理这个请求。
+
+#####  定义operator new[]的约定
+
+如果你想在一个类中控制数组的内存分配，你需要实现operator new的数组形式，operator new[]。（这个函数通常被叫做“array new”，因为很难确定“operator new[]”该如何发音）。如果你决定实现operator new[],记住所有你正在做的是分配一大块原生内存——你不能对不存在于数组中的对象做任何事情。事实上，你甚至不能确定数组将会有多少对象。
+
+- **首先**，你不会知道每个对象有多大。毕竟，很有可能通过继承来调用基类的operator new[]去为派生类对象数组分配内存，派生类对象通常比基类对象要大。因此，你不能假设在Base::operator new[]内部被放入数组的对象的大小为sizeof(Base)，这就意味着你不能假设数组中对象的数量为(请求的字节数)/sizeof(Base)。
+
+- **第二**，传递给operator new[]的参数size_t有可能比填入对象的内存更多，因为正如【条款16】中解释的，动态分配的数组有可能包含额外的空间来存放数组元素的数量。
+
+#### 定义operator delete的约定
+
+以上为operator new时你需要奉行的规矩，operator delete所要遵守的规则则更加简单，你需要记住的唯一事情就是C++保证“删除null指针永远安全”，所以你必须兑现这项保证。
+
+```c++
+void operator delete(void *rawMemory) throw()
+{
+if (rawMemory == 0) return; // do nothing if the null
+// pointer is being deleted
+	deallocate the memory pointed to by rawMemory;
+}
+```
+
+这个函数逇member版本也很简单，只需要多加一个动作检查删除数量。假设你的属于类的operator new将对错误数量内存的请求转发给了::operator new，你同样得将对“错误大小”的delete请求转发给::operator delete:
+
+```c++
+class Base { // same as before, but now
+public: // operator delete is declared
+    static void* operator new(std::size_t size) throw(std::bad_alloc);
+    static void operator delete(void *rawMemory, std::size_t size) throw(); ...
+};
+void Base::operator delete(void *rawMemory, std::size_t size) throw()
+{
+    if (rawMemory == 0) return; // check for null pointer
+    if (size != sizeof(Base)) { // if size is “wrong,”
+        ::operator delete(rawMemory); // have standard operator
+        return; // delete handle the request
+    }
+    deallocate the memory pointed to by rawMemory;
+    return;
+}
+```
+
+有趣的是，如果要被delete的对象派生自于一个没有虚析构函数的基类，那么传递给operator delete的size_t值有可能是不正确的。这就有了足够的理由来把你的基类中的析构函数声明为虚函数，但是【条款7】中描述了第二个可能更好的原因。现在你需要注意的是如果你在基类中忽略了虚析构函数，operator delete函数的工作就有可能不正确。
+
+#### 总结：
+
+- operator new应该包含一个无限循环来尝试分配内存，如果不能满足对内存的请求，就应该调用new-handler。它也应该可以处理对0个byte的请求。类的特定版本应该处理比预期更大的内存块的（错误）请求。
+- operator delete中传递的指针如果是null，应该什么都不做。类特定版本需要处理比预期要大的内存块的（错误）申请。
 
 ### 条款52 写了placement new也要写placement delete
 
 Write placement delete if you write placement new
 
+#### 调用普通版本的operator new抛出异常会发生什么？
+
+Placement new和placement delete不是C++动物园中最常遇到的猛兽，所以你不用担心你对它们不熟悉。当你像下面这样实现一个new表达式的时候，回忆一下【条款16】、【条款17】，当我们写下一个new表达式时，两个函数会被调用：一个是调用operator new来分配内存，第二个是Widget的默认构造函数。
+
+```c++
+Widget *pw = new Widget;
+```
+
+假设第一个调用成功了，但是调用第二个函数抛出了异常。在这种情况下，对步骤一中执行的内存分配必须进行回滚。否则就会发生内存泄漏。客户端代码不能释放内存，因为如果Widget构造函数抛出了异常，pw永远不会赋值。客户端就没有办法得到指向需要释放内存的指针。对步骤一进行回滚的责任就落在了C++运行时系统身上。
+
+运行时系统很高兴去调用与步骤1中调用的operator new版本相对应的operator delete，前提是只有在它知道应该调用哪个operator delete（可能有许多）。如果你正在处理的new和delete版本有着正常的签名，那么这不是一个问题，因为正常的operator new，
+
+```c++
+void* operator new(std::size_t) throw(std::bad_alloc);
+```
+
+对应着正常的operator delete:
+
+```c++
+void operator delete(void *rawMemory) throw();     // normal signature at global scope
+
+void operator delete(void *rawMemory, std::size_t size) throw();   // typical normal signature at class  scope        
+```
+
+如果只使用正常形式的new和delete，运行期系统可以找到那个知道如何取消new的作为并回复旧观的delete。但当你声明非正常形式的operator new，那么问题就来了：“究竟哪一个delete伴随着这个new？”
+
+#### 调用自定义operator new抛出异常会发生什么？
+
+##### 一个有问题的例子
+
+例如，假设你实现了一个类特定版本的operator new，它需要指定一个ostream，来为内存分配信息进行记录，你同时又实现了一个普通的类特定版本的operator delete:
+
+```c++
+class Widget {
+public:
+...
+
+static void* operator new(std::size_t size,
+
+                                                         // non-normal
+std::ostream& logStream)                    // form of new
+throw(std::bad_alloc);
+static void operator delete(void *pMemory, // normal class
+std::size_t size) throw(); // specific form
+// of delete
+...
+};
+```
+
+##### 对相关术语的说明
+
+这个设计是有问题的，但是在我们讨论原因之前，我们需要对相关术语进行说明。
+
+> 在C++中，Placement new和Placement delete是两个操作符，用于在已经分配了一块内存的情况下进行对象的构造和析构。
+>
+> 通常情况下，当我们使用`new`操作符创建一个对象时，它会自动分配内存并调用构造函数来初始化对象。而在使用Placement new时，我们需要手动提供已经分配好的内存的地址，并使用该地址来创建对象。
+>
+> Placement new 的语法如下所示：
+>
+> ```c++
+> void* operator new(size_t size, void* ptr);
+> ```
+>
+> 其中，第一个参数表示要分配的内存大小，第二个参数表示已经分配好的内存的地址。使用Placement new时，会调用类的构造函数，并将对象初始化在提供的内存地址上。
+>
+> 同样的，Placement delete的语法如下所示：
+>
+> ```c++
+> void operator delete(void* ptr, void*);
+> ```
+>
+> 其中，第一个参数表示要释放的内存的地址，第二个参数是一个占位符，通常为空指针。使用Placement delete时，会调用类的析构函数来销毁对象，并且不会释放内存。因为这块内存是由用户手动分配的，因此需要手动释放。
+>
+> 使用Placement new和Placement delete可以避免重复分配和释放内存的开销，适用于需要频繁创建和销毁对象的情况。但需要注意的是，使用Placement new和Placement delete需要确保已经分配好的内存的地址是合法的，且已经分配的内存大小足够容纳对象。
+
+
+
+当一个operator new函数带了额外的参数（除了必须要带的size_t参数）的时候，这便是new的placement版本。上面的operator new就是这样一个placement版本。一个尤为有用的placement new会带有一个指针参数，指定对象应该在哪里被构建。它会像下面这个样子：
+
+```c++
+void* operator new(std::size_t, void *pMemory) throw(); // “placement new”
+```
+
+这个版本的new已经是C++标准库的一部分，只要你#inlucde <new>就能够访问它。它也用来在vector的未被使用的空间中创建对象。它还是最早的placement new。事实上，这也是这个函数的命名依据：**在特定位置上的new**。这就意味着“placement new”被重载了。大多情况下当人们谈到placement new的时候，它们讨论的是这个特定的函数，也即是带有一个void *额外参数的operator new。少数情况下，它们讨论的是带有额外参数的任意版本的operator new。程序的上下文往往会清除这种模棱两可，但是明白普通术语“placement new”意味着带额外参数的任意new版本是很重要的事，因为“placement delete”(我们一会会碰到)直接派生自它。
+
+#### 如何解决问题
+
+现在让我们回到对Widget 类的声明上来，我在前面说过这个设计是有问题的。难点在于这个类会发生微妙的内存泄漏。考虑下面的客户代码，在动态创建一个Widget的时候它将内存分配信息记录到cerr中：
+
+```c++
+Widget *pw = new (std::cerr) Widget; // call operator new, passing cerr as the ostream; this leaks memory if the Widget constructor throws
+```
+
+还是上次的问题，当内存分配成功了，但是Widget构造函数抛出了异常，运行时系统有责任将operator new执行的分配工作进行回滚。然而，运行时系统无法知道真正被调用的operator new版本是如何工作的，所以它不能够自己进行回滚操作。相反，运行时系统会寻找一个operator delete，它和operator new带有相同数量和类型的额外参数，如果找到了，那么这个就是它要调用的版本。在上面的例子中，operator new带有一个额外的参数ostream&,所以对应的operator delete就是：
+
+```c++
+void operator delete(void*, std::ostream&) throw();
+```
+
+同new的placement 版本进行对比，带有额外参数的operator delete版本被叫做placement delete。在这种情况下，Widget没有声明operator delete的placement 版本，所以运行时系统不知道如何对placement new的操作进行回滚。因此它不会做任何事情。在这个例子中，如果Widget构造函数抛出异常之后没有operator delete会被调用！
+
+规则很简单：如果一个带了额外的参数operator new没有与之相匹配的带有相同额外参数的operator delete版本，如果new的内存分配操作需要被回滚那么没有operator delete会被调用。为了消除上面代码的内存泄漏，Widget需要声明一个与记录日志的placement new版本相对应的placement delete：
+
+```c++
+class Widget {
+public:
+...
+
+static void* operator new(std::size_t size, std::ostream& logStream)
+throw(std::bad_alloc);
+static void operator delete(void *pMemory) throw();
+static void operator delete(void *pMemory, std::ostream& logStream)
+throw();
+...
+};
+```
+
+有了这个改动，在下面的语句中，如果异常从Widget构造函数中抛出来：
+
+```c++
+Widget *pw = new (std::cerr) Widget; // as before, but no leak this time
+```
+
+对应的placement delete会被自动被调用，这就让Widget确保没有内存被泄漏。
+
+#### 调用delete会发生什么？
+
+考虑如果没有异常被抛出的时候会发生什么，我们会在客户端代码中进行delete:
+
+```c++
+delete pw; // invokes the normal operator deletes
+```
+
+正如注释所说明的，这会调用普通的operator delete，而不是placement 版本。Placement delete只有在构造函数中调用与之相匹配的placement new时抛出异常的时候才会被触发。对一个指针使用delete（就像上面的pw一样）永远不会调用delete的placement版本。
+
+这就意味着为了对new的placement 版本造成的内存泄漏问题进行先发制人，你必须同时提供operator delete的普通版本（在构造期间没有异常抛出的时候调用），以及和placement new带有相同额外参数的placement版本（抛出异常时调用）。做到这一点，在内存泄漏的微妙问题上你就永远不需要在辗转反侧难以入睡了。
+
+#### 注意名字隐藏问题
+
+顺便说一下，因为成员函数名字会隐藏外围作用域中的相同的名字（见【条款33】）,你需要小心避免类特定的new版本把客户需要的其他版本隐藏掉（包括普通版本）。例如如果你有一个基类只声明了一个operator new的placement 版本，客户将会发现它们不能再使用new的普通版本了：
+
+```c++
+class Base {
+public:
+    ...
+    static void* operator new(std::size_t size, // this new hides
+    std::ostream& logStream) // the normal
+    throw(std::bad_alloc); // global forms
+    ...
+};
+
+Base *pb = new Base;                  // error! the normal form of
+// operator new is hidden
+
+Base *pb = new (std::cerr) Base; // fine, calls Base’s
+// placement new
+```
+
+同样的，derived classes中的operator news会掩盖global 版本和继承而得到的operator new 版本：
+
+```c++
+class Derived: public Base {         // inherits from Base above
+public:
+    ...
+    static void* operator new(std::size_t size) // redeclares the normal
+    throw(std::bad_alloc); // form of new
+    ...
+};
+Derived *pd = new (std::clog) Derived; // error! Base’s placement
+// new is hidden
+Derived *pd = new Derived; // fine, calls Derived’s
+// operator new
+```
+
+
+
+【条款33】非常详细的讨论了这种类型的名字隐藏，但是为了实现内存分配函数，你需要记住的是默认情况下，C++在全局范围内提供了如下版本的operator new:
+
+```c++
+void* operator new(std::size_t) throw(std::bad_alloc);          // normal new
+void* operator new(std::size_t, void*) throw();    // placement new
+void* operator new(std::size_t, const std::nothrow_t&) throw(); // nothrow new — see Item 49
+```
+
+如果你在类中声明了任何operator new，你就会隐藏这些标准版本。除非你的意图是防止客户使用这些版本，否则除了任何你所创建的自定义operator new版本之外，确保这些标准版本能够被客户所用。对每个你所提供的operator new，确保同时提供相对应的operator delete。如果你想让这些函数的行为同普通函数一样，让你的类特定版本调用全局版本就可以了。
+
+实现这个目的的一种简单的方法是创建一个包含所有new 和delete版本的基类：
+
+```c++
+class StandardNewDeleteForms {
+public:
+// normal new/delete
+    static void *operator new(std::size_t size) throw(std::bad_alloc) { return ::operator new(size); }
+
+    static void operator delete(void *pMemory) throw() { ::operator delete(pMemory); }
+
+// placement new/delete
+    static void *operator new(std::size_t size, void *ptr) throw() { return ::operator new(size, ptr); }
+
+    static void operator delete(void *pMemory, void *ptr) throw() { return ::operator delete(pMemory, ptr); }
+
+// nothrow new/delete
+    static void *operator new(std::size_t size, const std::nothrow_t &nt) throw() { return ::operator new(size, nt); }
+
+    static void operator delete(void *pMemory, const std::nothrow_t &) throw() { ::operator delete(pMemory); }
+};
+```
+
+客户如果想在自定义版本的基础上增加标准版本，可以利用继承机制以及using声明【条款33】就可以获得标准版本：
+
+```c++
+class Widget : public StandardNewDeleteForms { // inherit std forms
+public:
+    using StandardNewDeleteForms::operator new; // make those 
+    using StandardNewDeleteForms::operator delete; // forms visible 
+    static void *
+    operator new(std::size_t size, std::ostream &logStream) throw(std::bad_alloc);// add a custom placement new
+    static void
+    operator delete(void *pMemory, std::ostream &logStream) throw(); // add the corresponding placement delete
+    ...
+};
+```
+
+#### 总结：
+
+- 当你实现operator new的placement版本的时候，确保实现与之相对应的operator delete placement版本。如果你不进行实现，有的程序会发生微妙的，间歇性的内存泄漏。
+- 当你声明new和delete的placement版本的时候，确保不要无意识地隐藏这些函数的正常版本。
+
 ## 第九章 杂项讨论
 
 **[Miscellany]**
+
+
 
 ### 条款53 不要轻忽编译器的警告
 
