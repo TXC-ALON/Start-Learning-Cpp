@@ -154,7 +154,7 @@ const double AspectRatio = 1.653							//√
 有必要认识enum hack
 
 - enum hack的行为比较像#define而不是const。比如取enum的地址不合法，而取一个#define的地址通常也不合法。如果你不想让别人活得一个pointer或reference指向你的某个常数，enum可以帮你实现这个约束。【条款18对于“通过撰码时的决定实施设计上的约束条件”谈得更多】
-- 实用主义，事实上`enum back` 是模板元编程【条款48】的基础技术。
+- 实用主义，事实上`enum hack` 是模板元编程【条款48】的基础技术。
 
 #### inline
 
