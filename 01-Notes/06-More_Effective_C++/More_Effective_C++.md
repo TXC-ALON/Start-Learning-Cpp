@@ -4,13 +4,129 @@
 
 ## 基础议题 Basics 
 
+这一章描述了
+
+- pointers和reference的差异，并告诉你他们的适当使用时机。
+- 介绍了新的C++转型语法，并解释为什么新式转型法比旧式的C转型法优越。
+- 检验了C的数组概念和C++的多态概念，并说明为什么混用二者是不智之举。
+- 讨论了默认构造函数正反方意见。
+
 ### 条款01：仔细区别指针和引用
 
 Item 1: Distinguish between pointers and references.
 
+首先必须明确，没有ull reference，reference必须绑定某个对象。所以你有一个变量，其目的是用来指向（代表）另一个对象，但是也有可能不指向（代表）任何对象，那么就应该使用pointer，因为可以将pointer设为null。（现在建议使用nullptr）。反过来看，如果你设计的变量必须总是代表一个对象，就可以使用reference。
+
+> C++11引入了nullptr关键字，用于表示空指针，其设计目的是为了解决旧的C++代码中出现的NULL指针和0值之间的二义性。nullptr可以明确表示一个空指针，而0值可以表示指针、整数、浮点数等多种类型的值，因此使用nullptr可以更准确地表达代码的意图。
+>
+> nullptr和NULL的另一个区别是类型安全性。nullptr是一个特殊的空指针类型，可以隐式转换为任何其他指针类型，但不能转换为整数或浮点数类型。而NULL通常被定义为0或者(void*)0，这使得它可以隐式转换为任何类型的指针、整数或浮点数。因此，nullptr提供了更好的类型安全性，可以避免在指针和其他类型之间发生不必要的隐式转换。
+>
+> 此外，C++11的标准库中也使用了nullptr，比如在STL中的一些函数中，如std::unique_ptr、std::shared_ptr等。
+>
+> 综上所述，使用nullptr可以提高代码的可读性和可靠性，同时提供更好的类型安全性。
+
+接下来的代码会产生不可预期的结果，因为解引用一个空指针是不可预期的行为。从此我们永不考虑reference成为null的可能性。
+
+```c++
+char *pc = 0; // set pointer to null
+char& rc = *pc; // make reference refer to dereferenced null pointer
+```
+
+#### Pointer和reference的差异
+
+reference必须绑定某个对象，因此必须要有初值。因此比起指针，所以使用reference之前不需要测试其有效性。
+
+Pointer和reference之间的另一个重要差异就是，poiners可以被重新赋值，而reference总是指向它最初获得的那个对象。
+
+```c++
+string s1("Nancy");
+string s2("Clancy");
+string& rs = s1; // rs refers to s1
+string *ps = &s1; // ps points to s1
+rs = s2; // rs still refers to s1, but s1’s value is now "Clancy"
+ps = &s2; // ps now points to s2; s1 is unchanged 
+```
+
+对于operator[]，这个操作符必须返回某种“能够被当做assignment赋值对象”的东西。即令operator[]返回一个reference。
+
+> 当我们重载operator[]用于访问一个类的成员变量时，通常希望它返回一个引用，而不是一个值，有以下几个原因：
+>
+> 1. 方便修改：当我们使用引用来访问一个类的成员变量时，可以直接对这个变量进行修改，而不需要使用其他方法来实现。
+> 2. 更高效：返回一个引用比返回一个值更高效。当返回一个引用时，函数只需要返回一个指向已经存在的对象的指针，而不需要创建一个新的对象。因此，使用引用可以减少内存分配和复制的开销，提高程序的效率。
+> 3. 符合语义：使用引用可以使代码更符合语义。当我们使用operator[]访问一个类的成员变量时，我们通常是想要访问和修改该成员变量，而不是返回一个副本。
+>
+> 但在某些特定的情况下，返回一个值而不是引用可能更加合适，例如用于表示“如果这个元素不存在，则返回默认值”。
+
 ### 条款02：最好使用C++转型操作符
 
 Item 2: Prefer C++-style casts.
+
+#### 旧式转型的问题
+
+- 旧式的C转型方式几乎允许你将任何类型转为其他类型，这是十分拙劣的。C转型方式也缺少C++面向对象的一些转换（譬如将const指针转为non-const指针，将base指针转为derived指针）。
+
+- 旧式转型难以辨识，旧式转型的语法结构是由一堆小括号加上一个对象名称（标识符）组成。而小括号哪里都可能出现。
+
+  ```c++
+  (T) expression  或
+  T(expression) //函数风格（Function-style）
+  ```
+
+为解决C旧式转型的缺点，C++导入4个新的转型操作符，const_cast、static_cast、reinterpret_cast和dynamic_cast。
+
+```c++
+(type) expression
+//you should now generally write like this:
+static_cast<type>(expression)
+```
+
+- static_cast：基本拥有与C旧式转换相同的威力与意义，以及相同的限制。用于基本类型之间的转换，以及用于类之间的转换。static_cast可以执行一些简单的类型转换，例如将一个浮点数转换为整数，或将一个父类指针转换为子类指针。但是不能将struct转为int，或是double转为pointer。甚至不能移除表达式的常量性。
+
+- const_cast：仅用于将一个常量指针或引用转换成非常量的指针或引用。const_cast可以用于去掉const属性，从而可以在不改变对象内容的情况下修改指向它的指针或引用。
+
+- reinterpret_cast：用于将一种类型的指针或引用转换为另一种类型的指针或引用。reinterpret_cast可以执行一些较为底层的类型转换，例如将一个指向对象的指针转换为一个指向整数的指针。因为比较底层，所以与编译平台息息相关，所以不具备移植性。
+
+  转换后的函数指针可能无法正确地调用，从而导致未定义行为。
+
+  ```c++
+  #include <iostream>
+  #include<string>
+  using namespace std;
+  
+  void readFile(char* fileName) {
+      std::cout << "Reading file: " << fileName << std::endl;
+  }
+  void writeFile(char* fileName, const char* content) {
+      std::cout << "Writing file: " << fileName << " with content: " << content << std::endl;
+  }
+  int main() {
+      // 定义两个函数指针，一个指向 readFile，另一个指向 writeFile
+      void (*readPtr)(char*);
+      void (*writePtr)(char*, const char*);
+  
+      readPtr = &readFile;
+      writePtr = &writeFile;
+  
+      char fileName[] = "test.txt";
+      readPtr(fileName);
+      //readPtr = reinterpret_cast<void (*)(char*)>(writePtr);
+      readPtr = reinterpret_cast<decltype(readPtr)>(writePtr);
+      readPtr(fileName);
+      return 0;
+  }
+  /*
+  Reading file: test.txt
+  Writing file: test.txt with content: UH��H�� H�MH�UH��8
+  */
+  ```
+
+  
+
+- dynamic_cast：用来执行继承体系中“安全的向下转型或跨系转型动作”，用于在继承层次结构中进行类型转换。dynamic_cast可以将一个基类指针或引用转换为一个派生类指针或引用，并得知是否成功，如果转型失败，会以null指针（转型对象是指针）或是exception（转型对象是reference）表现出来。它无法应用在缺乏虚函数的类型上（如double）。也无法改变类型的常量性。最常用来转换函数指针类型。
+
+
+
+在程序中使用新式转型法，比较容易被解析，编译器也得以诊断转型错误。
 
 ### 条款03：绝对不要以多态方式处理数组
 
