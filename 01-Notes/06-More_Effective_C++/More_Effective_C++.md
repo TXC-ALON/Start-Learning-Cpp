@@ -132,9 +132,113 @@ static_cast<type>(expression)
 
 Item 3: Never treat arrays polymorphically. 
 
+继承最重要的性质之一就是你可以通过指向基类的指针或引用来操作子类。我们称这种行为叫做多态。
+
+C++也允许你通过基类指针/引用来操作子类对象所形成的数组，但这几乎不会如你所预期的操作。
+
+
+
+举例说明，array数组里存放了子类D，D继承自B。尝试用B类型的指针来对其进行处理。
+
+`array[i]`实际上是指针算术表达式的缩写。它代表的实际是`*(array+i)`。那么array 和 array+i 之间距离有多远呢？编译器会以为数组中每一个元素的大小是B的大小，但它实际上是D的大小。所以不管是对其增删查改，都会带来不可预期的结果。
+
+【条款33】建议具体类不要继承自另一个具体类。
+
 ### 条款04：非必要不提供默认构造函数
 
 Item 4: Avoid gratuitous default constructors. 
+
+default constructors的意思是在没有任何外来信息的情况下将对象初始化，一些数值会被合理置为0或者null。一些容器会被置为空容器。
+
+但是不是所有对象都如此，有一些类“必须有一些外来信息才能生成对象” 。
+
+#### 类没有默认构造函数可能存在的问题
+
+- 在产生数组时，无法为数组中的对象指定constructor自变量。
+
+  解决方法有三种，但都有些繁琐
+
+  1. 使用non-heap数组，non-heap 数组是指在栈上分配的数组，与在堆上分配的数组（heap 数组）相对。栈上分配的数组是指在函数内部定义的局部数组，它们的生命周期与函数的生命周期相同，当函数执行完毕时，数组将被自动销毁。注意的是，栈的大小是有限制的，如果在栈上分配的数组太大，可能会导致栈溢出。因此，在需要分配大量内存的情况下，应该考虑使用堆上分配的数组。
+
+  2. 使用指针数组而非对象数组
+
+     ```c++
+     typedef EquipmentPiece* PEP; // a PEP is a pointer to
+     // an EquipmentPiece
+     PEP bestPieces[10]; // fine, no ctors called
+     PEP *bestPieces = new PEP[10]; // also fine
+     for (int i = 0; i < 10; ++i)
+     	bestPieces[i] = new EquipmentPiece( ID Number );
+     ```
+
+     这个方式有两个缺点
+
+     - 你必须记得将该指针数组指向的所有元素删除
+     - 因为你需要额外的空间存放指针以及指针指向的对象。
+
+  3. placement new
+
+     为避免过度使用内存，先为此数组分配raw memory，然后使用placement【条款8】在这块内存上构造对象。
+
+     ```c++
+     // allocate enough raw memory for an array of 10
+     // EquipmentPiece objects; see Item 8 for details on
+     // the operator new[] function
+     	void * rawMemory =
+     		operator new[](10 * sizeof(EquipmentPiece));
+     // make bestPieces point to it so it can be treated as an
+     // EquipmentPiece array
+     	EquipmentPiece *bestPieces =
+     	static_cast<EquipmentPiece*>(rawMemory);
+     // construct the EquipmentPiece objects in the memory 
+     // using "placement new" (see Item 8)
+     	for (int i = 0; i < 10; ++i){
+     	  new(bestPieces + i) EquipmentPiece(IDNumber);
+     	}
+     ```
+
+     placement new的缺点是，大部分程序员不熟悉它，且在数组内对象结束生命时，你得以手动的方式调用destructors，还得用delete[]来销毁raw memory。
+
+- 类里缺少了默认构造函数，它们将不适用于许多template-based container classes。对模板而言，被实例化的模板类型必须要有一个default constructor。因为大多数的template内部几乎都是有一个基于类型参数而架构起来的数组。
+
+  ```c++
+  template<class T>
+  class Array {
+   public:
+    Array(int size);
+    ...
+   private:
+    T *data;
+  };
+  template<class T>
+  Array<T>::Array(int size) {
+    data = new T[size]; // calls T::T() for each element of the array
+    ... 
+  }
+  ```
+
+  通过谨慎设计template，我们可以消除对dctor的要求（vector就可以），但是不能考虑别人都为你设计的很好。
+
+- 最后一个考虑点与virtual base classes【条款E43】有关。如果一个虚基类（virtual base class）没有默认构造函数（default constructor），那么它会给开发者带来很多麻烦。因为虚基类的构造函数参数必须由正在构造的对象的最终派生类提供。因此，如果一个虚基类没有默认构造函数，那么所有从该类派生的类（无论距离多远）都必须知道、理解并提供虚基类构造函数的参数。这样的要求对派生类的作者来说非常不合理。
+
+#### 类里设定了默认构造函数的问题
+
+如果为default constructor 没有足够信息（不符合要求）的对象做完整的初始化，那么这几乎肯定会造成class内的其他成员函数变得复杂。
+
+```c++
+class EquipmentPiece {
+	public:
+	 EquipmentPiece(int IDNumber = UNSPECIFIED);
+...
+	private:
+	 static const int UNSPECIFIED; // magic ID number value
+// meaning no ID was
+}; // specified
+```
+
+现在我们的对象里有一个“无意义值”，而类似检查指针非空，我们现在可能需要在成员函数里检查它是否有意义。并针对结果进行处理，往往会造成时空资源的额外开销。
+
+所以还是一个选择题：如果你确定默认构造函数可以保证对象所有的字段都被正确初始化，上述的成本开销也可以避免。否则，你就得放弃“产生的对象都已完全被初始化”这一声明，得花功夫做检查和处理。
 
 ## 操作符 Operators 
 
