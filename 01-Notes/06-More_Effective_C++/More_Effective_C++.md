@@ -627,20 +627,272 @@ operator delete(p);
 new opeartor 和 delete opeartor都是内建操作符,我们无法控制,但是它们调用的内存分配/释放函数我们可以重载.
 
 ## 异常 Exceptions 
+
+异常无法被忽略,想要写出exception safe的代码,需要程序员的精心设计.
+
 ### 条款09：利用析构函数避免泄露资源
 Item 9: Use destructors to prevent resource leaks. 
+
+我们得对那些操控局部性资源的指针说再见.
+
+ 下面举个例子说明:
+
+```c++
+void processAdoptions(istream& dataSource)
+{
+    while (dataSource) { // while there’s data
+        ALA *pa = readALA(dataSource); // get next animal
+        pa->processAdoption(); // process adoption
+        delete pa; // delete object that
+    } // readALA returned
+}
+```
+
+如果`pa->processAdoption`抛出异常,后面的语句也就不会被执行,pa也就不会被删除.processAdoption无法捕捉它,这个exception会传播到调用端.所以每当`pa->processAdoption`抛出异常,processAdoption便发生一次资源泄漏.
+
+要想改进也很简单,通过try-catch语句捕捉异常,释放资源即可.
+
+```c++
+void processAdoptions(istream& dataSource)
+{
+  while (dataSource) {
+	ALA *pa = readALA(dataSource);
+	try {
+	  pa->processAdoption();
+	}
+	catch (...) { // catch all exceptions
+	  delete pa; // avoid resource leak when an exception is thrown
+	  throw; // propagate exception to caller
+	} 
+	delete pa; // avoid resource leak when no exception is thrown
+  } 
+}
+```
+
+但以上的写法太臃肿了,如果我们总要删除pa,那么我们可以集中于一处来做这件事,更准确地说,我们将一定要执行的清理代码移到processAdoption函数的某个局部对象的析构函数即可.而这种思路的实现就是以一个类似指针的对象取代pa.说简单些就是智能指针.
+
+本例你可以用auto_ptr来代替pa(虽然auto_ptr在C++11已经被放弃了,书比较旧,凑活看看),用了智能指针,就不必再费心于析构了.
+
+> auto_ptr 已经被从 C++11 标准中移除了。auto_ptr 是一种智能指针，旨在简化 C++ 程序员的内存管理，但它存在一些潜在的危险和限制。
+>
+> 首先，auto_ptr 不支持所有的指针语义。它采用了所有权转移的语义，这意味着当 auto_ptr 被赋值或销毁时，它所管理的指针会自动被释放。这可能会导致一些问题，例如在调用函数时，如果不小心将 auto_ptr 对象作为参数传递，就可能会导致意外释放指针，从而导致程序崩溃或不可预料的行为。
+>
+> 其次，auto_ptr 也不支持数组。它只能管理单个对象的指针，如果尝试使用 auto_ptr 来管理动态数组，则可能会导致内存泄漏或者非法内存访问。
+>
+> 为了解决这些问题，C++11 引入了 unique_ptr 和 shared_ptr 等更为安全和灵活的智能指针类。unique_ptr 支持所有权转移语义，但限制了指针的复制和赋值，从而避免了一些潜在的问题。而 shared_ptr 则使用引用计数的技术，支持多个智能指针共享同一个对象，并提供了自定义删除器和弱引用等高级特性。
+>
+> 因此，由于存在诸多的问题和限制，auto_ptr 已经被从 C++11 标准中移除，并且不建议在现代 C++ 程序中使用。如果需要使用智能指针，应该使用更为安全和灵活的 unique_ptr 或 shared_ptr 等智能指针类。
+
+```c++
+void processAdoptions(istream& dataSource)
+{
+    while (dataSource) {
+    	auto_ptr<ALA> pa(readALA(dataSource));
+    	pa->processAdoption();
+    }
+}
+```
+
+总结:将资源封装在对象内,通常就可以在exception出现时避免泄漏资源.
+
 ### 条款10：在构造函数内阻止资源泄露
 Item 10: Prevent resource leaks in constructors. 
+
+常见的构造函数可能抛出异常的原因包括：内存分配失败、文件读写错误、参数不合法等。但由于我们的constructor抛出异常并未执行完成,所以析构函数无法被用来正确释放资源.
+
+我们可以通过在构造函数里写好很多try-catch来捕捉异常,释放资源,但**更好的处理方式还是利用RAII的智能指针**,来避免异常发生时的资源泄漏等危机.也增加了代码的可读性和健壮性.
+
 ### 条款11：禁止异常流出析构函数之外
 Item 11: Prevent exceptions from leaving destructors. 
+
+destructor有两种情况下会被调用:
+
+- 对象在正常情况下被销毁,也就是当它离开了它的生存空间scope或是被明确的删除.
+- 当对象被exception处理机制——也就是exception传播过程中stack-unwinding(栈展开)机制一一销毁.
+
+在对象的析构函数中抛出异常会导致程序处于不确定的状态，无法正确地执行后续的操作。如果在析构函数中抛出异常，而该异常没有被捕获，则 C++ 编译器会调用 `std::unexpected()` 函数，该函数默认行为是调用 `std::terminate()` 函数，终止程序的运行。
+
+因此，C++ 程序员应该确保在析构函数中不抛出异常，或者在析构函数中捕获并处理异常，以确保程序能够正确地执行并终止。需要注意的是，如果一个对象的析构函数抛出了异常并被捕获，那么程序仍然可以继续执行，但是需要注意对象的析构过程可能没有完全执行完毕，可能会导致资源泄漏等问题。
+
 ### 条款12：了解"抛出异常"和"传递参数"或"调用虚函数"的区别
 Item 12: Understand how throwing an exception differs from passing a parameter or calling a virtual function. 
+
+#### 抛出异常与传递参数的区别
+
+看似catch异常和函数声明很相似,但是它们也有重大的不同点.
+
+```c++
+class Widget { ... }; // some class; it makes no
+// difference what it is
+void f1(Widget w); // all these functions
+void f2(Widget& w); // take parameters of
+void f3(const Widget& w); // type Widget, Widget&, or
+void f4(Widget *pw); // Widget*
+void f5(const Widget *pw);
+catch (Widget w) ... // all these catch clauses
+catch (Widget& w) ... // catch exceptions of
+catch (const Widget& w) ... // type Widget, Widget&, or
+catch (Widget *pw) ... /
+```
+
+##### 相同点
+
+函数参数和exceptions的传递方式有三种:传值 传引用 传指针.
+
+> 在 C++ 中，参数传递主要有三种方式：传值、传指针和传引用。其中，传值是将实参的值复制给形参，在函数内部使用形参的值进行操作；传指针和传引用都是将实参的地址传递给形参，通过形参操作实参。
+>
+> - 传址这个概念一般指传指针，因为指针是存储地址的变量。因此，传指针也可以称为传地址。但是，传引用和传指针并不是完全相同的概念。
+>
+> - 传引用是一种特殊的传址方式，它是通过将实参的别名（引用）传递给形参来进行参数传递的。与传指针不同，传引用不需要使用解引用运算符来访问实参，而且引用本身没有指针那样的地址。因此，传引用的语法更加简洁，使用起来更加方便。
+>
+> 因此，传址一般指的是传指针的方式，而传引用是一种特殊的传址方式，不同于传指针。在实际编程中，应该根据需要选择不同的参数传递方式，以达到更好的效果。
+
+##### 不同点:
+
+###### 控制权
+
+但是视你传递的是参数或exceptions的不同,会导致控制权的变易:
+
+- 调用函数,控制权会回到调用端(除非函数失败以至于无法返回),
+
+- 但是当你抛出一个exception,控制权不会再回到抛出端,而是会在调用堆栈中查找匹配的异常处理程序，并在那里处理异常。这意味着，如果抛出异常后没有合适的异常处理程序，程序可能会崩溃或终止.
+
+###### 复制
+
+在抛出异常时，异常对象通常会被复制一份并传递给异常处理程序。这是因为异常处理程序需要处理异常对象的副本，以防止在处理期间修改原始异常对象。如果不复制异常对象，异常处理程序可能会修改原始异常对象，从而破坏程序的逻辑和正确性.
+
+当抛出异常时，如果异常对象是在函数内部定义的局部变量或者在某个作用域内创建的临时对象，那么在离开该作用域后，该对象将会被析构并销毁。如果这个异常对象没有被复制，那么在异常处理程序尝试访问该对象时就会导致未定义行为，从而可能导致程序崩溃或出现其他问题。因此，在抛出异常时，必须复制异常对象并传递它的副本，以确保在异常处理程序中能够安全地访问该对象。
+
+此外，为了确保异常对象能够在离开作用域后被正确地销毁，可以使用智能指针等资源管理技术来管理异常对象的生命周期。智能指针可以确保异常对象在不再需要时被及时地销毁，并且可以在异常处理程序中安全地访问该对象。
+
+复制时,其行为视有对象的拷贝构造函数执行,而且相应于对象的静态类型而不是动态类型.[条款25]展现了一种技术(虚构造函数),可以让你以动态类型为本进行复制.
+
+```c++
+catch (Widget& w) // catch Widget exceptions
+{
+... // handle the exception
+throw; // rethrow the exception so it
+} // continues to propagate
+catch (Widget& w) // catch Widget exceptions
+{
+... // handle the exception
+throw w; // propagate a copy of the
+} // caught exception
+```
+
+一般而言,你需要使用`throw;`才能重新抛出当前的exception,期间你不会改变被传播的exception的类型.而且为exception所做的复制动作,其结果是一个临时变量,如[条款19]所言,这给予编译器进行优化的权利.
+
+
+
+###### 传递参数
+
+```c++
+catch (Widget w) ... // catch exception by value
+catch (Widget& w) ... // catch exception by
+// reference
+catch (const Widget& w) ... // catch exception by
+// reference-to-const
+```
+
+这里我们注意到,一个被抛出的(必为临时对象)对象可以简单使用by reference的方式捕捉,不需要by reference-to-const的方式捕捉.函数调用过程中将一个临时对象传递给一个non-const reference参数是不允许的[条款19],但对exceptions则属合法.
+
+`catch (Widget w) `会复制所得参数.也就是说如果之前是`throw w;`,那么就会造成两次复制,造成资源开销.
+
+千万不要抛出一个指向局部对象的指针,因为该局部对象会在exception传离其scope时被销毁而导致虚吊.这就是copy正要避免的地方.
+
+try-catch中不会随意发生类型转换,只有类型匹配的对象才能被捕捉到。
+
+在匹配过程中只有两种转换可以发生：
+
+- 派生类到基类的转换
+
+- 有型指针转为无型指针(`void*`)
+
+  const/volatile限定符的增加(针对`const void*` 设计的catch,可以捕捉让任何指针类型的exception)。
+
+> 需要注意的是，使用`catch (const void* ex)`来捕捉异常对象的方法是不安全的，因为该语句可以捕捉任何指针类型的异常，包括指向无效内存地址的指针，这可能会导致程序崩溃或者产生不可预测的行为。建议在代码中谨慎使用这种捕捉异常的方法。
+
+传递参数和传递异常最后一个不同是catch语句总是按顺序来做匹配尝试.
+
+#### 传递异常与调用虚函数的比较
+
+传递异常是顺序匹配,first-fit,最先吻合策略.所以绝不要将针对base class设计的catch放在derived class设计的catch之前.
+
+调用虚函数是所谓best-fit,最佳吻合策略
+
+#### 总结
+
+把一个对象传递给函数或使用该对象调用虚函数，与将该对象作为异常抛出有三种主要区别。
+
+- 首先，异常对象总是被复制；当按值捕获时，它们甚至会被复制两次。传递给函数参数的对象根本不需要被复制。
+- 其次，作为异常抛出的对象受到比传递给函数的对象更少的类型转换形式的限制。
+- 最后，catch子句按照它们在源代码中出现的顺序进行检查，并选择可以成功执行的第一个。当使用对象调用虚函数时，选择的函数是提供最佳匹配对象类型的函数，即使它不是源代码中列出的第一个函数。
+
+> 总结:
+>
+> 1. 抛出异常和传递参数是函数调用时主动发起的，而调用虚函数是通过对象的指针或引用间接地发起的。抛出异常和传递参数都可以在函数调用前或函数调用过程中指定参数的值，而调用虚函数则需要先创建对象，然后通过对象的指针或引用调用虚函数。
+> 2. 抛出异常和传递参数是函数调用时向函数传递信息的方式，而调用虚函数是向对象发送消息的方式。抛出异常和传递参数可以用于向函数传递任意类型的数据，而调用虚函数只能用于向对象发送特定的消息，即调用该对象的虚函数。
+> 3. 抛出异常和传递参数通常是同步调用，即调用方会等待函数返回或抛出异常后再继续执行。而调用虚函数通常是异步调用，即调用方在调用虚函数后不需要等待对象的响应，而是可以立即执行下一条语句。
+>
+> 总的来说，抛出异常和传递参数是向函数传递信息的方式，适用于函数和函数之间的交互；而调用虚函数是向对象发送消息的方式，适用于对象和对象之间的交互。
+
+
+
 ### 条款13：以传引用方式来捕捉异常
 Item 13: Catch exceptions by reference. 
-### 条款14：明智运用异常规范
+
+写catch子句时,你需要指定异常对象如何被传递过来,你可以选择传值,传指针,传引用.
+
+#### 传指针
+
+理论上,将异常从抛出段搬到捕捉端,必然是个缓慢的过程[条款15],而传指针应该是最有效率的做法,因为不需要复制对象.
+
+但是使用指针需要保证异常对象在离开抛出指针的那个函数之后依然存在.static对象和global对象都没问题,但是程序员很容易忘记这项约束.
+
+另外会存在`throw new exception;`这样在heap上分配资源的语句.那么就带来一个问题.即catch语句不知道是否要删除自己获得指针所指向的资源.这个问题没有回答.因为没法确定到底指针指向的是什么.
+
+此外,catch-by-pointer与语言本身建立起来的惯例有所矛盾:
+
+四个标准的exception(bad_malloc,bad_cast,bad_typeid,bad_exception)统统都是对象,而不是对象指针.所以我们必须用by-value或by-reference的方式捕捉它们.
+
+> 1. `bad_alloc`：当使用 `new` 操作符分配内存失败时抛出，通常表示内存不足或无法分配所需大小的内存。
+> 2. `bad_cast`：在使用 C++ 类型转换时，如果转换失败则抛出该异常。例如，当试图将一个基类对象转换为其派生类对象时，如果对象实际上不是该派生类的实例，则会抛出 `bad_cast` 异常。
+> 3. `bad_typeid`：在使用 C++ 运行时类型识别 (RTTI) 功能时，如果 `typeid` 运算符作用于一个空指针或者一个不包含多态类的对象，则会抛出 `bad_typeid` 异常。
+> 4. `bad_exception`：在使用 C++ 异常机制时，如果出现不允许的异常类型或未捕获的异常，则会抛出 `bad_exception` 异常。
+
+#### 传值
+
+catch-by-value固然可以消除上述exception是否要删除以及与标准exception不一致等问题,但这种方式每当exception对象被抛出就会被复制两次,而且也会导致切割问题(子类被基类的异常捕捉到,会失去其派生成分.析构时也会用base的析构函数,导致派生类资源无法正确释放).
+
+#### 传引用
+
+传引用避免了上述提到的所有问题,不会类似传指针导致空悬,也容易捕捉标准异常;不类似传值,不会有切割问题,每次也只会复制一次.
+
+
+
+所以用catch by reference!
+
+### 条款14：明智运用异常规范(已经过时)
 Item 14: Use exception specifications judiciously. 
+
+异常规范明确指出一个函数可以抛出什么样的exception.如果函数抛出一个违背列于exception specification 的exception,这个错误在运行期会被检验出来,于是特殊函数unexpected会被自动调用,所以说exception specification不但是一种文档式的辅助,也是一种实践式的机制,用来规范exception的运用.
+
+但是unexpected的默认行为是terminate,terminate的默认函数是调用abort.所以程序如果违反异常规范,默认结果就是程序被中止,没机会指向此类清理工作.
+
+但是，在 C++11 标准中，已经移除了 dynamic exception specification，也就是使用 `throw(type1, type2, ...)` 的方式指定函数可能抛出的异常。因为 dynamic exception specification 会导致代码变得复杂和不可移植，同时也无法完全确保程序的正确性。因此，在 C++11 及以后的标准中，不应该使用 dynamic exception specification。
+
+另外，您提到了 `unexpected` 函数，这是在早期的 C++ 标准中提供的一个函数，用于处理因未处理的异常而导致程序终止的情况。当程序运行时遇到未处理的异常时，如果没有提供专门的异常处理代码来处理该异常，就会自动调用 `unexpected` 函数。默认情况下，`unexpected` 函数会调用 `std::terminate` 函数，从而导致程序终止。
+
+需要注意的是，在 C++11 及以后的标准中，`unexpected` 函数已经被废弃，取而代之的是 `std::unexpected_handler` 类型和 `std::set_unexpected` 函数。这些新的异常处理机制提供了更加灵活和可靠的方式来处理未处理的异常。
+
 ### 条款15：了解异常处理的成本
 Item 15: Understand the costs of exception handling. 
+
+为了能够在运行时期处理exceptions,程序必须做大量簿记工作.exception的处理需要成本.
+
+你可以选择放弃使用异常处理,但前提你知道自己的程序不能任何一处使用try,throw,catch,而且你所链接的程序库也没有一个使用到这些.这样编译器会做某些性能优化.
+
+try语句一般会带来5%-10%的代码膨胀和执行速度下降.为了将此成本最小化,避免非必要的try语句.
 
 ## 效率 Efficiency 
 ### 条款16：谨记80-20法则
