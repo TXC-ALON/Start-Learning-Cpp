@@ -895,20 +895,291 @@ Item 15: Understand the costs of exception handling.
 try语句一般会带来5%-10%的代码膨胀和执行速度下降.为了将此成本最小化,避免非必要的try语句.
 
 ## 效率 Efficiency 
+
+本章以两个角度对效率主题发起冲击:
+
+- 第一个角度与程序语言无关,不过由于C++有一个极佳的实现媒介:由于它对封装的强力支持,我们有可能将低效率的class实现品以相同接口但拥有较佳算法和数据结构的新产品取代.
+- 第二个角度与C++很有关.最险恶的错误就是"产生和销毁过多的对象".这个错误不仅容易形成,而且不容易被辨识出来.多余对象的构造动作和析构动作是程序性能的大出血.
+
 ### 条款16：谨记80-20法则
 Item 16: Remember the 80-20 rule.
+
+ 80-20 是一个很常见的规则,不仅仅只是在代码效率上,在代码开发,内存使用都常常见到它.
+
+在实际的效率优化里,我们需要根据观察和实验来识别出你心痛的那20%的代码.而辨识之道就是借助某个程序分析器.
+
+程序分析器的种类多种多样,使用它们的技巧也浩如烟海.
+
+简而言之,找到代码效能的瓶颈关键 -- 那20%.
+
 ### 条款17：考虑使用缓式评估
 Item 17: Consider using lazy evaluation.
-### 条款18：分期摊还预期的计算成本
+
+类似小时候的拖延战术,一旦你使用缓式评估,意味着你使用某种方式来撰写你的类,使它们延缓运算,直到那些运算结果刻不容缓地被迫切需要位置.下面描述四种用途.
+
+1. 引用计数 Reference Counting 
+
+   很多时候,我们只需要提供简单的簿记工作,而不需要进行创建销毁对象的操作,除非对象真的要创建.
+
+   ```c++
+   string s1 = "hello";
+   string s2 = s1;
+   string s3 = s1 + s2;//这里只有读,没有写,所以如果对s2进行好的簿记,那么就可以理解为s1+s1
+   s2.convertToUppercase();//这里s2改变了,s1并没有改变,我们需要这个函数为s2做副本,再修改它给s2私人使用,.如果s2从未被更改,我们就不需要为其内容做一个私有副本.
+   ```
+
+   引用计数是一种内存管理技术，用于跟踪对象被引用的次数。在某些情况下，对象的创建和销毁成本很高，因此使用引用计数来管理内存可以提高性能。使用引用计数可以确保对象只在没有任何引用时才被销毁。
+
+2. 区分读和写 
+
+   ```c++
+   String s = "Homer’s Iliad"; // Assume s is a 
+   // reference-counted string
+   ...
+   cout << s[3]; // call operator[] to read s[3]
+   s[3] = ’x’; // call operator[] to write s[3]
+   ```
+
+   在某些情况下，对于一个变量，读操作的次数可能远远大于写操作的次数。在这种情况下，可以使用缓存式评估来延迟计算结果的生成，直到它们被请求为止。这样可以避免在每次读操作时进行不必要的计算。
+
+   我们可以使用代理类[条款30]来延迟执行读取和写入操作。当我们尝试读取`s`的第三个字符时，代理类可以立即返回一个字符的副本，而不必进行任何额外的操作。但是当我们尝试写入`s`的第三个字符时，代理类可以推迟实际的写入操作，直到确定写入操作是必要的为止。在这种情况下，代理类可以创建一个新的字符串副本，以确保引用计数的字符串保持不可变。
+
+   通过使用代理类和延迟计算，我们可以区分读取和写入操作，并相应地执行不同的操作，从而提高程序的性能和可维护性。
+
+3. 缓式取出 Lazy Fetching 
+
+   在处理大量数据时，缓存式评估可以显著提高性能。当访问一个对象的某个属性时，如果这个属性的值需要从数据库或其他远程资源中获取，使用缓存式评估可以避免重复的网络请求，提高性能。
+
+4. 表达式缓评估 Lazy Expression Evaluation
+
+   ```c++
+   template<class T>
+   class Matrix { ... }; // for homogeneous matrices
+   Matrix<int> m1(1000, 1000); // a 1000 by 1000 matrix
+   Matrix<int> m2(1000, 1000); // ditto
+   ...
+   Matrix<int> m3 = m1 + m2; // add m1 and m2.
+   
+   Matrix<int> m4(1000, 1000);
+   ... // give m4 some values
+   m3 = m4 * m1;
+   //之前的m1+m2实际上就不需要计算了.
+   cout << m3[4]; // 看似我们需要计算整个m3了,但是实际上我们也只需要计算第四行就行了.
+   cout << m3;//必须输出整个m3了
+   ```
+
+   在一些语言中，表达式的计算可能涉及到复杂的计算，或者是可能出现除数为零等错误情况。使用缓存式评估可以延迟表达式的计算，直到需要的时候才进行计算，从而避免不必要的计算和错误。
+
+#### 总结:
+
+lazy evaluation 在许多领域都有应用:主要是避免不需要的操作(构造析构,复制,读写,计算).但是类似其他任何优化算法和数据结构,创建和维护这些结构的成本要远小于它节约的时空成本,它才有价值.
+
+### 条款18：分期摊还预期的计算成本 – 超急评估
 Item 18: Amortize the cost of expected computations. 
+
+在程序设计中,我们常常会发现某种"殊途同归".在上一个条款我们说了"延迟"有助于我们改善程序性能.而在本条款,我们将讲一个恰恰相反的的改善性能的方法:超急评估(over-eager evaluation).
+
+超急评估通常适用于那些在程序执行过程中计算量较小但是被频繁使用的部分，例如常量表达式、编译时计算等。在C++中，编译器可以通过一些优化技术来实现超急评估，例如常量折叠(constant folding)、内联函数(inline function)、模板元编程(template metaprogramming)等。
+
+> Caching是一种将数据暂时存储在快速存储设备（如高速缓存）中的技术，以便在需要时可以快速访问这些数据，从而避免从慢速存储设备（如硬盘）中读取数据。Caching通常用于缓存一些经常被访问的数据，以便在程序执行过程中快速访问这些数据。Caching技术的实现方式包括缓存一致性协议、置换策略等。
+>
+> Prefetching是一种提前加载数据的技术，它在需要使用数据之前提前将数据加载到快速存储设备中，以便在需要时可以快速访问这些数据。Prefetching通常用于预测程序执行过程中可能需要使用的数据，并将这些数据提前加载到快速存储设备中。Prefetching技术的实现方式包括静态预测和动态预测等。
+>
+> 可以看出，Caching和Prefetching虽然都涉及到数据的缓存和预加载，但是它们的应用场景和实现方式有所不同。Caching通常用于缓存一些经常被访问的数据，以避免从慢速存储设备中读取数据。而Prefetching则用于预测程序执行过程中可能需要使用的数据，并将这些数据提前加载到快速存储设备中，以避免等待时间。在实际应用中，Caching和Prefetching通常结合使用，以便更好地提高程序的性能。
+
+还有一处用例就是vector,在它插入元素后的大小比他预期设定的内存大小大,它会申请两倍的内存.这也是一种超急评估.
+
+需要注意的是，超急评估并不适用于那些计算量较大或者需要根据程序执行上下文动态计算的部分，因为这些部分的提前计算可能会导致额外的计算开销和内存开销。此外，过度的超急评估也可能会增加代码的复杂性和维护成本，因此需要根据具体情况进行权衡和优化。
+
 ### 条款19：了解临时对象的来源
 Item 19: Understand the origin of temporary objects. 
+
+我们往往会把swap里的temp这些叫做临时对象.但是C++中真正的临时变量是不可见的.只要你产生了一个non-heap object 而没有给它命名,那么便诞生了一个临时对象.此等匿名对象通常发生于两种情况:
+
+- 当隐式类型转换被施行以后以求函数调用能够成功
+
+  只有对象以传值方式传递,或是当对象被传递给一个const引用时,这些转换才会发生,如果传给一个non const引用,则不会发生此类转换.
+
+  > 这是因为当一个对象以传值方式传递时，编译器需要将其复制到一个新的对象中，因此需要进行隐式类型转换以保证类型匹配。
+  >
+  > 针对非 const 引用对象的隐式类型转换会允许修改临时对象，而程序员期望修改的是非临时对象。这就是为什么语言禁止为非 const 引用参数创建临时对象的原因。
+  >
+  > 相反，引用到 const 参数不会出现这个问题，因为这样的参数是 const 的，不能被修改。
+
+- 当函数返回对象的时候.
+
+临时对象的生命周期通常是非常短暂的，它们会在生成之后立即被销毁。因此，在使用临时对象时需要格外小心，避免出现生命周期错误和悬垂指针等问题。[条款20]会讨论返回值优化的问题.
+
+
+
+#### 总结:
+
+临时对象可能很耗费成本,我们应该尽可能消除它们.另外,我们也应该训练出看出可能产生临时对象的眼力.一般来说,任何时候你看到一个reference-to-const参数,就极可能会有一个临时对象被产生出来绑定至该参数上.任何时候只要你看到函数返回一个对象,就会产生临时对象.
+
+
+
 ### 条款20：协助完成返回值优化RVO1
 Item 20: Facilitate the return value optimization. 
-### 条款21：利用重载机制来避免类型转换
+
+以by-value方式返回对象,背后隐藏的constructor和destructor[条款19]都将无法消除.除非你确定必要且正确,否则不要返回值.
+
+比如说分数,你就必须返回一个值,任何你试图返回指针或引用都可能会导致虚吊.
+
+```c++
+class Rational {
+public:
+Rational(int numerator = 0, int denominator = 1);
+...
+int numerator() const;
+int denominator() const;
+};
+// For an explanation of why the return value is const,
+// see Item 6
+const Rational operator*(const Rational& lhs,
+const Rational& rhs);
+```
+
+下面是一些错误的返回方式:
+
+```c++
+// an unreasonable way to avoid returning an object
+const Rational * operator*(const Rational& lhs,const Rational& rhs);
+Rational a = 10;
+Rational b(1, 2);
+Rational c = *(a * b); // Does this look "natural" to you?
+
+// a dangerous (and incorrect) way to avoid returning an object
+const Rational& operator*(const Rational& lhs, const Rational& rhs);
+Rational a = 10;
+Rational b(1, 2);
+Rational c = a * b; // looks perfectly reasonable
+
+// another dangerous (and incorrect) way to avoid returning an object
+const Rational& operator*(const Rational& lhs,const Rational& rhs)
+{
+    Rational result(lhs.numerator() * rhs.numerator(),
+    lhs.denominator() * rhs.denominator());
+    return result;
+}
+```
+
+如果函数一定要返回对象,我们要做的是努力降低返回对象的成本,而不是消除对象本身.
+
+我们可以通过返回所谓的constructor arguments以取代对象.
+
+```c++
+// an efficient and correct way to implement a function that returns an object
+const Rational operator*(const Rational& lhs,const Rational& rhs)
+{
+	return Rational(lhs.numerator() * rhs.numerator(),lhs.denominator() * rhs.denominator());
+}
+```
+
+以constructor arguments取代局部对象,当做返回值,虽然我们必须为"函数内的临时对象"和"函数返回对象"的构造析构付出代价,但是因为C++允许编译器将临时对象优化,使它们不存在.还可以通过将 operator* 声明为 inline 函数来避免函数调用的开销.
+
+而这些被编译器优化的部分就被叫做return value optimization.
+
+> Return value optimization (RVO) 是一种编译器优化技术，它可以避免创建不必要的临时对象，从而提高程序的性能。具体来说，RVO 可以让编译器在函数返回时直接构造对象，并将其作为函数调用表达式的值返回，从而避免创建任何临时对象。
+>
+> 大多数主流编译器都支持 RVO，包括 GCC、Clang、Visual Studio 等。在某些情况下，编译器还可以使用 Named Return Value Optimization (NRVO) 技术，它可以直接在函数栈上构造对象，并将其作为返回值返回。NRVO 通常比 RVO 更高效，因为它可以避免分配和释放堆上的内存。
+>
+> 在实践中，编写高效的代码通常需要结合使用 RVO、NRVO 和其他编译器优化技术。为了使编译器可以进行优化，我们可以使用 const 引用、移动语义、constructor arguments 等技术来避免创建不必要的临时对象，并尽可能地使用 inline 函数来避免函数调用的开销。
+>
+> 总的来说，RVO 是一种重要的编译器优化技术，它可以显著地提高程序的性能。虽然大多数编译器都支持 RVO，但具体实现可能会有所不同，因此在编写代码时需要考虑不同编译器的实现细节。
+
+### 条款21：利用重载机制来避免隐式类型转换
 Item 21: Overload to avoid implicit type conversions. 
-### 条款22：考虑以操作符复合形式来取代其独身形式
+
+通过明确的声明重载来避免隐式类型转换.
+
+```c++
+const UPInt operator+(const UPInt& lhs,const UPInt& rhs); // add UPInt and UPInt
+const UPInt operator+(const UPInt& lhs,int rhs); // add UPInt and int
+const UPInt operator+(int lhs, const UPInt& rhs); // add int and UPInt
+
+const UPInt operator+(int lhs, int rhs); // error!
+```
+
+不过C++有一个规则就是每个重载操作符必须获得至少一个用户定制类型的自变量.
+
+> C++中每个重载操作符必须获得至少一个用户自定义类型的自变量，是为了让编译器知道在特定情况下应该如何处理运算符。这是因为运算符重载是一种自定义类型行为，不同的程序员可以定义不同的运算符含义和行为，因此编译器需要知道在特定情况下如何使用这些自定义类型。
+>
+> 通过为重载操作符提供自定义类型的参数，编译器能够将运算符与其相应的含义和操作进行关联。这样，在使用运算符时，编译器可以根据自定义类型参数的类型和值来确定要执行的操作，并正确地转换数据类型。这使得C++能够支持自定义类型之间的运算符操作，从而增强了其灵活性和可扩展性。
+>
+> 另外，要注意的是，并不是所有的运算符都可以被重载。有些运算符如点运算符（.）、成员指针运算符（.*）、作用域运算符（::）等是不能被重载的，因为这些运算符是语言内部的关键字，其含义和行为已经被固定下来，不能被用户自定义修改。
+
+通过合理的重载可以消除类型转换.
+
+### 条款22：考虑以操作符复合形式(op=)来取代其独身形式(op)
 Item 22: Consider using op= instead of stand-alone op. 
+
+确保操作符的复合形式和独身形式之间的自然关系可以存在,一个好方法就是以`op=`实现`op`.
+
+```C++
+class Rational {
+public:
+    ...
+    Rational& operator+=(const Rational& rhs);
+    Rational& operator-=(const Rational& rhs);
+};
+// operator+ implemented in terms of operator+=; see
+// Item 6 for an explanation of why the return value is
+// const and page 109 for a warning about implementation
+const Rational operator+(const Rational& lhs,const Rational& rhs)
+{ 
+	return Rational(lhs) += rhs;
+}
+// operator- implemented in terms of operator -=
+const Rational operator-(const Rational& lhs,const Rational& rhs)
+{
+	return Rational(lhs) -= rhs;
+}
+```
+
+我们需要注意一些与性能有关的点:
+
+- 一般来说,复合操作符比其对应的独身版本效率高.因为独身版本通常必须返回一个新对象.而复合版本则是直接将结果写入其左端自变量.
+
+- 如果同时提供复合和独身操作符,那么就允许客户自己在便利和性能之间做取舍.
+
+  ```c++
+  Rational a, b, c, d, result;
+  ...
+  result = a + b + c + d; // probably uses 3 temporary objects, one for each call to operator+
+  
+  //or like this:
+  
+  result = a; // no temporary needed
+  result += b; // no temporary needed
+  result += c; // no temporary needed
+  result += d; // no temporary needed
+  ```
+
+- 最后来看看op+的实现源码
+
+  ```c++
+  template<class T>
+  const T operator+(const T& lhs, const T& rhs)
+  { return T(lhs) += rhs; }
+  ```
+
+  虽然下面的代码可能更好理解,但那样就放弃了之前提到的编译器优化可能.
+
+  ```c++
+  template<class T>
+  const T operator+(const T& lhs, const T& rhs)
+  {
+  T result(lhs); // copy lhs into result
+  return result += rhs; // add rhs to it and return
+  }
+  ```
+
+
+
+总结:
+
+如果追求性能,尽量使用复合运算符.
+
 ### 条款23：考虑使用其他程序库
 Item 23: Consider alternative libraries. 
 ### 条款24：了解虚函数、多重继承、虚基类和RTTI的成本
