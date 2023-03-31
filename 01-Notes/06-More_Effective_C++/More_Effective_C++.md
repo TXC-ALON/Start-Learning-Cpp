@@ -1266,11 +1266,564 @@ RTTI的设计理念是:根据class的vtbl来实现.
 ![image-20230320135931628](More_Effective_C++.assets/image-20230320135931628.png)
 
 ## 技术 Techniques 
+
+这一章,提供了很多的技术方面的解法,或者说是惯用手法idioms或模式pattern.
+
 ### 条款25：将构造函数和非成员函数虚化
 Item 25: Virtualizing constructors and non-member functions. 
+
+#### 将构造函数虚化
+
+虚构造函数看起来很荒谬,但也很有用.
+
+所谓virtual constructor就是根据获得的输入,可产生不同类型的对象.
+
+有一种特别的virtual constructor即所谓的virtual copy constructor也被广泛使用,这个函数会返回一个指针,指向其调用者的一个新副本.
+
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> class Shape {
+> public:
+>     virtual ~Shape() {}
+>     virtual Shape* clone() const = 0;
+>     virtual void draw() const = 0;
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     Circle(int x, int y, int r) : m_x(x), m_y(y), m_r(r) {}
+>     Circle(const Circle& other) {
+>         m_x = other.m_x;
+>         m_y = other.m_y;
+>         m_r = other.m_r;
+>     }
+>     Shape* clone() const {
+>         return new Circle(*this);
+>     }
+>     void draw() const {
+>         cout << "Circle(" << m_x << ", " << m_y << ", " << m_r << ")" << endl;
+>     }
+> private:
+>     int m_x, m_y, m_r;
+> };
+> 
+> class Square : public Shape {
+> public:
+>     Square(int x, int y, int l) : m_x(x), m_y(y), m_l(l) {}
+>     Square(const Square& other) {
+>         m_x = other.m_x;
+>         m_y = other.m_y;
+>         m_l = other.m_l;
+>     }
+>     Shape* clone() const {
+>         return new Square(*this);
+>     }
+>     void draw() const {
+>         cout << "Square(" << m_x << ", " << m_y << ", " << m_l << ")" << endl;
+>     }
+> private:
+>     int m_x, m_y, m_l;
+> };
+> 
+> int main() {
+>     Shape* shapes[3];
+>     shapes[0] = new Circle(1, 2, 3);
+>     shapes[1] = new Square(4, 5, 6);
+>     shapes[2] = new Circle(7, 8, 9);
+> 
+>     for (int i = 0; i < 3; ++i) {
+>         Shape* clone = shapes[i]->clone();
+>         clone->draw();
+>         delete clone;
+>     }
+> 
+>     return 0;
+> }
+> 
+> ```
+>
+> 
+
+可以看到,这里的VCC只是调用真正的copy constructor.两者的copy(深浅复制,引用计数,写入时才复制)是一样的.
+
+注意:上述实现手法利用了"虚函数之返回类型"规则中的一个宽松点,当derived class重新定义其base class的一个虚函数,不再需要一定得声明与原本相同的返回类型.如果函数的返回类型是一个指针(或reference),指向一个base class,那么derived class的函数可以返回一个指针(或reference),指向该base class的一个derived class.这并不会造成C++的类型系统门户洞开.
+
+现在有了一个virtual copy constructor,我们可以为它实现一个正常的copy constructor.
+
+![image-20230321101339209](More_Effective_C++.assets/image-20230321101339209.png)
+
+```c++
+class NLComponent { // abstract base class for
+public: // newsletter components
+... // contains at least one
+}; // pure virtual function
+class TextBlock: public NLComponent {
+public:
+... // contains no pure virtual
+}; // functions
+class Graphic: public NLComponent {
+public:
+... // contains no pure virtual
+}; // functions
+class NewsLetter { // a newsletter object
+public: // consists of a list of
+... // NLComponent objects
+private:
+list<NLComponent*> components;
+};
+class NewsLetter {
+    public:
+    NewsLetter(const NewsLetter& rhs);
+        ...
+    private:
+        list<NLComponent*> components;
+    };
+    NewsLetter::NewsLetter(const NewsLetter& rhs)
+    {
+            // iterate over rhs’s list, using each element’s
+            // virtual copy constructor to copy the element into
+            // the components list for this object. For details on
+            // how the following code works, see Item 35.
+        for (list<NLComponent*>::const_iterator it =
+            rhs.components.begin();
+            it != rhs.components.end();
+            ++it) {
+            // "it" points to the current element of rhs.components,
+            // so call that element’s clone function to get a copy
+            // of the element, and add that copy to the end of
+            // this object’s list of components
+            components.push_back((*it)->clone());
+    }
+}
+```
+
+#### 将非成员函数的行为虚化
+
+constructor无法真正被虚化,non-member functions也是这样.然而就像我们认为应该可以通过某个函数构造出不同类型的新对象一样,我们认为应该也可以通过一些手段是的non-member functions 的行为使其参数的动态类型而不同.
+
+比如说我们为TextBlock和Graphic实现output操作符,我们就应该使output操作符虚化,但是因为output湖的一个ostream&作为它的左自变量,因此它不可能成为TextBlock或Graphic的成员函数(如果是成员函数,那就是`g<<cout`,不符合我们的习惯).
+
+```c++
+class NLComponent {
+public:
+virtual ostream& print(ostream& s) const = 0;
+...
+};
+class TextBlock: public NLComponent {
+public:
+virtual ostream& print(ostream& s) const;
+...
+};
+class Graphic: public NLComponent {
+public:
+virtual ostream& print(ostream& s) const;
+...
+};
+inline
+ostream& operator<<(ostream& s, const NLComponent& c)
+{
+return c.print(s);
+}
+```
+
+非成员函数的虚化实际上非常简单,写一个虚函数做实际工作,然后写一个什么都不做的非虚函数,只负责调用虚函数.为了避免函数调用带来的成本,你可以将非虚函数inline化.
+
 ### 条款26：限制某个class所能产生的对象数量
+
 Item 26: Limiting the number of objects of a class. 
+
+#### 控制一个对象生成与否
+
+```c++
+class PrintJob; // forward declaration
+class Printer {
+    public:
+        void submitJob(const PrintJob& job);
+        void reset();
+        void performSelfTest();
+        ...
+        friend Printer& thePrinter();
+    private:
+        Printer();
+        Printer(const Printer& rhs);
+        ...
+};
+Printer& thePrinter()
+{
+    static Printer p; // the single printer object
+    return p;
+}
+
+thePrinter().reset();
+thePrinter().submitJob(buffer);
+```
+
+> 这段代码实现了单例模式。单例模式是一种创建型设计模式，它确保一个类只有一个实例，并提供一个全局访问点以访问该实例
+>
+> 在这段代码中，`thePrinter()` 函数返回一个指向静态 `Printer` 对象的引用，这意味着只有一个 `Printer` 对象被创建并在整个程序生命周期内存在。同时，`Printer` 类的私有默认构造函数和私有复制构造函数防止了在类外部创建其他 `Printer` 对象，因此只能通过 `thePrinter()` 函数获取该唯一实例的引用。 
+
+- Printer class的constructors性属private,可以压制对象的产生
+- 全局函数thePrinter被声明为class的一个friend,致使thePrinter不受private constructor的约束
+- thePrinter内含一个static Printer对象
+
+##### thePrinter带来的一些问题
+
+- 将全局函数放入类
+
+  将thePrinter加入全局命名空间中,可能会让你带来不悦.你可能会想把与打印机全部放入Printer class内,这确实是可以的,将thePrinter可以轻易成为Printer的一个static member function,而且还不用friend.
+
+  ```c++
+  class Printer {
+  public:
+      static Printer& thePrinter();
+      ...
+  private:
+      Printer();
+      Printer(const Printer& rhs);
+      ...
+  };
+  Printer& Printer::thePrinter()
+  {
+      static Printer p;
+      return p;
+  }
+  //这样调用名称会复杂一些
+  Printer::thePrinter().reset();
+  Printer::thePrinter().submitJob(buffer);
+  ```
+
+- 另一个做法是Printer和thePrinter从全局空间移走,放入一个namespace.对象位于namespace内这个事实并不会影响其行为,却可以避免发生名称抵触的问题.
+
+  从语法上来看,namespace像是一个class,不过每样东西都是public的.
+
+  ```c++
+  namespace PrintingStuff {
+  class Printer { // this class is in the
+  public:         // PrintingStuff namespace
+    void submitJob(const PrintJob &job);
+    void reset();
+    void performSelfTest();
+    ... friend Printer &thePrinter();
+  
+  private:
+    Printer();
+    Printer(const Printer &rhs);
+    ...
+  };
+  Printer &thePrinter() // so is this function
+  {
+    static Printer p;
+    return p;
+  }
+  } //this is the end of the namespace
+  ```
+
+  有了这个namespace,clients可以使用完全限定名(包括namespace来取用thePrinter)来取用thePrinter.使用`using declaration后`还能省略一些词条.
+
+  ```c++
+  PrintingStuff::thePrinter().reset();
+  PrintingStuff::thePrinter().submitJob(buffer);
+  
+  using PrintingStuff::thePrinter; // import the name
+  // "thePrinter" from the
+  // namespace "PrintingStuff"
+  // into the current scope
+  thePrinter().reset(); // now thePrinter can be
+  thePrinter().submitJob(buffer); // used as if it were a
+  // local name
+  ```
+
+
+
+##### thePrinter的实现细节
+
+在thePrinter的实现代码里,有两个细节:
+
+- 形成唯一一个Printer对象,是函数中的static对象,而非class的对象.这之间的区别在于,class里的static对象,即使没有用到,他也会被构造和析构,而函数有一个static对象,直到函数第一次被调用,才会被创造.[C++有一个哲学,就是你不应该为你不使用的东西付出任何代价]
+
+  class static的另一个缺点是我们无法准确把握它的初始化时机.C++对于同一编译单元内的statics的初始化顺序是有提出一些保证,但是对于不同编译单元内的statics的初始化并没有任何说明.
+
+- [todo]static对象与inlining的互动.最好不要让static和inline联动.
+
+  > 静态对象和内联函数之间有一定的互动关系。由于静态对象的作用域仅限于定义它的文件或函数内部，因此将静态对象声明为 `static` 可以帮助避免与程序中其他部分的名称冲突。同时，内联函数的内部链接特性也可以帮助避免名称冲突。这是因为内联函数的定义在每个使用该函数的文件中都是独立的，因此不会与其他文件中的函数名称冲突。
+  >
+  > 此外，将静态对象声明为 `static` 可以使其具有静态存储持续时间。这意味着它们只会在程序启动时创建一次，并在程序退出时销毁。这可以帮助减少动态内存分配和释放的次数，从而提高程序的性能。然而，在许多情况下，静态存储的对象可能会影响程序的可维护性和可测试性，因此应该谨慎使用。
+  >
+  > 内联函数与静态对象之间的另一个互动关系涉及编译器优化。内联函数通常会被编译器直接插入到调用它们的代码中，以减少函数调用的开销。然而，如果内联函数中使用了静态对象，则编译器可能会将静态对象的生命周期视为函数调用的生命周期，并在每次函数调用时重新创建和销毁静态对象。这可能会导致额外的开销和潜在的问题，因此应该谨慎使用静态对象和内联函数的组合。
+  
+  
+
+我们可能会想通过在类里维护一个static的计数器来计算目前存在的对象个数.并在外界申请太多对象时,在构造函数内抛出异常.
+
+```c++
+class Printer {
+public:
+    class TooManyObjects{}; // exception class for use
+    // when too many objects
+    // are requested
+    Printer();
+    ~Printer();
+    ...
+private:
+    static size_t numObjects;
+    Printer(const Printer& rhs); // there is a limit of 1
+    // printer, so never allow
+}; // copying
+```
+
+但是这种设计也会在下面的情况下出现新的问题
+
+#### 不同的对象构造状态
+
+##### 继承带来的问题
+
+比如说有一个彩色打印机,自然我们会继承打印机的class.那么`Printer p`和`ColorPrinter cp`里其实就是有两个Printer对象.一个是p,一个是cp里的Printer成分.这会带来我们不想要的效果.
+
+Printer对象可在三种情况下生存:
+
+- 自身
+- 派生物的base class成分
+- 内嵌于较大对象中
+
+这就导致你想的对象个数和编译器理解的可能不一致.
+
+"避免具体类"(concrete class)继承其他的具体类这一设计准则可使你免受此问题之苦.[条款33]
+
+
+
+##### 私有构造函数不可被继承,但是未必只有有限个对象
+
+我希望允许任意数量的FSA对象产生,但是也希望确保没有任何class继承自FSA.
+
+> 有限状态自动机（FSA）是一种计算模型，它是由一组状态和转移函数组成的数学模型。FSA通常用于解决语言识别、语音识别、自然语言处理、图像识别和计算机网络等问题。
+>
+> 在FSA中，状态表示一个系统所处的状态，转移函数描述状态之间的转换。当输入符号序列被应用于FSA时，它根据当前状态和输入符号将其转移到下一个状态。这样的转移过程可以一直进行，直到达到某个特定的状态或输入符号序列结束。
+>
+> FSA通常有两种类型：确定性有限状态自动机（DFA）和非确定性有限状态自动机（NFA）。DFA具有唯一的下一个状态，对于给定的输入，只有一条可能的转移路径。NFA允许在任何状态下选择任意转移，因此对于给定的输入，可能存在多个转移路径。
+>
+> FSA在计算机科学和工程中具有广泛的应用，例如在编译器中用于词法分析和语法分析，以及在网络安全中用于入侵检测和威胁分析。
+
+
+
+```c++
+
+class FSA {
+public:
+  // pseudo-constructors
+  static FSA *makeFSA();
+  static FSA *makeFSA(const FSA &rhs);
+  ... 
+private : FSA();
+  FSA(const FSA &rhs);
+  ...
+};
+FSA *FSA::makeFSA() { return new FSA(); }
+FSA *FSA::makeFSA(const FSA &rhs) { return new FSA(rhs); }
+
+// 注意这边没有实现析构函数.可以通过智能指针来代替(不过书里的方式比较老旧了)
+
+// indirectly call default FSA constructor
+auto_ptr<FSA> pfsa1(FSA::makeFSA());
+// indirectly call FSA copy constructor
+auto_ptr<FSA> pfsa2(FSA::makeFSA(*pfsa1));
+... // use pfsa1 and pfsa2 as normal pointers,
+// but don’t worry about deleting them
+```
+
+> 这个类的特殊之处在于，它通过私有构造函数和静态伪构造函数的方式，既可以允许创建无限数量的实例，又可以防止其他类从FSA类继承，以保持FSA类的纯粹性和一致性。
+>
+> 具体来说，FSA类的构造函数和拷贝构造函数都被声明为私有，这样其他类就无法直接创建或拷贝FSA对象，从而保证了FSA对象的唯一性。而通过静态伪构造函数makeFSA()和makeFSA(const FSA& rhs)，FSA类提供了一种间接创建FSA对象的方式，这两个静态成员函数都返回指向新实例的指针，因此可以创建无限数量的FSA对象实例。
+>
+> 在这种设计中，使用了一个叫做“伪构造函数”的技巧，通过静态成员函数来创建对象实例，这样就能够控制对象的创建方式和数量，从而避免了对象的滥用和误用。同时，这种设计还能够有效地防止其他类从FSA类继承，以保持FSA类的封闭性和一致性。这种技巧在一些特定的应用场景中非常有用，例如状态机实现、单例模式等。
+>
+> ```c++
+> #include <memory>
+> 
+> class FSA {
+> public:
+>   // pseudo-constructors
+>   static std::unique_ptr<FSA> makeFSA();
+>   static std::unique_ptr<FSA> makeFSA(const FSA& rhs);
+> 
+> private:
+>   FSA() {}
+>   FSA(const FSA& rhs) {}
+> 
+>   // 友元声明，使得unique_ptr能够访问私有析构函数
+>   friend class std::default_delete<FSA>;
+> };
+> 
+> std::unique_ptr<FSA> FSA::makeFSA() {
+>   return std::make_unique<FSA>();
+> }
+> 
+> std::unique_ptr<FSA> FSA::makeFSA(const FSA& rhs) {
+>   return std::make_unique<FSA>(rhs);
+> }
+> 
+> ```
+>
+> std::default_delete是一个C++标准库提供的函数对象（Function Object），用于释放通过new运算符分配的动态内存。它是unique_ptr和shared_ptr的默认删除器（Deleter），用于在对象的生命周期结束时自动调用delete运算符来释放内存。
+>
+> 
+
+#### 允许对象生生灭灭
+
+通过将对象奇数和伪构造函数结合起来,我们可以达成目的.
+
+> 
+>
+> ````c++
+> 示例代码:
+> 
+> ```c++
+> #include <iostream>
+> #include <memory>
+> #include <stdexcept>
+> 
+> class FSA {
+> public:
+> // 限制FSA对象数量的构造函数
+> static std::shared_ptr<FSA> makeFSA();
+> 
+> // 析构函数
+> ~FSA() {
+>  std::cout << "Destroying FSA object" << std::endl;
+> }
+> 
+> private:
+> // 私有构造函数，禁止直接创建FSA对象
+> FSA() {}
+> 
+> // 静态成员变量，记录FSA对象数量
+> static int count_;
+> };
+> 
+> int FSA::count_ = 0;
+> 
+> std::shared_ptr<FSA> FSA::makeFSA() {
+> if (count_ >= 3) {
+>  throw std::out_of_range("Cannot create more than 3 FSA objects");
+> }
+> 
+> // 增加FSA对象数量
+> ++count_;
+> 
+> // 创建FSA对象并返回智能指针
+> return std::shared_ptr<FSA>(new FSA(), [](FSA* p) {
+>  // 释放FSA对象，并减少对象数量
+>  std::cout << "Releasing FSA object" << std::endl;
+>  --count_;
+>  delete p;
+> });
+> }
+> 
+> int main() {
+> try {
+>  std::shared_ptr<FSA> p1 = FSA::makeFSA();
+>  std::shared_ptr<FSA> p2 = FSA::makeFSA();
+>  std::shared_ptr<FSA> p3 = FSA::makeFSA();
+>  std::shared_ptr<FSA> p4 = FSA::makeFSA(); // 抛出std::out_of_range异常
+> }
+> catch (const std::out_of_range& e) {
+>  std::cerr << "Error: " << e.what() << std::endl;
+>  return 1;
+> }
+> 
+> return 0;
+> }
+> /*
+> Releasing FSA object
+> Destroying FSA object
+> Releasing FSA object
+> Destroying FSA object
+> Releasing FSA object
+> Destroying FSA object
+> Error: Cannot create more than 3 FSA objects
+> */
+> ```
+> 
+> 
+> ````
+>
+> 
+
+
+
+#### 一个用来计算对象个数的Base Class
+
+我们想要有一个封装类来作为对象计数使用.[条款29引用计数也涉及类似需求].
+
+为了每个类都有自己特有的一些属性,我们使用模板来做这个工作.
+
+```c++
+template <class BeingCounted> 
+class Counted {
+public:
+  class TooManyObjects {}; // for throwing exceptions
+  static size_t objectCount() { return numObjects; }
+
+protected:
+  Counted();
+  Counted(const Counted &rhs);
+  ~Counted() { --numObjects; }
+
+private:
+  static size_t numObjects;
+  static const size_t maxObjects;
+  void init(); // to avoid ctor code
+};             // duplication
+template <class BeingCounted> Counted<BeingCounted>::Counted() { init(); }
+template <class BeingCounted>
+Counted<BeingCounted>::Counted(const Counted<BeingCounted> &) {
+  init();
+}
+template <class BeingCounted> void Counted<BeingCounted>::init() {
+  if (numObjects >= maxObjects)
+    throw TooManyObjects();
+  ++numObjects;
+}
+```
+
+这个模板产生的classes值被用来设计作为base classes,因此才有所谓的protected constructors 和destructor 存在.
+
+> 这段代码实现了一个计数器模板类 Counted，该模板类可以被用来追踪任何一种类型的对象的数量，并确保在任何时候最多只有指定的数量的对象被创建。如果尝试创建的对象数量超过了指定的最大数量，就会抛出一个 TooManyObjects 异常。
+>
+> 该模板类通过静态变量 numObjects 来跟踪对象数量，并通过静态方法 objectCount() 来返回当前对象数量。该模板类还通过使用 private 的构造函数和复制构造函数来限制对象的创建数量。
+>
+> 在构造函数中，该模板类通过调用私有方法 init() 来实现计数功能。该方法首先检查 numObjects 是否已经达到了指定的最大数量 maxObjects，如果达到了就抛出异常，否则就增加 numObjects 的值。在析构函数中，该模板类会将 numObjects 的值减1，以确保对象被销毁时计数器的值也会相应地减少。
+
+使用这个计数类,我们可以重写Printer class.
+
+```c++
+class Printer : private Counted<Printer> {
+public:
+  // pseudo-constructors
+  static Printer *makePrinter();
+  static Printer *makePrinter(const Printer &rhs);
+  ~Printer();
+  void submitJob(const PrintJob &job);
+  void reset();
+  void performSelfTest();
+
+  using Counted<Printer>::objectCount;    // see below
+  using Counted<Printer>::TooManyObjects; // see below
+private:
+  Printer();
+  Printer(const Printer &rhs);
+};
+```
+
+Printer 利用Counted template 来追踪当前存在多少个Printer对象.但是我们不用关心其实现细节,所以此处使用private 继承.
+
+但是我们也想要在class里调用objectCount函数,所以使用using declaration让它重写能被使用.
+
+另外还得为这个static赋予初值,不然编译过不去.
+
 ### 条款27：要求（或禁止）对象产生于heap中
+
 Item 27: Requiring or prohibiting heap-based objects. 
 ### 条款28：智能指针
 Item 28: Smart pointers.
