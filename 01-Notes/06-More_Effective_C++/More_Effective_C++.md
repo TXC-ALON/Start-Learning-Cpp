@@ -1825,6 +1825,279 @@ Printer 利用Counted template 来追踪当前存在多少个Printer对象.但�
 ### 条款27：要求（或禁止）对象产生于heap中
 
 Item 27: Requiring or prohibiting heap-based objects. 
+
+有时候为了管控,我们需要能够允许或禁止对象产生于heap中.但这个操作实际上比你想想的复杂的多.
+
+#### 使对象产生于Heap中
+
+如果我们要限制对象必须诞生自heap,那么就得屏蔽除了new以外的产生对象的方式.具体方法就是让那些被隐式调用的构造函数和析构函数不合法.
+
+一般我们会将构造函数保持public,析构函数设置为private.通过导入一个pseudo(伪)析构函数来调用真正的析构函数.
+
+```c++
+class UPNumber {
+public:
+  UPNumber();
+  UPNumber(int initValue);
+  UPNumber(double initValue);
+  UPNumber(const UPNumber &rhs);
+  // pseudo-destructor (a const member function, because
+  // even const objects may be destroyed)
+  void destroy() const { delete this; }
+  ...
+private:
+  ~UPNumber();
+};
+//Clients would then program like this : 
+UPNumber n; // error! (legal here, but illegal when n’s dtor is later implicitly invoked)
+UPNumber *p = new UPNumber; // fine
+... 
+delete p;               // error! attempt to call
+// private destructor
+p->destroy(); // fine
+```
+
+还有一种方式是将所有的构造函数都设为private,但是缺点在于class往往有很多constructor,比如默认构造函数,拷贝构造函数等等.所以比较简单的方式还是将析构函数设为private,因为一个class只能有一个析构函数.
+
+
+
+通过限制析构函数或构造函数的应用,我们可以阻止非heap对象的诞生,但是这也妨碍了继承和内含.但是通过将基类(析构函数为private)的析构函数设为protected便可以解决继承问题,至于内含,则可以通过修改为内含一个指针,指向基类对象.
+
+```c++
+class UPNumber {
+  ...
+}; // declares dtor or ctors private
+class NonNegativeUPNumber : public UPNumber {
+  ...
+}; // error! dtor or ctors won’t compile
+class Asset {
+private:
+  UPNumber value;
+  ... // error! dtor or ctors won’t compile
+};
+
+重新改定义
+class UPNumber {
+  ...
+}; // declares dtor protected
+class NonNegativeUPNumber : public UPNumber {
+  ...
+}; // now okay; derived classes have access to protected members
+class Asset {
+public:
+  Asset(int initValue);
+  ~Asset();
+  ... 
+private: 
+  UPNumber *value;
+};
+Asset::Asset(int initValue)
+    : value(new UPNumber(initValue)) // fine
+{
+ ...
+}
+Asset::~Asset() { value->destroy(); } // also fine
+```
+
+#### 判断某个对象是否在Heap内
+
+###### 判断的一系列方法
+
+就上面的NonNegativeUPNumber类,我们可以合法定义一个non-heap NonNegativeUPNumber对象.那么它的UpNumber成分并不位于heap内.关于如何控制对象在Heap内,其实很难做到.你可能会想在构造函数里加一个static标识符,以标记是否在heap上加内存,但对于数组这种分配一次内存多次调用构造函数的,就无法正常标记了.此外,譬如`UPNumber *pn = new UPNumber(*new UPNumber);`编译器执行的结果可能不符合预期.这个表达式包含两次对new操作符的调用，因此也包含了两次对operator new函数的调用和两次对UPNumber构造函数的调用。程序员通常希望这些函数调用按照以下顺序执行：
+
+1. 为第一个对象调用operator new（上面最左边的对象）。
+2. 为第一个对象调用构造函数。
+3. 为第二个对象调用operator new（作为第一个UPNumber对象的构造函数的参数）。
+4. 为第二个对象调用构造函数。
+
+但是，语言不保证以这种方式执行函数调用。有些编译器会按照以下顺序生成函数调用：
+
+1. 为第一个对象调用operator new。
+2. 为第二个对象调用operator new。
+3. 为第二个对象调用构造函数。
+4. 为第一个对象调用构造函数。
+
+这种顺序的不同可能会导致一些问题，特别是在涉及到资源分配和释放的情况下。例如，如果第二个UPNumber对象的构造函数引发异常，则会导致第一个UPNumber对象的析构函数不会被调用，并且在该对象之后分配的任何资源也不会被释放，这可能导致内存泄漏等问题。
+
+```c++
+class UPNumber {
+public:
+// exception to throw if a non-heap object is created
+class HeapConstraintViolation {};
+static void * operator new(size_t size);
+UPNumber();
+...
+private:
+static bool onTheHeap; // inside ctors, whether
+// the object being
+... // constructed is on heap
+};
+// obligatory definition of class static
+bool UPNumber::onTheHeap = false;
+void *UPNumber::operator new(size_t size)
+{
+onTheHeap = true;
+return ::operator new(size);
+}
+UPNumber::UPNumber()
+{
+if (!onTheHeap) {
+throw HeapConstraintViolation();
+}
+proceed with normal construction here;
+onTheHeap = false; // clear flag for next obj.
+}
+```
+
+一个不可靠的方法:依靠地址比较来判断是否在heap或stack.堆上分配的对象的地址在程序运行时可能会变化，而栈上分配的对象的地址通常是固定的。因此，可以通过比较对象的地址和当前栈的地址来判断对象是否在堆上分配内存。
+
+需要注意的是，这种方法并不总是可靠的，因为地址的分配方式可能会因编译器和平台而异。此外，在某些情况下，编译器可能会优化代码，使地址的比较结果与预期不同。因此，如果需要判断对象是否在堆上分配内存，请谨慎使用这种方法。
+
+
+
+我们有时候纠结于对象是否位于heap内,是因为我想要知道为它调用delete是否安全.但是并不是所有指向heap的指针都是安全地被删除.
+
+```c++
+class Asset {
+private:
+UPNumber value;
+...
+};
+Asset *pa = new Asset;
+```
+
+> 在这段代码中，`Asset` 类的一个实例被创建在堆上，并且它的指针 `pa` 被分配了相应的内存。`Asset` 类的数据成员 `value` 也被包含在 `Asset` 对象的内存中，并且存储在堆上。因此，整个 `pa` 对象（包括 `value` 成员）都是在堆上分配的。
+>
+> 在这个例子中，不安全的是试图释放指向 `pa->value` 的指针。因为 `pa->value` 是 `Asset` 类的私有成员，它的地址只能从 `Asset` 对象的内部访问，而无法从外部访问。因此，在使用 `new` 运算符创建对象时，没有返回指向 `pa->value` 的指针，也没有办法在外部访问它。因此，试图释放指向 `pa->value` 的指针是不安全的，并且可能会导致未定义的行为。
+>
+> 需要注意的是，即使将 `value` 成员的指针返回给外部代码，也不一定是安全的。因为 `value` 成员可能被其他代码修改，从而导致指向它的指针变得无效或者悬挂。因此，如果需要在外部访问 `Asset` 对象的数据成员，应该提供公共接口来访问它们，而不是直接访问私有成员。这可以通过在 `Asset` 类中提供公共的成员函数来实现。
+
+通过重载operator new / delete可以一定程度上解决这些问题.
+
+```c++
+void *operator new(size_t size)
+{
+void *p = getMemory(size); // call some function to
+// allocate memory and
+// handle out-of-memory
+// conditions
+add p to the collection of allocated addresses;
+return p;
+}
+void operator delete(void *ptr)
+{
+releaseMemory(ptr); // return memory to
+// free store
+remove ptr from the collection of allocated addresses;
+}
+bool isSafeToDelete(const void *address)
+{
+return whether address is in collection of 
+allocated addresses;
+}
+```
+
+
+
+###### 还是别折腾了
+
+实际运用上,有三件事情可能会消减我们对此设计的狂热:
+
+- 第一个问题是我们通常不愿在全局作用域定义任何东西，特别是像 `operator new` 和 `operator delete` 这样有预定义含义的函数。我们知道在全局作用域中只有一个版本的 `operator new` 和 `operator delete`，它们有“正常”的签名（即参数类型集合），如果我们占用了这些函数签名，就会导致我们的软件与其他实现全局版本的 `operator new` 和 `operator delete` 的软件不兼容（例如许多面向对象数据库系统）。
+- 第二个问题是效率：如果没有必要,为什么要为所有堆分配的对象负担必要的簿记开销，以跟踪返回的地址呢？
+- 第三个问题是乏味但重要的。事实证明，要实现 `isSafeToDelete` 函数始终正确是基本不可能的。这个困难与具有多个或虚基类的对象有多个地址有关，因此不能保证传递给 `isSafeToDelete` 的地址与从 `operator new` 返回的地址相同，即使涉及的对象是在堆上分配的。有关详情，请参见第24项和第31项。
+
+
+
+我们想要的是这些函数提供的机能,但又不附带全局命名空间的污染问题,额外的义务性负荷,以及正确性的疑惑.幸运的是,C++以`abstract mixin base class`(抽象混合式基类),完全满足了我们的需求.
+
+所谓抽象混合基类是一个不能被实例化的base class.也就是它至少有一个纯虚函数.所谓mixin class则提供一组定义完好的能力,能够与其derived class所可能提供的其他任何能力兼容.这样的class几乎总是abstract.
+
+> 抽象混合式基类是一种面向对象编程中的设计模式，它将多个类的行为和属性组合在一起，形成一个新的类。该类通常被定义为抽象类，因为它本身不具备完整的实现，而是依赖于子类来实现其具体的行为。
+>
+> 抽象混合式基类的优点在于它可以通过组合不同的类，将它们的行为和属性结合起来，形成一个更加灵活和可扩展的类。这种方法也使得代码的复用性更高，因为不同的类可以被重复利用来创建不同的混合式基类。
+>
+> 另一个优点是它能够实现多重继承，这是某些编程语言不支持的功能。通过将多个类组合在一起，抽象混合式基类可以模拟多重继承的行为。
+>
+> 在使用抽象混合式基类时，需要注意避免类之间的命名冲突，以及尽可能地减少类之间的依赖关系，以保证代码的可读性和可维护性。
+
+```c++
+class HeapTracked { // mixin class; keeps track of 
+public: // ptrs returned from op. new
+    class MissingAddress{}; // exception class; see below
+    virtual ~HeapTracked() = 0;
+    static void *operator new(size_t size);
+    static void operator delete(void *ptr);
+    bool isOnHeap() const;
+private:
+    typedef const void* RawAddress;
+    static list<RawAddress> addresses;
+};
+```
+
+这个class使用`list`,记录所有由`operator` new返回的指针.`operator delete`负责释放内存并从list上移除条目;isOnHeap决定某对象的地址是否在list内.
+
+```c++
+// mandatory definition of static class member
+list<RawAddress> HeapTracked::addresses;
+// HeapTracked’s destructor is pure virtual to make the 
+// class abstract. The destructor must still be 
+// defined, however, so we provide this empty definition.
+HeapTracked::~HeapTracked() {}
+void * HeapTracked::operator new(size_t size)
+{
+    void *memPtr = ::operator new(size);// get the memory
+    addresses.push_front(memPtr); // put its address at
+    // the front of the list
+    return memPtr;
+}
+void HeapTracked::operator delete(void *ptr)
+{
+    // gracefully hande null pointers
+    if (ptr == 0) return;
+    // get an "iterator" that identifies the list
+    // entry containing ptr; see Item 35 for details
+    list<RawAddress>::iterator it =
+    find(addresses.begin(), addresses.end(), ptr);
+     if (it != addresses.end()) { // if an entry was found
+    	addresses.erase(it); // remove the entry 
+    	::operator delete(ptr); // deallocate the memory
+	} else { // otherwise
+        throw MissingAddress(); // ptr wasn’t allocated by
+        } // op. new, so throw an
+} // exception
+bool HeapTracked::isOnHeap() const
+{
+// get a pointer to the beginning of the memory
+// occupied by *this; see below for details
+const void *rawAddress = dynamic_cast<const void*>(this);
+// look up the pointer in the list of addresses 
+// returned by operator new
+list<RawAddress>::iterator it = find(addresses.begin(), addresses.end(), rawAddress);
+return it != addresses.end(); // return whether it was
+} // found
+```
+
+HeapTracked 这样的mixin class有个缺点,即它不能够使用于内建类型身上,因为这些类型不继承自任何类型,也没有this指针.
+
+#### 禁止对象产生于heap中
+
+对象的生成一般有三种类型,分别是:
+
+- 直接实例化
+- 对象被实例化为子类的基类成分
+- 对象被内嵌于其他类型之中
+
+
+
+想阻止clients直接将对象实例化于heap中,最简单的方式就是自定义一个operator new,并将它声明为private.
+
+一般来说,operator new 和operator delete要处在class的同一个访问层级.
+
+
+
+如果类已经有了属于自己的operator new,那么最好还是抛出异常.因为我们没有具有移植性的方法可以判断地址是否位于heap.
+
 ### 条款28：智能指针
 Item 28: Smart pointers.
 ### 条款29：引用计数
