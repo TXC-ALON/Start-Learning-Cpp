@@ -26,6 +26,9 @@
 
 - 20230222 把[Effective C++](./01-Notes/05-Effective_C++/Effective_C++.md)看完了，自认这次笔记做的还是比较细的。这本书真的写的很好，用词也很俏皮，但是侯捷这本翻译我只能给8分，里面有些地方还是带着湾湾的语言习惯，还是得看原文。下面真的要把[书后习题](./01-Notes/04-CPP_Primer_5th_Homework/CPP_Primer_5th_Homework.md)提起来，同时开始看[More Effective C++](./01-Notes/06-More_Effective_C++/More_Effective_C++.md)
 
+   - 以后读老书的时候建议结合chatgpt速读,因为很多都有些过时,编程这东西还是结合实际代码落地比较有意义
+
+
 
 
 ## 资源
