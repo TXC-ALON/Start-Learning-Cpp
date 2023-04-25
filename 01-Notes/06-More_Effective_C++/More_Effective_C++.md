@@ -2675,8 +2675,443 @@ char& String::operator[](int index)
 
 ### 条款30：替身/代理类
 Item 30: Proxy classes. 
-### 条款31：让函数根据一个以上的对象类型来决定如何虚化
+
+#### 二维数组的问题
+
+c++里想要实现原生感觉的二维数组,本质上是使用对象,来做出一维数组.
+
+在二维数组对象里将`operator[]`重载,让其返回一个一维数组对象,然后对一维数组对象重载`operator[]`,让它返回一个二维数组中的元素.
+
+```c++
+template<class T>
+class Array2D {
+ public:
+	class Array1D {
+	 public:
+		T& operator[](int index);
+		const T& operator[](int index) const;
+		...
+	};
+	Array1D operator[](int index);
+	const Array1D operator[](int index) const;
+	...
+};
+```
+
+每个一维数组对象实际上并不存在于二维数组的用户心中,这种**用来代表(象征)其他对象**的对象,被称为``proxy object`,实现这种对象的类也就是`proxy class`.`proxy object`有时会被称为`surrogates`.
+
+#### `operator[]`的读写判断
+
+`operator[]` 无法区分其被读或被写状态.我们可以修改operator[],让它返回字符串中字符的proxy,而不是字符本身,再等待看这个proxy如何被运用.这也是之前[条款7]所说的缓式评估.
+
+```c++
+#include <iostream>
+#include <string>
+
+class CharProxy {
+public:
+    CharProxy(char& c) : m_char(c) {}
+
+    operator char() const {
+        std::cout << "Read char: " << m_char << std::endl; //右值运用
+        return m_char;
+    }
+
+    CharProxy& operator=(char c) {
+        std::cout << "Write char: " << c << std::endl;//左值运用
+        m_char = c;
+        return *this;
+    }
+
+private:
+    char& m_char;
+};
+
+class String {
+public:
+    CharProxy operator[](size_t index) {
+        return CharProxy(m_data[index]);
+    }
+
+private:
+    std::string m_data;
+};
+
+int main() {
+    String str{"Hello, world!"};
+    CharProxy proxy = str[0];
+    char c = proxy;
+    std::cout << "c: " << c << std::endl;
+
+    str[0] = 'h';
+    std::cout << "str: " << str[0] << std::endl;
+
+    return 0;
+}
+
+```
+
+#### proxy类的限制
+
+- 为了达到某种无缝替换,proxy类必须将适用于真实对象的每一个函数加以重载,使他们也适用于proxy.
+
+- proxy还不能在用户将它们传递给"接受references to non-const objects"的函数无缝使用
+
+  ```c++
+  void swap(char& a, char& b); // swaps the value of a and b
+  String s = "+C+"; // oops, should be "C++"
+  swap(s[0], s[1]); // this should fix the problem, but it won’t compile
+  ```
+
+  这里CharProxy可能会被隐式转为一个char,但是没有任何函数可以将它转为一个char&,就算可以转换,转换所得的那个char也无法绑定于swap的char&参数上.因为那是一个临时变量.
+
+- 还有一个问题就是隐式转换,[条款5]所言,编译器在"将调用端自变量转换为对应的被调用端(函数)参数"的过程中,运用"用户定制转换函数"的次数只限一次.比如你写好了char 和int 之间有了一个隐式转换,数组返回了CharProxy,那么你不能期望它自动转为char再转为int.建议使用explicit来限制隐式转换.
+
+
+
+#### 总体评估
+
+Proxy classes 允许我们完成一系列较为复杂的行为:
+
+- 多维数组
+- 左值/右值的却分
+- 压抑隐式转换
+
+但是它也有缺点:
+
+- 如果扮演函数返回值的角色,这些proxy objects将是临时对象,而构造和析构并非没有成本.
+- proxy class 的存在也增加了软件系统的复杂度.
+- 当class的身份con与真实对象合作转移到与proxy合作,往往会导致class语义的改变.类似的比如说对Array1D取地址之类的.
+
+
+
+总体还是有用的.不过使用的时候要多多注意.
+
+### 条款31：
 Item 31: Making functions virtual with respect to more than one object. 
+
+在面向对象设计社区,人们将一个虚函数调用动作称为`message dispatch 消息分派`.如果某个函数调用根据两个或多个参数而虚化,则被称为`double dispatch`或`multiple dispatch`
+
+> C++支持多态（polymorphism），可以通过虚函数（virtual functions）实现单分派（single dispatch）。然而，C++本身不直接支持双重分派（double dispatch）或多重分派（multiple dispatch）。
+>
+> 双重分派指的是在运行时根据两个对象的类型来决定要调用哪个方法。C++中可以通过虚函数和运算符重载来实现类似于双重分派的效果。例如，我们可以定义一个基类和若干个派生类，每个类都有一个accept方法，然后定义一个Visitor类，该类有若干个visit方法，每个visit方法处理一种具体类型的对象，这样当我们调用对象的accept方法时，它会根据自己的类型来调用Visitor中对应的visit方法。
+>
+> 多重分派指的是在运行时根据多个对象的类型来决定要调用哪个方法。C++中可以通过结合虚函数和运算符重载来模拟多重分派，但是这种方式实现起来比较复杂。有一些第三方库提供了对双重分派和多重分派的支持，例如Boost库中的双重分派工具库和多重分派工具库。
+
+
+
+> 
+>
+> ```c++
+> #include <iostream>
+> using namespace std;
+> 
+> class Shape {
+> public:
+>     virtual void accept(class Visitor& v) = 0;
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     void accept(Visitor& v);
+> };
+> 
+> class Square : public Shape {
+> public:
+>     void accept(Visitor& v);
+> };
+> 
+> class Visitor {
+> public:
+>     virtual void visit(Circle& c) = 0;
+>     virtual void visit(Square& s) = 0;
+> };
+> 
+> class AreaVisitor : public Visitor {
+> public:
+>     void visit(Circle& c);
+>     void visit(Square& s);
+> };
+> 
+> void Circle::accept(Visitor& v) {
+>     v.visit(*this);
+> }
+> 
+> void Square::accept(Visitor& v) {
+>     v.visit(*this);
+> }
+> 
+> void AreaVisitor::visit(Circle& c) {
+>     cout << "Calculating area of Circle" << endl;
+> }
+> 
+> void AreaVisitor::visit(Square& s) {
+>     cout << "Calculating area of Square" << endl;
+> }
+> 
+> int main() {
+>     Shape* shapes[] = { new Circle(), new Square() };
+>     AreaVisitor areaVisitor;
+> 
+>     for (int i = 0; i < 2; ++i) {
+>         shapes[i]->accept(areaVisitor);
+>     }
+> 
+>     return 0;
+> }
+> 
+> ```
+>
+> 在这个示例中，我们定义了一个抽象类Shape和两个派生类Circle和Square。Shape类有一个纯虚函数accept，Visitor类有两个纯虚函数visit用于处理Circle和Square对象。AreaVisitor是Visitor的一个派生类，实现了visit函数用于计算Circle和Square对象的面积。
+>
+> 在主函数中，我们创建了一个Shape类型的数组shapes，其中包含一个Circle对象和一个Square对象。然后，我们创建了一个AreaVisitor对象areaVisitor，并使用循环遍历shapes数组中的每个元素，并调用accept函数来让AreaVisitor对象访问每个元素。在accept函数中，对象会根据自己的类型来调用Visitor对象的visit函数，从而实现了双重分派的效果。在visit函数中，我们可以根据实际需要对对象进行操作，这里只是简单地输出一条信息。
+
+
+
+实现让函数根据一个以上的对象类型来决定如何虚化的方法:
+
+
+
+#### 虚函数+RTTI (一堆if-else)
+
+> C++中可以使用虚函数和RTTI（Run-Time Type Identification，运行时类型识别）机制来实现让函数根据多个对象类型来决定如何虚化。虚函数机制提供了多态性，而RTTI机制可以在运行时获取对象的实际类型信息。
+>
+> 具体来说，可以在基类中定义一个带有参数的虚函数，该参数表示对象的实际类型。然后，在派生类中重写这个虚函数，并根据对象的实际类型来实现不同的行为。在需要调用虚函数的地方，可以先通过`dynamic_cast`运算符将对象转换为其实际类型，然后调用虚函数，并将实际类型作为参数传递给虚函数。虚函数根据实际类型实现不同的行为，从而实现了让函数根据多个对象类型来决定如何虚化。
+
+#### 只用虚函数
+
+放弃了封装,每个类都必须知道其兄弟类,一旦加入新的class,代码就得做修改.难以通用和维护.
+
+#### 自行仿真vftb
+
+理论上，可以自行实现虚函数表（virtual function table，简称vtable）来实现让函数根据多个对象类型来决定如何虚化。虚函数表是C++编译器用来实现多态性的一种机制，用于存储类的虚函数地址。
+
+具体实现细节较为繁琐，需要手动管理虚函数表的创建、销毁和存储。因此，除非有特殊的需求，一般情况下不建议自行实现虚函数表.
+
+
+
+本章最后的实现方法是继承+自行仿真vftb.但是还是没有完美实现double dispatch.
+
+> Double dispatch 是一种 C++ 的设计模式，用于实现运行时的多态性。它通常用于解决单分派的局限性，即 C++ 中函数重载的限制。这里我们将详细讨论 double dispatch 的实现和优劣，并给出相应的示例程序。
+>
+> 首先，让我们来看看单分派的例子：
+>
+> ```
+> cppCopy codeclass Shape {
+> public:
+>     virtual void draw() {
+>         cout << "Shape::draw()" << endl;
+>     }
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     virtual void draw() {
+>         cout << "Circle::draw()" << endl;
+>     }
+> };
+> 
+> class Square : public Shape {
+> public:
+>     virtual void draw() {
+>         cout << "Square::draw()" << endl;
+>     }
+> };
+> 
+> void draw_shape(Shape* shape) {
+>     shape->draw();
+> }
+> ```
+>
+> 在这个例子中，我们定义了一个 `Shape` 类，以及两个派生类 `Circle` 和 `Square`。我们还定义了一个函数 `draw_shape`，它接受一个指向 `Shape` 对象的指针，并调用该对象的 `draw()` 方法。
+>
+> 然而，这种方法存在一个问题，即在运行时无法根据参数类型选择正确的函数。例如，如果我们在 `draw_shape` 中传递一个 `Circle` 对象的指针，它将调用 `Shape::draw()` 而不是 `Circle::draw()`。
+>
+> 为了解决这个问题，我们可以使用 double dispatch 模式，其中我们使用两个方法来调用正确的函数。
+>
+> 下面是两种实现 double dispatch 的方案：
+>
+> ## 1. Visitor 模式
+>
+> Visitor 模式使用两个类来实现 double dispatch：一个抽象的访问者类和一个抽象的元素类。元素类提供了一个接受访问者的方法，而访问者类提供了一系列访问元素的方法。
+>
+> ```c++
+> class Shape;
+> 
+> class Visitor {
+> public:
+>     virtual void visit_circle(Circle* circle) = 0;
+>     virtual void visit_square(Square* square) = 0;
+> };
+> 
+> class Shape {
+> public:
+>     virtual void accept(Visitor* visitor) = 0;
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     virtual void accept(Visitor* visitor) {
+>         visitor->visit_circle(this);
+>     }
+> };
+> 
+> class Square : public Shape {
+> public:
+>     virtual void accept(Visitor* visitor) {
+>         visitor->visit_square(this);
+>     }
+> };
+> 
+> class DrawVisitor : public Visitor {
+> public:
+>     virtual void visit_circle(Circle* circle) {
+>         cout << "DrawVisitor::visit_circle()" << endl;
+>     }
+>     virtual void visit_square(Square* square) {
+>         cout << "DrawVisitor::visit_square()" << endl;
+>     }
+> };
+> 
+> void draw_shape(Shape* shape) {
+>     DrawVisitor visitor;
+>     shape->accept(&visitor);
+> }
+> ```
+>
+> 在这个示例中，我们定义了一个抽象的 `Visitor` 类，它包含了两个纯虚函数，用于访问 `Circle` 和 `Square` 对象。我们还定义了一个抽象的 `Shape` 类，它包含了一个接受访问者的纯虚函数。
+>
+> `Circle` 和 `Square` 类都实现了 `accept()` 方法，
+>
+> 该方法接受一个访问者对象，并将自身作为参数传递给该访问者对象的相应方法。这样，当 `DrawVisitor` 对象访问 `Circle` 或 `Square` 对象时，它们会调用自己的 `visit_circle()` 或 `visit_square()` 方法。
+>
+> 最后，我们定义了 `draw_shape()` 函数，该函数创建一个 `DrawVisitor` 对象，并将其传递给一个 `Shape` 对象的 `accept()` 方法。由于 `accept()` 方法被 `Circle` 和 `Square` 类实现，因此它们将调用 `DrawVisitor` 对象的相应方法。
+>
+> ### 优缺点
+>
+> Visitor 模式的优点是它可以在运行时确定所需的方法。它还允许您对元素对象进行多个不同的访问，同时保持代码的一致性和易读性。
+>
+> 然而，Visitor 模式也有缺点。首先，它需要创建访问者对象，这可能会增加代码的复杂性。其次，每次添加新元素时都需要更新访问者类，这可能会导致代码的耦合。
+>
+> ## 2. 双重虚拟调用
+>
+> 另一种实现 double dispatch 的方法是使用双重虚拟调用。在这种方法中，我们使用两个虚函数来实现 double dispatch。
+>
+> ```c++
+> class Shape {
+> public:
+>     virtual void draw(Shape* shape) {
+>         cout << "Shape::draw()" << endl;
+>     }
+>     virtual void draw_circle(Circle* circle) {
+>         draw(this);
+>     }
+>     virtual void draw_square(Square* square) {
+>         draw(this);
+>     }
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     virtual void draw(Shape* shape) {
+>         shape->draw_circle(this);
+>     }
+>     virtual void draw_circle(Circle* circle) {
+>         cout << "Circle::draw()" << endl;
+>     }
+> };
+> 
+> class Square : public Shape {
+> public:
+>     virtual void draw(Shape* shape) {
+>         shape->draw_square(this);
+>     }
+>     virtual void draw_square(Square* square) {
+>         cout << "Square::draw()" << endl;
+>     }
+> };
+> 
+> void draw_shape(Shape* shape) {
+>     shape->draw(shape);
+> }
+> ```
+>
+> 在这个示例中，我们在 `Shape` 类中定义了一个虚函数 `draw()`，该函数接受一个指向 `Shape` 对象的指针。我们还定义了两个虚函数 `draw_circle()` 和 `draw_square()`，用于访问 `Circle` 和 `Square` 对象。
+>
+> 在 `Circle` 和 `Square` 类中，我们重载了 `draw()` 方法，并在其中调用 `draw_circle()` 和 `draw_square()` 方法，传递 `this` 指针作为参数。这样，当我们调用 `draw()` 方法时，它将根据参数类型选择正确的 `draw_circle()` 或 `draw_square()` 方法。
+>
+> 最后，我们定义了 `draw_shape()` 函数，该函数将一个 `Shape` 对象传递给 `draw()` 方法。由于 `draw()` 方法被 `Circle` 和 `Square` 类重载，因此它们将调用相应的方法。
+>
+> ### 优缺点
+>
+> 双重虚拟调用的优点是它可以减少代码的复杂性和耦合度。它还允许您在运行时确定所需的方法，同时保持代码的一致性和易读性。
+>
+> 然而，双重虚拟调用的缺点是它可能会导致类的数量增加。每当添加一个新的元素类型时，都需要在基类中添加一个新的虚函数，这可能会导致代码的膨胀。
+>
+> 示例代码：Visitor 模式和双重虚拟调用的示例代码均在上述说明中给出。这里再给出一个简单的示例程序，用于演示这两种实现 double dispatch 的方法：
+>
+> ```c++
+> #include <iostream>
+> 
+> using namespace std;
+> 
+> class Circle;
+> class Square;
+> 
+> class Visitor {
+> public:
+>     virtual void visit_circle(Circle* circle) = 0;
+>     virtual void visit_square(Square* square) = 0;
+> };
+> 
+> class Shape {
+> public:
+>     virtual void accept(Visitor* visitor) = 0;
+> };
+> 
+> class Circle : public Shape {
+> public:
+>     virtual void accept(Visitor* visitor) {
+>         visitor->visit_circle(this);
+>     }
+> };
+> 
+> class Square : public Shape {
+> public:
+>     virtual void accept(Visitor* visitor) {
+>         visitor->visit_square(this);
+>     }
+> };
+> 
+> class DrawVisitor : public Visitor {
+> public:
+>     virtual void visit_circle(Circle* circle) {
+>         cout << "DrawVisitor::visit_circle()" << endl;
+>     }
+>     virtual void visit_square(Square* square) {
+>         cout << "DrawVisitor::visit_square()" << endl;
+>     }
+> };
+> 
+> void draw_shape(Shape* shape) {
+>     DrawVisitor visitor;
+>     shape->accept(&visitor);
+> }
+> 
+> int main() {
+>     Circle circle;
+>     Square square;
+> 
+>     draw_shape(&circle);
+>     draw_shape(&square);
+> 
+>     return 0;
+> }
+> ```
+>
+> 该程序定义了一个 `Visitor` 类、一个抽象的 `Shape` 类、一个 `Circle` 类和一个 `Square` 类。它还定义了一个 `DrawVisitor` 类，用于实现 `Visitor` 接口。最后，它定义了 `draw_shape()` 函数，该函数接受一个指向 `Shape` 对象的指针，并调用 `accept()` 方法。
+>
+> 在 `main()` 函数中，我们创建了一个 `Circle` 对象和一个 `Square` 对象，并将它们传递给 `draw_shape()` 函数。由于我们使用了 Visitor 模式，因此它们将分别调用 `DrawVisitor::visit_circle()` 和 `DrawVisitor::visit_square()` 方法。
 
 ## 杂项讨论 Miscellany 
 ### 条款32：在未来时态下发展程序
