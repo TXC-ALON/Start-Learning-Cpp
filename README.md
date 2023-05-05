@@ -27,6 +27,9 @@
 - 20230222 把[Effective C++](./01-Notes/05-Effective_C++/Effective_C++.md)看完了，自认这次笔记做的还是比较细的。这本书真的写的很好，用词也很俏皮，但是侯捷这本翻译我只能给8分，里面有些地方还是带着湾湾的语言习惯，还是得看原文。下面真的要把[书后习题](./01-Notes/04-CPP_Primer_5th_Homework/CPP_Primer_5th_Homework.md)提起来，同时开始看[More Effective C++](./01-Notes/06-More_Effective_C++/More_Effective_C++.md)
 
    - 以后读老书的时候建议结合chatgpt速读,因为很多都有些过时,编程这东西还是结合实际代码落地比较有意义
+   
+- 20230428 把[More Effective C++](./01-Notes/06-More_Effective_C++/More_Effective_C++.md)看完了，同时开始看[Effective_Modern_C++](./01-Notes/07-Effective_Modern_C++/Effective_Modern_C++.md).感觉[More Effective C++]这本书很多都过时了,尤其是牵扯到智能指针的部分.回头三本书一起整理一下吧.
+
 
 
 
@@ -59,5 +62,8 @@
 
 [HarlanC的博客](https://www.cnblogs.com/harlanc/p/6760057.html)我自己敲到快五十章才发现这个，，，后面索性就大多直接复制了。
 
+### [The Cherno](https://www.youtube.com/@TheCherno) 的C++游戏教程
 
+- https://www.bilibili.com/video/BV1rb411d7mS/
 
+- https://www.youtube.com/watch?v=18c3MTX0PK0
